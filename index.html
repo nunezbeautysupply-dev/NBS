@@ -2897,6 +2897,24 @@ function renderBarberias(q){
   });
 }
 
+function diagnosticoBarberias(nombreBuscar){
+  clientes = LS('ncl', []);
+  var msg = '=== DIAGNÓSTICO BARBERÍAS ===\n\n';
+  var q = (nombreBuscar||'').toLowerCase();
+  var encontrados = clientes.filter(function(c){
+    return (c.nombre+' '+c.apellido).toLowerCase().indexOf(q) >= 0;
+  });
+  if(!encontrados.length){
+    msg += 'No se encontró ningún cliente con ese nombre.\n';
+  }
+  encontrados.forEach(function(c){
+    msg += '👤 '+c.nombre+' '+c.apellido+'\n';
+    msg += '  Campo negocio: "'+(c.negocio||'(VACÍO)')+'"\n';
+    msg += '  Longitud: '+((c.negocio||'').length)+' caracteres\n\n';
+  });
+  alert(msg);
+}
+
 function selBarberia(nombre, barberos){
   pedBarberiaSel = nombre;
   document.getElementById('ped-barberia-wrap').style.display = 'none';
@@ -4065,11 +4083,14 @@ function renderCxC(){
 
   pendientes.sort(function(a,b){ return b.saldo-a.saldo; }).forEach(function(c){
     var pct = c.total>0 ? Math.round((1-c.saldo/c.total)*100) : 0;
+    var cl = clientes.find(function(x){ return String(x.id)===String(c.cid); });
+    var negocio = cl && cl.negocio ? cl.negocio.trim() : '';
     var card = document.createElement('div');
     card.className = 'card';
     card.style.cursor = 'pointer';
     card.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'
       +'<div><div style="font-size:15px;font-weight:700">'+c.cn+'</div>'
+      +(negocio ? '<div style="font-size:12px;color:#6A1B9A;font-weight:600">🏪 '+negocio+'</div>' : '')
       +'<div style="font-size:12px;color:#aaa">Total facturado: $'+fmtNum(c.total)+'</div></div>'
       +'<div style="text-align:right"><div style="font-size:20px;font-weight:700;color:#C62828">$'+fmtNum(c.saldo)+'</div>'
       +'<div style="font-size:11px;color:#aaa">pendiente</div></div></div>'
@@ -4686,6 +4707,7 @@ function recordarMasTarde(){
       <p style="font-size:15px;font-weight:700;margin-bottom:4px">⚡ Nuevo pedido</p>
       <p style="font-size:12px;color:#aaa;margin-bottom:14px">Paso 1 de 2 — Selecciona la barbería</p>
       <input class="inp" id="ped-barberia-buscar" type="text" placeholder="Buscar barbería..." oninput="renderBarberias(this.value)" autocomplete="off">
+      <button class="btn" style="background:#546E7A;color:white;font-size:12px" onclick="var n=prompt('Nombre del cliente a verificar:');if(n)diagnosticoBarberias(n);">🔍 Verificar cliente</button>
       <div id="ped-barberia-lista"></div>
       <button class="btn" style="background:#546E7A;color:white" onclick="cancelarPedido()">← Cancelar</button>
     </div>

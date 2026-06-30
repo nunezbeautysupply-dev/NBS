@@ -235,7 +235,7 @@ body{margin:0;font-family:sans-serif;background:#f5f5f5;}
         <div><label class="lbl">Nombre *</label><input class="inp" id="cn" type="text" placeholder="Juan" onblur="capitalizarFinal(this)"></div>
         <div><label class="lbl">Apellido *</label><input class="inp" id="ca" type="text" placeholder="Perez" onblur="capitalizarFinal(this)"></div>
       </div>
-      <label class="lbl">Negocio</label><input class="inp" id="cne" type="text" placeholder="Barberia El Estilo" onblur="capitalizarFinal(this)">
+      <label class="lbl">Negocio</label><input class="inp" id="cne" type="text" placeholder="Barberia El Estilo" autocomplete="off" oninput="onNegocioInput('cne')" onblur="capitalizarFinal(this);ocultarDropdown('cne')">
       <label class="lbl">Telefono</label><input class="inp" id="ct" type="tel" placeholder="+1 (401) 000-0000" oninput="fmtTel(this)" maxlength="17">
       <label class="lbl">Email</label><input class="inp" id="ce" type="email" placeholder="correo@email.com">
       <label class="lbl">Direccion</label>
@@ -2308,6 +2308,36 @@ function onNombreProductoInput(inputId){
   });
 }
 
+function onBarberoNuevoInput(){
+  var val = document.getElementById('ped-barbero-nuevo').value;
+  if(!val || val.length < 1){ ocultarDropdown('ped-barbero-nuevo'); return; }
+  clientes = LS('ncl', []);
+  // Sugerir nombres de clientes existentes en la misma barbería seleccionada
+  var nombres = {};
+  clientes.forEach(function(c){
+    if(pedBarberiaSel && (c.negocio||'').trim() !== pedBarberiaSel) return;
+    nombres[c.nombre+' '+c.apellido] = true;
+  });
+  var q = val.toLowerCase();
+  var matches = Object.keys(nombres).filter(function(n){ return n.toLowerCase().indexOf(q) >= 0; });
+  mostrarDropdown('ped-barbero-nuevo-drop', matches, 'ped-barbero-nuevo', function(nombre){
+    document.getElementById('ped-barbero-nuevo').value = nombre;
+  });
+}
+
+function onNegocioInput(inputId){
+  var val = document.getElementById(inputId).value;
+  if(!val || val.length < 1){ ocultarDropdown(inputId); return; }
+  clientes = LS('ncl', []);
+  var negocios = {};
+  clientes.forEach(function(c){ if(c.negocio && c.negocio.trim()) negocios[c.negocio.trim()] = true; });
+  var q = val.toLowerCase();
+  var matches = Object.keys(negocios).filter(function(n){ return n.toLowerCase().indexOf(q) >= 0; });
+  mostrarDropdown(inputId+'-drop', matches, inputId, function(neg){
+    document.getElementById(inputId).value = neg;
+  });
+}
+
 function onMarcaInput(inputId){
   var val = document.getElementById(inputId).value;
   if(!val || val.length < 1){ ocultarDropdown(inputId); return; }
@@ -3706,7 +3736,7 @@ function editarCl(id){
     +'<div><label class="lbl">Nombre *</label><input class="inp" id="ecl-n" type="text" value="'+( c.nombre||'')+'" onblur="capitalizarFinal(this)"></div>'
     +'<div><label class="lbl">Apellido *</label><input class="inp" id="ecl-a" type="text" value="'+(c.apellido||'')+'" onblur="capitalizarFinal(this)"></div>'
     +'</div>'
-    +'<label class="lbl">Negocio / Barberia</label><input class="inp" id="ecl-ne" type="text" value="'+(c.negocio||'')+'" onblur="capitalizarFinal(this)">'
+    +'<label class="lbl">Negocio / Barberia</label><input class="inp" id="ecl-ne" type="text" value="'+(c.negocio||'')+'" autocomplete="off" oninput="onNegocioInput(\'ecl-ne\')" onblur="capitalizarFinal(this);ocultarDropdown(\'ecl-ne\')">'
     +'<label class="lbl">Telefono</label><input class="inp" id="ecl-t" type="tel" value="'+(c.tel||'')+'" oninput="fmtTel(this)" maxlength="17">'
     +'<label class="lbl">Email</label><input class="inp" id="ecl-e" type="email" value="'+(c.email||'')+'">'
     +'<label class="lbl">Direccion</label><input class="inp" id="ecl-d" type="text" value="'+(c.dir||'')+'" autocomplete="off" oninput="mostrarDirSugerencias(\'ecl-d\',\'ecl-d-drop\',this.value)" onblur="setTimeout(function(){var e=document.getElementById(\'ecl-d-drop\');if(e)e.style.display=\'none\';},200)">'
@@ -4723,7 +4753,7 @@ function recordarMasTarde(){
       <div style="border-top:1px solid #eee;padding-top:10px;margin-top:4px">
         <p style="font-size:12px;color:#aaa;margin-bottom:6px">¿El barbero no está en la lista?</p>
         <div style="display:flex;gap:8px">
-          <input class="inp" id="ped-barbero-nuevo" type="text" placeholder="Escribir nombre del barbero" style="flex:1;margin:0">
+          <input class="inp" id="ped-barbero-nuevo" type="text" placeholder="Escribir nombre del barbero" style="flex:1;margin:0" autocomplete="off" oninput="onBarberoNuevoInput()" onblur="ocultarDropdown('ped-barbero-nuevo')">
           <button onclick="selBarberoPorNombre()" style="padding:10px 14px;background:#F9A825;color:#1a1a1a;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px">+ Usar</button>
         </div>
       </div>

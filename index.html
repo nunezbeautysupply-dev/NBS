@@ -4046,10 +4046,20 @@ function renderCxC(){
 
   var btnDiag = document.createElement('button');
   btnDiag.className = 'btn';
-  btnDiag.style.cssText = 'background:#546E7A;color:white;font-size:12px;margin-bottom:12px';
+  btnDiag.style.cssText = 'background:#546E7A;color:white;font-size:12px;margin-bottom:8px';
   btnDiag.textContent = '🔍 Diagnóstico de clientes en CxC';
   btnDiag.onclick = function(){ diagnosticoCxC(pendientes); };
   el.appendChild(btnDiag);
+
+  var btnBuscar = document.createElement('button');
+  btnBuscar.className = 'btn';
+  btnBuscar.style.cssText = 'background:#6A1B9A;color:white;font-size:12px;margin-bottom:12px';
+  btnBuscar.textContent = '🔎 Buscar cliente por nombre';
+  btnBuscar.onclick = function(){
+    var n = prompt('Escribe el nombre del cliente a buscar:');
+    if(n) buscarClienteEspecifico(n);
+  };
+  el.appendChild(btnBuscar);
 
   pendientes.sort(function(a,b){ return b.saldo-a.saldo; }).forEach(function(c){
     var pct = c.total>0 ? Math.round((1-c.saldo/c.total)*100) : 0;
@@ -4266,6 +4276,34 @@ function diagnosticoCxC(pendientes){
     msg += '  Existe en Clientes: '+(cl ? '✅ SÍ' : '❌ NO - CLIENTE FANTASMA')+'\n';
     msg += '  Saldo: $'+p.saldo.toFixed(2)+'\n\n';
   });
+  alert(msg);
+}
+
+function buscarClienteEspecifico(nombre){
+  clientes = LS('ncl', []);
+  ventas = LS('nv', []);
+  var nombreQ = nombre.toLowerCase();
+  var msg = '=== BÚSQUEDA: "'+nombre+'" ===\n\n';
+
+  // Buscar en clientes
+  var enClientes = clientes.filter(function(c){
+    return (c.nombre+' '+c.apellido).toLowerCase().indexOf(nombreQ) >= 0;
+  });
+  msg += '📋 En lista de Clientes: '+enClientes.length+' coincidencia(s)\n';
+  enClientes.forEach(function(c){
+    msg += '  - '+c.nombre+' '+c.apellido+' (id:'+c.id+')\n';
+  });
+
+  // Buscar en ventas (por nombre guardado cn)
+  var enVentas = ventas.filter(function(v){
+    return (v.cn||'').toLowerCase().indexOf(nombreQ) >= 0 && !v.cancelada;
+  });
+  msg += '\n💳 En Ventas (cn): '+enVentas.length+' factura(s)\n';
+  enVentas.forEach(function(v){
+    var cl = clientes.find(function(c){ return String(c.id)===String(v.cid); });
+    msg += '  - '+v.fecha+' $'+v.total+' cid:'+v.cid+' (cliente existe: '+(cl?'SÍ':'NO')+')\n';
+  });
+
   alert(msg);
 }
 

@@ -185,6 +185,16 @@ body{margin:0;font-family:sans-serif;background:#f5f5f5;}
 
 <div id="p-cl" class="pg">
   <button class="back" onclick="ir('menu')">← Menu principal</button>
+  <div id="cl-contador" style="display:flex;gap:8px;margin-bottom:12px">
+    <div style="flex:1;background:#E3F2FD;border-radius:10px;padding:10px;text-align:center">
+      <div style="font-size:11px;color:#1565C0;font-weight:700">CLIENTES</div>
+      <div id="cl-total-num" style="font-size:20px;font-weight:800;color:#1565C0">0</div>
+    </div>
+    <div style="flex:1;background:#FFF3E0;border-radius:10px;padding:10px;text-align:center">
+      <div style="font-size:11px;color:#E65100;font-weight:700">BARBERÍAS</div>
+      <div id="cl-barberias-num" style="font-size:20px;font-weight:800;color:#E65100">0</div>
+    </div>
+  </div>
   <div style="display:flex;gap:8px;margin-bottom:12px">
     <button class="btn" style="flex:1;background:#1565C0;color:white;margin:0" onclick="document.getElementById('cl-l').style.display='block';document.getElementById('cl-n').style.display='none'">Lista</button>
     <button class="btn" style="flex:1;background:#2E7D32;color:white;margin:0" onclick="document.getElementById('cl-n').style.display='block';document.getElementById('cl-l').style.display='none';document.getElementById('cbi-fecha').value=new Date().toISOString().split('T')[0]">+ Nuevo</button>
@@ -1922,6 +1932,21 @@ function saveCl(){
 }
 
 function renderCl(q){
+  clientes = LS('ncl', []);
+  // Actualizar contadores
+  var totalCl = clientes.length;
+  var barberiasUnicas = {};
+  clientes.forEach(function(c){
+    if(c.negocio && c.negocio.trim()){
+      barberiasUnicas[c.negocio.trim().toUpperCase()] = true;
+    }
+  });
+  var totalBarberias = Object.keys(barberiasUnicas).length;
+  var elTotalCl = document.getElementById('cl-total-num');
+  var elTotalBarb = document.getElementById('cl-barberias-num');
+  if(elTotalCl) elTotalCl.textContent = totalCl;
+  if(elTotalBarb) elTotalBarb.textContent = totalBarberias;
+
   var el=document.getElementById('lcl');el.innerHTML='';
   var list=q?clientes.filter(function(c){return(c.nombre+' '+c.apellido+' '+(c.negocio||'')).toLowerCase().includes(q.toLowerCase());}):clientes;
   if(!list.length){el.innerHTML='<p style="color:#aaa;font-size:13px;text-align:center;padding:20px">Sin clientes</p>';return;}
@@ -3612,12 +3637,13 @@ function genRpt(){
       +'<div style="font-size:11px;color:#E65100;font-weight:700">FACTURAS</div>'
       +'<div style="font-size:16px;font-weight:800;color:#E65100">'+totC+'</div></div>'
       +'</div>';
-    Object.keys(pc).sort(function(a,b){return pc[b].v-pc[a].v;}).forEach(function(k){
+    Object.keys(pc).sort(function(a,b){return pc[b].v-pc[a].v;}).forEach(function(k,idx){
       var margen = pc[k].v>0 ? Math.round((pc[k].g/pc[k].v)*100) : 0;
+      var medalla = idx===0?'🥇 ':idx===1?'🥈 ':idx===2?'🥉 ':'';
       var row=document.createElement('div');
-      row.style.cssText='padding:10px 0;border-bottom:1px solid #f0f0f0';
+      row.style.cssText='padding:10px 0;border-bottom:1px solid #f0f0f0'+(idx===0?';background:#FFFDE7;border-radius:8px;padding:10px':'');
       row.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">'
-        +'<div style="font-size:14px;font-weight:700;color:#1a237e">'+k+'</div>'
+        +'<div style="font-size:14px;font-weight:700;color:#1a237e">'+medalla+k+'</div>'
         +'<div style="font-size:11px;color:#aaa">'+pc[k].c+' factura(s)</div>'
         +'</div>'
         +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">'

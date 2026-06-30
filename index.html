@@ -2278,10 +2278,25 @@ function onNombreProductoInput(inputId){
   var marcaActual = (document.getElementById('ep-marca').value || '').trim().toUpperCase();
   var nombres = {};
   productos.forEach(function(p){
-    var nombreCorto = p.nombreCorto || (p.marca ? '' : (p.nombre||''));
+    var nombreCorto, marcaProd;
+    if(p.marca){
+      marcaProd = p.marca.toUpperCase();
+      nombreCorto = p.nombreCorto || '';
+    } else if(p.nombre){
+      var nombreUpper = p.nombre.trim().toUpperCase();
+      if(marcaActual && nombreUpper.indexOf(marcaActual) === 0){
+        // Si el nombre empieza exactamente con la marca escrita, quitarla completa (sin importar cuántas palabras)
+        marcaProd = marcaActual;
+        nombreCorto = p.nombre.trim().substring(marcaActual.length).trim();
+      } else {
+        // Fallback: usar primera palabra como marca
+        var partes = p.nombre.trim().split(/\s+/);
+        marcaProd = (partes[0]||'').toUpperCase();
+        nombreCorto = partes.slice(1).join(' ');
+      }
+    }
     if(!nombreCorto) return;
-    // Priorizar nombres de la misma marca si ya escribió una marca
-    if(marcaActual && p.marca && p.marca.toUpperCase() !== marcaActual) return;
+    if(marcaActual && marcaProd !== marcaActual) return;
     nombres[nombreCorto] = true;
   });
   var q = val.toLowerCase();

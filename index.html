@@ -172,7 +172,7 @@ body{margin:0;font-family:sans-serif;background:#f5f5f5;}
       <label class="lbl">Marca *</label>
       <input class="inp" id="ep-marca" type="text" placeholder="Ej: DORCO, IMMORTAL, NISHMAN" autocomplete="off" oninput="onMarcaInput('ep-marca')" onblur="ocultarDropdown('ep-marca')">
       <label class="lbl">Nombre del producto *</label>
-      <input class="inp" id="ep-nombre" type="text" placeholder="Ej: Roja Cortada, Colonia Venom">
+      <input class="inp" id="ep-nombre" type="text" placeholder="Ej: Roja Cortada, Colonia Venom" autocomplete="off" oninput="onNombreProductoInput('ep-nombre')" onblur="ocultarDropdown('ep-nombre')">
       <label class="lbl">Categoria</label>
       <input class="inp" id="ep-cat" type="text" placeholder="Ej: Navajas, Colonia, Wax" autocomplete="off" oninput="onCategoriaInput('ep-cat')" onblur="ocultarDropdown('ep-cat')">
       <label class="lbl">SKU / Codigo de barras</label>
@@ -2269,6 +2269,26 @@ function llenarProveedoresPref(){
     return '<option value="'+s.id+'">'+s.nombre+'</option>';
   }).join('');
   sel.value = actual;
+}
+
+function onNombreProductoInput(inputId){
+  var val = document.getElementById(inputId).value;
+  if(!val || val.length < 1){ ocultarDropdown(inputId); return; }
+  loadProds();
+  var marcaActual = (document.getElementById('ep-marca').value || '').trim().toUpperCase();
+  var nombres = {};
+  productos.forEach(function(p){
+    var nombreCorto = p.nombreCorto || (p.marca ? '' : (p.nombre||''));
+    if(!nombreCorto) return;
+    // Priorizar nombres de la misma marca si ya escribió una marca
+    if(marcaActual && p.marca && p.marca.toUpperCase() !== marcaActual) return;
+    nombres[nombreCorto] = true;
+  });
+  var q = val.toLowerCase();
+  var matches = Object.keys(nombres).filter(function(n){ return n.toLowerCase().indexOf(q) >= 0; });
+  mostrarDropdown(inputId+'-drop', matches, inputId, function(nombre){
+    document.getElementById(inputId).value = nombre;
+  });
 }
 
 function onMarcaInput(inputId){

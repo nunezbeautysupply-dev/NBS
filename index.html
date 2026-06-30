@@ -3639,11 +3639,14 @@ function genRpt(){
       +'</div>';
     Object.keys(pc).sort(function(a,b){return pc[b].v-pc[a].v;}).forEach(function(k,idx){
       var margen = pc[k].v>0 ? Math.round((pc[k].g/pc[k].v)*100) : 0;
-      var medalla = idx===0?'🥇 ':idx===1?'🥈 ':idx===2?'🥉 ':'';
+      var numColor = idx===0?'#FFD700':idx===1?'#C0C0C0':idx===2?'#CD7F32':'#aaa';
+      var numBg = idx===0?'#FFFDE7':idx===1?'#F5F5F5':idx===2?'#FFF3E0':'transparent';
       var row=document.createElement('div');
-      row.style.cssText='padding:10px 0;border-bottom:1px solid #f0f0f0'+(idx===0?';background:#FFFDE7;border-radius:8px;padding:10px':'');
-      row.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">'
-        +'<div style="font-size:14px;font-weight:700;color:#1a237e">'+medalla+k+'</div>'
+      row.style.cssText='padding:10px;border-bottom:1px solid #f0f0f0;display:flex;align-items:flex-start;gap:10px'+(idx<3?';background:'+numBg+';border-radius:8px':'');
+      row.innerHTML='<div style="min-width:28px;height:28px;border-radius:50%;background:'+numColor+';color:white;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;flex-shrink:0">'+(idx+1)+'</div>'
+        +'<div style="flex:1">'
+        +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">'
+        +'<div style="font-size:14px;font-weight:700;color:#1a237e">'+k+'</div>'
         +'<div style="font-size:11px;color:#aaa">'+pc[k].c+' factura(s)</div>'
         +'</div>'
         +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">'
@@ -3656,7 +3659,7 @@ function genRpt(){
         +'<div style="background:#f5f5f5;border-radius:6px;padding:6px;text-align:center">'
         +'<div style="font-size:10px;color:#aaa">Margen</div>'
         +'<div style="font-size:13px;font-weight:700;color:#E65100">'+margen+'%</div></div>'
-        +'</div>';
+        +'</div></div>';
       c2.appendChild(row);
     });
     el.appendChild(c2);

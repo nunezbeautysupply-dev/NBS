@@ -35,7 +35,7 @@ body{margin:0;font-family:sans-serif;background:#f5f5f5;}
   <link rel="manifest" href="manifest.json">
 </head>
 <body>
-<div class="top">✂️ Nunez Beauty Supply <span style="font-size:11px;font-weight:400;opacity:0.7">v17.3</span></div>
+<div class="top" onclick="ir('menu')" style="cursor:pointer">✂️ Nunez Beauty Supply <span style="font-size:11px;font-weight:400;opacity:0.7">v17.3</span></div>
 
 <div id="menu" class="menu">
 
@@ -4039,9 +4039,17 @@ function renderCxC(){
   var total = pendientes.reduce(function(s,c){ return s+c.saldo; }, 0);
   var resumen = document.createElement('div');
   resumen.style.cssText = 'background:#FFEBEE;border-radius:12px;padding:14px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center';
-  resumen.innerHTML = '<div><div style="font-size:13px;color:#C62828;font-weight:700">TOTAL POR COBRAR</div><div style="font-size:11px;color:#aaa">'+pendientes.length+' cliente(s) con balance</div></div>'
+  resumen.innerHTML = '<div><div style="font-size:13px;color:#C62828;font-weight:700">TOTAL POR COBRAR</div>'
+    +'<div style="font-size:18px;color:#C62828;font-weight:800;margin-top:2px">'+pendientes.length+' cliente(s) con balance</div></div>'
     +'<div style="font-size:24px;font-weight:700;color:#C62828">$'+fmtNum(total)+'</div>';
   el.appendChild(resumen);
+
+  var btnDiag = document.createElement('button');
+  btnDiag.className = 'btn';
+  btnDiag.style.cssText = 'background:#546E7A;color:white;font-size:12px;margin-bottom:12px';
+  btnDiag.textContent = '🔍 Diagnóstico de clientes en CxC';
+  btnDiag.onclick = function(){ diagnosticoCxC(pendientes); };
+  el.appendChild(btnDiag);
 
   pendientes.sort(function(a,b){ return b.saldo-a.saldo; }).forEach(function(c){
     var pct = c.total>0 ? Math.round((1-c.saldo/c.total)*100) : 0;
@@ -4247,6 +4255,18 @@ function eliminarDuplicadosClientes(){
   SS('nv', ventas);
   alert('✅ Listo. '+eliminados+' duplicado(s) eliminado(s).\nEl estado VIP fue preservado en todos los casos.');
   renderCl('');
+}
+
+function diagnosticoCxC(pendientes){
+  clientes = LS('ncl', []);
+  var msg = '=== DIAGNÓSTICO CxC ===\n\n';
+  pendientes.forEach(function(p){
+    var cl = clientes.find(function(c){ return String(c.id)===String(p.cid); });
+    msg += '👤 '+p.cn+' (cid:'+p.cid+')\n';
+    msg += '  Existe en Clientes: '+(cl ? '✅ SÍ' : '❌ NO - CLIENTE FANTASMA')+'\n';
+    msg += '  Saldo: $'+p.saldo.toFixed(2)+'\n\n';
+  });
+  alert(msg);
 }
 
 function limpiarVentasHuerfanas(){

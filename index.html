@@ -135,6 +135,16 @@ body{margin:0;font-family:sans-serif;background:#f5f5f5;}
 <div id="p-cat" class="pg">
   <button class="back" onclick="ir('menu')">← Menu principal</button>
   <div id="cat-lista-wrap">
+    <div style="background:#E0F7FA;border-radius:10px;padding:12px;margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer" onclick="toggleMarcasDetalle()">
+        <div>
+          <div style="font-size:11px;color:#00838F;font-weight:700">TOTAL PRODUCTOS</div>
+          <div id="cat-total-num" style="font-size:22px;font-weight:800;color:#00838F">0</div>
+        </div>
+        <div id="cat-marcas-toggle-txt" style="font-size:12px;color:#00838F;font-weight:600">Ver por marca ▼</div>
+      </div>
+      <div id="cat-marcas-detalle" style="display:none;margin-top:10px;border-top:1px solid #B2EBF2;padding-top:10px;max-height:220px;overflow-y:auto"></div>
+    </div>
     <button class="btn" style="background:#2E7D32;color:white" onclick="nuevoProductoCatalogo()">+ Nuevo producto</button>
     <button class="btn" style="background:#546E7A;color:white" onclick="redondearPrecios()">⬆️ Redondear precios al entero</button>
     <button class="btn" style="background:#6A1B9A;color:white" onclick="eliminarDuplicados()">🔍 Detectar y eliminar duplicados</button>
@@ -159,8 +169,12 @@ body{margin:0;font-family:sans-serif;background:#f5f5f5;}
       <input type="hidden" id="ep-foto-data">
       <button type="button" id="ep-foto-quitar" onclick="quitarFotoProducto()" style="display:none;width:100%;padding:6px;background:none;border:1px solid #ddd;border-radius:8px;color:#aaa;cursor:pointer;font-size:12px;margin-bottom:8px">✕ Quitar foto</button>
 
-      <label class="lbl">Nombre *</label><input class="inp" id="ep-nombre" type="text">
-      <label class="lbl">Categoria</label><input class="inp" id="ep-cat" type="text">
+      <label class="lbl">Marca *</label>
+      <input class="inp" id="ep-marca" type="text" placeholder="Ej: DORCO, IMMORTAL, NISHMAN" autocomplete="off" oninput="onMarcaInput('ep-marca')" onblur="ocultarDropdown('ep-marca')">
+      <label class="lbl">Nombre del producto *</label>
+      <input class="inp" id="ep-nombre" type="text" placeholder="Ej: Roja Cortada, Colonia Venom">
+      <label class="lbl">Categoria</label>
+      <input class="inp" id="ep-cat" type="text" placeholder="Ej: Navajas, Colonia, Wax" autocomplete="off" oninput="onCategoriaInput('ep-cat')" onblur="ocultarDropdown('ep-cat')">
       <label class="lbl">SKU / Codigo de barras</label>
       <div style="display:flex;gap:8px">
         <input class="inp" id="ep-sku" type="text" placeholder="Sin asignar" style="flex:1">
@@ -175,6 +189,17 @@ body{margin:0;font-family:sans-serif;background:#f5f5f5;}
         <div><label class="lbl">Stock actual</label><input class="inp" id="ep-stock" type="number"></div>
         <div><label class="lbl">Stock minimo</label><input class="inp" id="ep-min" type="number"></div>
       </div>
+      <label class="lbl">Unidad de medida</label>
+      <select class="inp" id="ep-unidad">
+        <option value="unidad">Unidad</option>
+        <option value="paquete">Paquete</option>
+        <option value="caja">Caja</option>
+        <option value="docena">Docena</option>
+        <option value="frasco">Frasco</option>
+        <option value="galon">Galón</option>
+      </select>
+      <label class="lbl">Proveedor preferido</label>
+      <select class="inp" id="ep-proveedor-pref"><option value="">Sin asignar</option></select>
       <button class="btn" style="background:#1565C0;color:white" onclick="guardarEdicionProducto()">✓ Guardar cambios</button>
       <button class="btn" style="background:#546E7A;color:white" onclick="cerrarEdicionProducto()">← Volver al catalogo</button>
       <button class="btn" id="ep-btn-eliminar" style="background:#B71C1C;color:white" onclick="eliminarProductoCatalogo()">🗑️ Eliminar producto</button>
@@ -1062,7 +1087,7 @@ function calcPuntosVIP(precio, cant){
 }
 
 function getMarcaVIP(nombre, cat){
-  // Dos primeras palabras = marca + tipo
+  // Dos primeras palabras = marca + tipo (fallback para productos sin marca separada)
   var palabras = (nombre||'').trim().toUpperCase().split(/\s+/);
   return palabras.slice(0, 2).join(' ');
 }
@@ -1080,8 +1105,13 @@ function calcVIP(cid){
     (v.items||[]).forEach(function(it){
       if(!esProductoVIP(it.precio)) return;
       var prod = productos.find(function(x){ return String(x.id)===String(it.pid); });
-      var cat = prod ? (prod.cat||'') : '';
-      var key = getMarcaVIP(it.nombre, cat);
+      var key;
+      if(prod && prod.marca){
+        // Usar marca real + categoría real (mucho más preciso)
+        key = prod.marca.toUpperCase() + (prod.cat ? ' · '+prod.cat : '');
+      } else {
+        key = getMarcaVIP(it.nombre, prod ? (prod.cat||'') : '');
+      }
       if(!conteo[key]) conteo[key] = { nombre: key, precio: it.precio, unidades: 0 };
       conteo[key].unidades += it.cant;
     });
@@ -1996,8 +2026,42 @@ function loadProds(){
   } catch(e){ console.error('loadProds error:', e); }
 }
 
+function toggleMarcasDetalle(){
+  var el = document.getElementById('cat-marcas-detalle');
+  var txt = document.getElementById('cat-marcas-toggle-txt');
+  if(!el) return;
+  var visible = el.style.display === 'block';
+  el.style.display = visible ? 'none' : 'block';
+  if(txt) txt.textContent = visible ? 'Ver por marca ▼' : 'Ocultar ▲';
+}
+
+function actualizarMarcasDetalle(){
+  var el = document.getElementById('cat-marcas-detalle');
+  if(!el) return;
+  var porMarca = {};
+  productos.forEach(function(p){
+    var marca = p.marca ? p.marca.toUpperCase() : (p.nombre||'').trim().split(/\s+/)[0].toUpperCase();
+    if(!marca) marca = 'SIN MARCA';
+    if(!porMarca[marca]) porMarca[marca] = 0;
+    porMarca[marca]++;
+  });
+  var marcasOrdenadas = Object.keys(porMarca).sort(function(a,b){ return porMarca[b]-porMarca[a]; });
+  el.innerHTML = marcasOrdenadas.map(function(m){
+    return '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #E0F2F1">'
+      +'<span style="font-size:13px;color:#00695C;font-weight:600">'+m+'</span>'
+      +'<span style="font-size:13px;color:#00838F;font-weight:800">'+porMarca[m]+'</span>'
+      +'</div>';
+  }).join('');
+}
+
 function renderCatalogo(q){
   loadProds();
+
+  // Actualizar contador total y por marca
+  var elTotal = document.getElementById('cat-total-num');
+  if(elTotal) elTotal.textContent = productos.length;
+  actualizarMarcasDetalle();
+
   var el = document.getElementById('catlista');
   if(!el) return;
   var list = productos.slice().sort(function(a,b){ return a.nombre.localeCompare(b.nombre); });
@@ -2141,13 +2205,24 @@ function verProductoCatalogo(p){
   document.getElementById('ep-btn-eliminar').style.display = 'block';
   document.getElementById('cat-lista-wrap').style.display = 'none';
   document.getElementById('cat-edit-wrap').style.display = 'block';
-  document.getElementById('ep-nombre').value = p.nombre || '';
+  // Si el producto ya tiene marca separada, usarla. Si no, separar de la primera palabra del nombre (compatibilidad con productos antiguos)
+  if(p.marca){
+    document.getElementById('ep-marca').value = p.marca;
+    document.getElementById('ep-nombre').value = p.nombreCorto || p.nombre || '';
+  } else {
+    var partes = (p.nombre||'').trim().split(/\s+/);
+    document.getElementById('ep-marca').value = partes[0] || '';
+    document.getElementById('ep-nombre').value = partes.slice(1).join(' ') || '';
+  }
   document.getElementById('ep-cat').value = p.cat || '';
   document.getElementById('ep-sku').value = p.sku || '';
   document.getElementById('ep-costo').value = (p.costo || 0).toFixed(2);
   document.getElementById('ep-precio').value = (p.precio || 0).toFixed(2);
   document.getElementById('ep-stock').value = p.stock || 0;
   document.getElementById('ep-min').value = p.min || 5;
+  document.getElementById('ep-unidad').value = p.unidad || 'unidad';
+  llenarProveedoresPref();
+  document.getElementById('ep-proveedor-pref').value = p.proveedorPref || '';
   // Cargar foto si existe
   var prev = document.getElementById('ep-foto-preview');
   var quitarBtn = document.getElementById('ep-foto-quitar');
@@ -2172,6 +2247,7 @@ function nuevoProductoCatalogo(){
   document.getElementById('ep-foto-data').value = '';
   document.getElementById('ep-foto-preview').innerHTML = '📦';
   document.getElementById('ep-foto-quitar').style.display = 'none';
+  document.getElementById('ep-marca').value = '';
   document.getElementById('ep-nombre').value = '';
   document.getElementById('ep-cat').value = '';
   document.getElementById('ep-sku').value = '';
@@ -2179,6 +2255,46 @@ function nuevoProductoCatalogo(){
   document.getElementById('ep-precio').value = '0.00';
   document.getElementById('ep-stock').value = 0;
   document.getElementById('ep-min').value = 5;
+  document.getElementById('ep-unidad').value = 'unidad';
+  llenarProveedoresPref();
+  document.getElementById('ep-proveedor-pref').value = '';
+}
+
+function llenarProveedoresPref(){
+  suplidores = LS('nsup', []);
+  var sel = document.getElementById('ep-proveedor-pref');
+  if(!sel) return;
+  var actual = sel.value;
+  sel.innerHTML = '<option value="">Sin asignar</option>' + suplidores.map(function(s){
+    return '<option value="'+s.id+'">'+s.nombre+'</option>';
+  }).join('');
+  sel.value = actual;
+}
+
+function onMarcaInput(inputId){
+  var val = document.getElementById(inputId).value;
+  if(!val || val.length < 1){ ocultarDropdown(inputId); return; }
+  loadProds();
+  var marcas = {};
+  productos.forEach(function(p){ if(p.marca) marcas[p.marca.toUpperCase()] = true; });
+  var q = val.toLowerCase();
+  var matches = Object.keys(marcas).filter(function(m){ return m.toLowerCase().indexOf(q) >= 0; });
+  mostrarDropdown(inputId+'-drop', matches, inputId, function(marca){
+    document.getElementById(inputId).value = marca;
+  });
+}
+
+function onCategoriaInput(inputId){
+  var val = document.getElementById(inputId).value;
+  if(!val || val.length < 1){ ocultarDropdown(inputId); return; }
+  loadProds();
+  var cats = {};
+  productos.forEach(function(p){ if(p.cat) cats[p.cat] = true; });
+  var q = val.toLowerCase();
+  var matches = Object.keys(cats).filter(function(c){ return c.toLowerCase().indexOf(q) >= 0; });
+  mostrarDropdown(inputId+'-drop', matches, inputId, function(cat){
+    document.getElementById(inputId).value = cat;
+  });
 }
 
 function cerrarEdicionProducto(){
@@ -2188,8 +2304,10 @@ function cerrarEdicionProducto(){
 }
 
 function guardarEdicionProducto(){
+  var marca = document.getElementById('ep-marca').value.trim();
+  if(!marca){ alert('La marca es requerida'); return; }
   var nombre = document.getElementById('ep-nombre').value.trim();
-  if(!nombre){ alert('El nombre es requerido'); return; }
+  if(!nombre){ alert('El nombre del producto es requerido'); return; }
   var cat = document.getElementById('ep-cat').value.trim();
   var sku = document.getElementById('ep-sku').value.trim();
   var costo = parseFloat(document.getElementById('ep-costo').value) || 0;
@@ -2197,16 +2315,21 @@ function guardarEdicionProducto(){
   var stock = parseInt(document.getElementById('ep-stock').value) || 0;
   var min = parseInt(document.getElementById('ep-min').value) || 5;
   var foto = document.getElementById('ep-foto-data').value || '';
+  var unidad = document.getElementById('ep-unidad').value || 'unidad';
+  var proveedorPref = document.getElementById('ep-proveedor-pref').value || '';
+  var nombreCompleto = marca + ' ' + nombre;
 
-  if(!confirm('¿Guardar los cambios de "'+nombre+'"?')) return;
+  if(!confirm('¿Guardar los cambios de "'+nombreCompleto+'"?')) return;
 
   if(productoEditandoId === null){
     var nuevoId = 'custom_' + Date.now();
-    productos.push({ id: nuevoId, nombre: nombre, cat: cat, sku: sku, costo: costo, precio: precio, stock: stock, min: min, foto: foto });
+    productos.push({ id: nuevoId, marca: marca, nombreCorto: nombre, nombre: nombreCompleto, cat: cat, sku: sku, costo: costo, precio: precio, stock: stock, min: min, foto: foto, unidad: unidad, proveedorPref: proveedorPref });
   } else {
     var p = productos.find(function(x){ return String(x.id) === String(productoEditandoId); });
     if(!p) return;
-    p.nombre = nombre;
+    p.marca = marca;
+    p.nombreCorto = nombre;
+    p.nombre = nombreCompleto;
     p.cat = cat;
     p.sku = sku;
     p.costo = costo;
@@ -2214,6 +2337,8 @@ function guardarEdicionProducto(){
     p.stock = stock;
     p.min = min;
     p.foto = foto;
+    p.unidad = unidad;
+    p.proveedorPref = proveedorPref;
   }
   SS('np', productos);
   flash('mk-ep');

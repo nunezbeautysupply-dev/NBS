@@ -3875,8 +3875,18 @@ function genRpt(){
     if(!desde && !hasta) return true;
     try {
       var vd = parsearFechaVenta(v.fecha);
-      if(desde){ var dd=new Date(desde); if(vd < dd) return false; }
-      if(hasta){ var hd=new Date(hasta); hd.setHours(23,59,59,999); if(vd > hd) return false; }
+      if(desde){
+        // desde viene en formato YYYY-MM-DD del input type=date
+        var dp = desde.split('-');
+        var dd = new Date(parseInt(dp[0]), parseInt(dp[1])-1, parseInt(dp[2]));
+        if(vd < dd) return false;
+      }
+      if(hasta){
+        var hp = hasta.split('-');
+        var hd = new Date(parseInt(hp[0]), parseInt(hp[1])-1, parseInt(hp[2]));
+        hd.setHours(23,59,59,999);
+        if(vd > hd) return false;
+      }
     } catch(e){ return true; }
     return true;
   });

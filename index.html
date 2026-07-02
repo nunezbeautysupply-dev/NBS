@@ -1012,7 +1012,7 @@ function ir(id){
   for(var i=0;i<all.length;i++) document.getElementById(all[i]).style.display='none';
   document.getElementById(id).style.display='block';
   if(id==='p-cl'){ renderCl(''); llenarDataLists(); }
-  if(id==='p-v') syncVcl();
+  if(id==='p-v'){ syncVcl(); var vf=document.getElementById('vfecha'); if(vf) vf.value=fechaHoyISO(); }
   if(id==='p-rpt') document.getElementById('rto').value=fechaHoyISO();
   if(id==='p-cxc') renderCxC();
   if(id==='p-cat'){ loadProds(); renderCatalogo(''); }
@@ -2099,6 +2099,16 @@ function fmtNum(n){
   return parseFloat(n).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
 }
 
+function formatFechaInput(input){
+  var val = input.value.replace(/\D/g,'');
+  if(val.length >= 3 && val.length <= 4){
+    val = val.substring(0,2)+'/'+val.substring(2);
+  } else if(val.length >= 5){
+    val = val.substring(0,2)+'/'+val.substring(2,4)+'/'+val.substring(4,8);
+  }
+  input.value = val;
+}
+
 function fechaHoy(){
   var d = new Date();
   var mm = String(d.getMonth()+1).padStart(2,'0');
@@ -2631,11 +2641,18 @@ function saveV(){
     SS('ncr', creditos);
   }
   var pagosIniciales = [];
-  if(ini > 0) pagosIniciales.push({monto:ini, fecha:fechaHoy(), nota:'Pago inicial'});
+  // Usar fecha seleccionada o fecha de hoy
+  var vfechaEl = document.getElementById('vfecha');
+  var fechaVenta = fechaHoy();
+  if(vfechaEl && vfechaEl.value){
+    var fparts = vfechaEl.value.split('-');
+    if(fparts.length === 3) fechaVenta = fparts[1]+'/'+fparts[2]+'/'+fparts[0];
+  }
+  if(ini > 0) pagosIniciales.push({monto:ini, fecha:fechaVenta, nota:'Pago inicial'});
   ventas = LS('nv',[]);
   var clienteData = cl ? {negocio:cl.negocio||'',tel:cl.tel||'',email:cl.email||'',dir:cl.dir||'',ciudad:cl.ciudad||'',estado:cl.estado||'',zip:cl.zip||''} : null;
   var descInfo = descMonto > 0 ? {tipo:descTipo, valor:descVal, monto:descMonto} : null;
-  ventas.push({id:Date.now(),cid:cid,cn:cn,tipo:tipo,items:iV.slice(),subtotal:subtot,descuento:descInfo,total:tot,ganancia:gan,fecha:fechaHoy(),hora:new Date().toLocaleTimeString('es-US',{hour:'2-digit',minute:'2-digit'}),pagosFactura:pagosIniciales,clienteData:clienteData});
+  ventas.push({id:Date.now(),cid:cid,cn:cn,tipo:tipo,items:iV.slice(),subtotal:subtot,descuento:descInfo,total:tot,ganancia:gan,fecha:fechaVenta,hora:new Date().toLocaleTimeString('es-US',{hour:'2-digit',minute:'2-digit'}),pagosFactura:pagosIniciales,clienteData:clienteData});
   iV=[];
   renderIV();
   document.getElementById('vcl').value='';
@@ -3858,8 +3875,8 @@ function genRpt(){
     if(!desde && !hasta) return true;
     try {
       var vd = parsearFechaVenta(v.fecha);
-      if(desde && vd < new Date(desde)) return false;
-      if(hasta && vd > new Date(hasta+' 23:59:59')) return false;
+      if(desde){ var dd=new Date(desde); if(vd < dd) return false; }
+      if(hasta){ var hd=new Date(hasta); hd.setHours(23,59,59,999); if(vd > hd) return false; }
     } catch(e){ return true; }
     return true;
   });
@@ -4755,6 +4772,8 @@ function recordarMasTarde(){
       </div>
       <div style="display:flex;justify-content:space-between;border-top:1px solid #ddd;padding-top:8px;margin-top:8px"><span style="font-weight:700">Total</span><span id="vtot" style="font-weight:700;font-size:18px;color:#1565C0">$0.00</span></div>
     </div>
+    <label class="lbl">Fecha de la venta</label>
+    <input class="inp" id="vfecha" type="date">
     <label class="lbl">Tipo de pago</label>
     <select class="inp" id="vtipo" onchange="document.getElementById('vini-g').style.display=this.value==='credito'?'block':'none'">
       <option value="contado">Contado - pago completo</option>
@@ -5001,8 +5020,8 @@ function recordarMasTarde(){
   <div class="card">
     <p style="font-size:15px;font-weight:700;margin-bottom:12px">📊 Reporte de ventas</p>
     <div class="r2">
-      <div><label class="lbl">Desde</label><input class="inp" id="rfrom" type="date" lang="en-US"></div>
-      <div><label class="lbl">Hasta</label><input class="inp" id="rto" type="date" lang="en-US"></div>
+      <div><label class="lbl">Desde</label><input class="inp" id="rfrom" type="date"></div>
+      <div><label class="lbl">Hasta</label><input class="inp" id="rto" type="date"></div>
     </div>
     <label class="lbl">Ver por</label>
     <select class="inp" id="rtipo">

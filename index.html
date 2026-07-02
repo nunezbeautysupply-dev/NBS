@@ -266,7 +266,7 @@ body{margin:0;font-family:sans-serif;background:#f5f5f5;}
         <label class="lbl">Monto pendiente ($)</label>
         <input class="inp" id="cbi-monto" type="text" inputmode="numeric" value="0.00" oninput="formatoMoneda(this)">
         <label class="lbl">Fecha del balance</label>
-        <input class="inp" id="cbi-fecha" type="date">
+        <input class="inp" id="cbi-fecha" type="date" lang="en-US">
         <label class="lbl">Descripción</label>
         <input class="inp" id="cbi-nota" type="text" value="Balance inicial traído de sistema anterior" placeholder="Descripción del balance">
         <label class="lbl">Nota adicional</label>
@@ -3722,7 +3722,7 @@ function agregarBalanceInicial(id){
     +'<label class="lbl">Descripción</label>'
     +'<input class="inp" id="bi-nota" type="text" value="Balance inicial traído de sistema anterior" placeholder="Descripción del balance">'
     +'<label class="lbl">Fecha</label>'
-    +'<input class="inp" id="bi-fecha" type="date">'
+    +'<input class="inp" id="bi-fecha" type="date" lang="en-US">'
     +'<button class="btn" style="background:#6A1B9A;color:white" onclick="guardarBalanceInicial('+id+')">✓ Registrar balance inicial</button>';
   el.appendChild(form);
 
@@ -4989,7 +4989,7 @@ function recordarMasTarde(){
         <label class="lbl">Monto ($) *</label>
         <input class="inp" id="gmonto" type="text" inputmode="numeric" value="0.00" oninput="formatoMoneda(this)">
         <label class="lbl">Fecha</label>
-        <input class="inp" id="gfecha" type="date">
+        <input class="inp" id="gfecha" type="date" lang="en-US">
         <label class="lbl">Descripción / Notas</label>
         <input class="inp" id="gnota" type="text" placeholder="Opcional - detalle del gasto">
         <button class="btn" style="background:#C62828;color:white" onclick="saveGasto()">✓ Registrar gasto</button>
@@ -5005,8 +5005,8 @@ function recordarMasTarde(){
   <div class="card">
     <p style="font-size:15px;font-weight:700;margin-bottom:12px">📊 Reporte de ventas</p>
     <div class="r2">
-      <div><label class="lbl">Desde</label><input class="inp" id="rfrom" type="date"></div>
-      <div><label class="lbl">Hasta</label><input class="inp" id="rto" type="date"></div>
+      <div><label class="lbl">Desde</label><input class="inp" id="rfrom" type="date" lang="en-US"></div>
+      <div><label class="lbl">Hasta</label><input class="inp" id="rto" type="date" lang="en-US"></div>
     </div>
     <label class="lbl">Ver por</label>
     <select class="inp" id="rtipo">

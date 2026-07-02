@@ -1,44 +1,47 @@
-var CACHE_NAME = 'nbs-cache-v1';
-var FILES_TO_CACHE = [
-  './',
-  './index.html'
-];
+// Cambiar este número cada vez que se sube una versión nueva a GitHub
+var CACHE_VERSION = '2026-07-01-v2';
+var CACHE_NAME = 'nbs-cache-' + CACHE_VERSION;
 
-self.addEventListener('install', function(event){
-  event.waitUntil(
-    caches.open(CACHE_NAME).then(function(cache){
-      return cache.addAll(FILES_TO_CACHE);
+self.addEventListener('install', function(e){
+  e.waitUntil(
+    caches.open(CACHE_NAME).then(function(c){
+      return c.addAll(['./','./index.html']);
     })
   );
+  // Activar inmediatamente sin esperar
   self.skipWaiting();
 });
 
-self.addEventListener('activate', function(event){
-  event.waitUntil(
-    caches.keys().then(function(cacheNames){
+self.addEventListener('activate', function(e){
+  // Eliminar cachés viejos automáticamente
+  e.waitUntil(
+    caches.keys().then(function(keys){
       return Promise.all(
-        cacheNames.filter(function(name){
-          return name !== CACHE_NAME;
-        }).map(function(name){
-          return caches.delete(name);
-        })
+        keys.filter(function(k){ return k !== CACHE_NAME; })
+            .map(function(k){ return caches.delete(k); })
       );
     })
   );
   self.clients.claim();
 });
 
-self.addEventListener('fetch', function(event){
-  event.respondWith(
-    caches.match(event.request).then(function(response){
-      return response || fetch(event.request).then(function(fetchResponse){
-        return caches.open(CACHE_NAME).then(function(cache){
-          cache.put(event.request, fetchResponse.clone());
-          return fetchResponse;
-        });
+self.addEventListener('fetch', function(e){
+  // Para index.html siempre ir a la red primero, caché como respaldo
+  if(e.request.url.indexOf('index.html') > -1 || e.request.url.endsWith('/')){
+    e.respondWith(
+      fetch(e.request).then(function(r){
+        var rc = r.clone();
+        caches.open(CACHE_NAME).then(function(c){ c.put(e.request, rc); });
+        return r;
       }).catch(function(){
-        return caches.match('./index.html');
-      });
-    })
-  );
+        return caches.match(e.request);
+      })
+    );
+  } else {
+    e.respondWith(
+      caches.match(e.request).then(function(r){
+        return r || fetch(e.request);
+      })
+    );
+  }
 });

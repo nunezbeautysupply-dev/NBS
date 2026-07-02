@@ -2085,6 +2085,21 @@ function renderCatalogo(q){
       +'<span style="font-size:11px;padding:2px 8px;border-radius:8px;font-weight:600;background:'+stockBg+';color:'+stockColor+'">Stock: '+p.stock+'</span>'
       +'</div></div>';
     card.onclick = (function(prod){ return function(){ verProductoCatalogo(prod); }; })(p);
+
+    // Long press para eliminar directamente
+    var pressTimer;
+    card.addEventListener('touchstart', (function(prod){ return function(e){
+      pressTimer = setTimeout(function(){
+        if(!confirm('¿Eliminar "'+prod.nombre+'" del catálogo? Esto no se puede deshacer.')) return;
+        loadProds();
+        productos = productos.filter(function(x){ return String(x.id) !== String(prod.id); });
+        SS('np', productos);
+        renderCatalogo(document.getElementById('catbuscar').value || '');
+      }, 800);
+    }; })(p), false);
+    card.addEventListener('touchend', function(){ clearTimeout(pressTimer); }, false);
+    card.addEventListener('touchmove', function(){ clearTimeout(pressTimer); }, false);
+
     el.appendChild(card);
   });
 }
@@ -2833,13 +2848,15 @@ function renderPedidos(){
       card.style.cssText = 'border-left:4px solid #F9A825;cursor:pointer;margin-bottom:8px';
       var totalItems = p.items.reduce(function(s,it){ return s+it.cant; },0);
       card.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center">'
-        +'<div><div style="font-size:15px;font-weight:700">✂️ '+p.nombre+'</div>'
-        +'<div style="font-size:12px;color:#aaa;margin-top:2px">'+p.items.length+' producto(s) · '+totalItems+' unidad(es)</div>'
-        +'<div style="font-size:11px;color:#F9A825;margin-top:4px">Tocar para editar</div></div>'
+        +'<div style="flex:1">'
+        +'<div style="font-size:18px;font-weight:800;color:#1a237e">✂️ '+p.nombre+'</div>'
+        +'<div style="font-size:12px;color:#aaa;margin-top:3px">'+p.items.length+' producto(s) · '+totalItems+' unidad(es)</div>'
+        +'<div style="font-size:11px;color:#F9A825;margin-top:3px">Tocar para editar</div>'
+        +'</div>'
         +'<span style="color:#ddd;font-size:20px">›</span></div>'
         +'<div style="display:flex;gap:8px;margin-top:10px">'
-        +'<button id="btnconv-'+idx+'" style="flex:1;padding:10px;background:#2E7D32;color:white;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600">🧾 Convertir a venta</button>'
-        +'<button id="btndel-'+idx+'" style="padding:10px 14px;background:#B71C1C;color:white;border:none;border-radius:8px;cursor:pointer;font-size:13px">🗑️</button>'
+        +'<button id="btnconv-'+idx+'" style="flex:1;padding:12px;background:#2E7D32;color:white;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:700">🧾 Convertir a venta</button>'
+        +'<button id="btndel-'+idx+'" style="padding:12px 16px;background:#B71C1C;color:white;border:none;border-radius:8px;cursor:pointer;font-size:14px">🗑️</button>'
         +'</div>';
       card.onclick = (function(i){ return function(){ editarPedido(i); }; })(idx);
       el.appendChild(card);
@@ -2902,6 +2919,7 @@ function renderBarberias(q){
   clientes = LS('ncl', []);
   var el = document.getElementById('ped-barberia-lista');
   el.innerHTML = '';
+
   // Agrupar clientes por negocio/barbería
   var barberias = {};
   clientes.forEach(function(c){
@@ -2909,19 +2927,41 @@ function renderBarberias(q){
     if(!barberias[neg]) barberias[neg] = [];
     barberias[neg].push(c);
   });
+
   var keys = Object.keys(barberias).sort();
-  if(q) keys = keys.filter(function(k){ return k.toLowerCase().indexOf(q.toLowerCase()) >= 0; });
+
+  if(q){
+    var qLower = q.toLowerCase();
+    // Filtrar por nombre de barbería O por nombre de barbero
+    keys = keys.filter(function(k){
+      // Coincide con nombre de barbería
+      if(k.toLowerCase().indexOf(qLower) >= 0) return true;
+      // Coincide con nombre de algún barbero de esa barbería
+      return barberias[k].some(function(c){
+        return (c.nombre+' '+c.apellido).toLowerCase().indexOf(qLower) >= 0;
+      });
+    });
+  }
+
   if(!keys.length){
-    el.innerHTML = '<p style="color:#aaa;text-align:center;padding:16px;font-size:13px">Sin barberias encontradas</p>';
+    el.innerHTML = '<p style="color:#aaa;text-align:center;padding:16px;font-size:13px">Sin resultados — prueba con otro nombre</p>';
     return;
   }
+
   keys.forEach(function(neg){
+    // Si hay búsqueda, mostrar barberos que coincidan destacados
+    var barberosCoinc = q ? barberias[neg].filter(function(c){
+      return (c.nombre+' '+c.apellido).toLowerCase().indexOf(q.toLowerCase()) >= 0;
+    }) : [];
+
     var d = document.createElement('div');
-    d.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:14px;border-bottom:1px solid #f0f0f0;cursor:pointer;border-radius:8px';
-    d.innerHTML = '<div>'
+    d.style.cssText = 'padding:14px;border-bottom:1px solid #f0f0f0;cursor:pointer;border-radius:8px';
+    d.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center">'
+      +'<div>'
       +'<div style="font-size:14px;font-weight:700">🏪 '+neg+'</div>'
       +'<div style="font-size:12px;color:#aaa;margin-top:2px">'+barberias[neg].length+' barbero(s)</div>'
-      +'</div><span style="color:#ddd;font-size:20px">›</span>';
+      +(barberosCoinc.length ? '<div style="font-size:12px;color:#1565C0;margin-top:4px">✓ '+barberosCoinc.map(function(c){ return c.nombre+' '+c.apellido; }).join(', ')+'</div>' : '')
+      +'</div><span style="color:#ddd;font-size:20px">›</span></div>';
     d.onclick = (function(n){ return function(){ selBarberia(n, barberias[n]); }; })(neg);
     el.appendChild(d);
   });
@@ -3105,6 +3145,7 @@ function toggleNuevoProdVenta(){
   var visible = w.style.display !== 'none';
   w.style.display = visible ? 'none' : 'block';
   if(!visible){
+    document.getElementById('vnp-marca').value = '';
     document.getElementById('vnp-nombre').value = '';
     document.getElementById('vnp-cat').value = '';
     document.getElementById('vnp-costo').value = '0.00';
@@ -3115,23 +3156,25 @@ function toggleNuevoProdVenta(){
 
 function guardarNuevoProdVenta(){
   loadProds();
+  var marca = document.getElementById('vnp-marca').value.trim();
+  if(!marca){ alert('La marca es requerida'); return; }
   var nombre = document.getElementById('vnp-nombre').value.trim();
   if(!nombre){ alert('El nombre del producto es requerido'); return; }
+  var nombreCompleto = marca + ' ' + nombre;
   var cat = document.getElementById('vnp-cat').value.trim();
   var costo = parseFloat(document.getElementById('vnp-costo').value) || 0;
   var precio = parseFloat(document.getElementById('vnp-precio').value) || 0;
   var stock = parseInt(document.getElementById('vnp-stock').value) || 0;
-  if(!confirm('¿Agregar "'+nombre+'" al catálogo y a la venta?')) return;
+  if(!confirm('¿Agregar "'+nombreCompleto+'" al catálogo y a la venta?')) return;
   var nuevoId = 'custom_' + Date.now();
-  var nuevoProd = { id: nuevoId, nombre: nombre, cat: cat, sku: '', costo: costo, precio: precio, stock: stock, min: 5 };
+  var nuevoProd = { id: nuevoId, marca: marca, nombreCorto: nombre, nombre: nombreCompleto, cat: cat, sku: '', costo: costo, precio: precio, stock: stock, min: 5 };
   productos.push(nuevoProd);
   SS('np', productos);
-  // Agregar a la venta actual
   selV(nuevoId);
   document.getElementById('vcant').value = 1;
   addIV();
   toggleNuevoProdVenta();
-  alert('✅ "'+nombre+'" agregado al catálogo y a la venta.');
+  alert('✅ "'+nombreCompleto+'" agregado al catálogo y a la venta.');
 }
 
 function abrirGaleriaProducto(){
@@ -3153,6 +3196,7 @@ function toggleNuevoProdPed(){
   var visible = w.style.display !== 'none';
   w.style.display = visible ? 'none' : 'block';
   if(!visible){
+    document.getElementById('pednp-marca').value = '';
     document.getElementById('pednp-nombre').value = '';
     document.getElementById('pednp-cat').value = '';
     document.getElementById('pednp-costo').value = '0.00';
@@ -3163,22 +3207,24 @@ function toggleNuevoProdPed(){
 
 function guardarNuevoProdPed(){
   loadProds();
+  var marca = document.getElementById('pednp-marca').value.trim();
+  if(!marca){ alert('La marca es requerida'); return; }
   var nombre = document.getElementById('pednp-nombre').value.trim();
   if(!nombre){ alert('El nombre del producto es requerido'); return; }
+  var nombreCompleto = marca + ' ' + nombre;
   var cat = document.getElementById('pednp-cat').value.trim();
   var costo = parseFloat(document.getElementById('pednp-costo').value) || 0;
   var precio = parseFloat(document.getElementById('pednp-precio').value) || 0;
   var stock = parseInt(document.getElementById('pednp-stock').value) || 0;
-  if(!confirm('¿Agregar "'+nombre+'" al catálogo y al pedido?')) return;
+  if(!confirm('¿Agregar "'+nombreCompleto+'" al catálogo y al pedido?')) return;
   var nuevoId = 'custom_' + Date.now();
-  var nuevoProd = { id: nuevoId, nombre: nombre, cat: cat, sku: '', costo: costo, precio: precio, stock: stock, min: 5 };
+  var nuevoProd = { id: nuevoId, marca: marca, nombreCorto: nombre, nombre: nombreCompleto, cat: cat, sku: '', costo: costo, precio: precio, stock: stock, min: 5 };
   productos.push(nuevoProd);
   SS('np', productos);
-  // Agregar al pedido con cantidad 1
-  pedItemsTemp.push({ pid: nuevoId, nombre: nombre, cant: 1, precio: precio, costo: costo });
+  pedItemsTemp.push({ pid: nuevoId, nombre: nombreCompleto, cant: 1, precio: precio, costo: costo });
   toggleNuevoProdPed();
   renderPedItems();
-  alert('✅ "'+nombre+'" agregado al catálogo y al pedido.');
+  alert('✅ "'+nombreCompleto+'" agregado al catálogo y al pedido.');
 }
 
 function rmPedItem(i){ pedItemsTemp.splice(i,1); renderPedItems(); }
@@ -3811,7 +3857,7 @@ function genRpt(){
     if(v.esBalanceInicial) return false;
     if(!desde && !hasta) return true;
     try {
-      var vd = new Date(v.fecha);
+      var vd = parsearFechaVenta(v.fecha);
       if(desde && vd < new Date(desde)) return false;
       if(hasta && vd > new Date(hasta+' 23:59:59')) return false;
     } catch(e){ return true; }
@@ -4677,8 +4723,9 @@ function recordarMasTarde(){
     <button class="btn" style="background:#00838F;color:white" onclick="toggleNuevoProdVenta()">📦 Agregar producto nuevo al catálogo</button>
     <div id="v-nuevo-prod-wrap" style="display:none;background:#E0F7FA;border-radius:10px;padding:12px;margin-bottom:8px">
       <div style="font-size:12px;font-weight:700;color:#00838F;margin-bottom:8px">📦 NUEVO PRODUCTO</div>
-      <label class="lbl">Nombre *</label><input class="inp" id="vnp-nombre" type="text" placeholder="Nombre del producto">
-      <label class="lbl">Categoría</label><input class="inp" id="vnp-cat" type="text" placeholder="Ej: Pomadas, Navajas...">
+      <label class="lbl">Marca *</label><input class="inp" id="vnp-marca" type="text" placeholder="Ej: DORCO, IMMORTAL" autocomplete="off" oninput="onMarcaInput('vnp-marca')" onblur="ocultarDropdown('vnp-marca')">
+      <label class="lbl">Nombre del producto *</label><input class="inp" id="vnp-nombre" type="text" placeholder="Ej: Roja Cortada, Colonia Venom" autocomplete="off" oninput="onNombreProductoInput('vnp-nombre')" onblur="ocultarDropdown('vnp-nombre')">
+      <label class="lbl">Categoría</label><input class="inp" id="vnp-cat" type="text" placeholder="Ej: Pomadas, Navajas..." autocomplete="off" oninput="onCategoriaInput('vnp-cat')" onblur="ocultarDropdown('vnp-cat')">
       <div class="r2">
         <div><label class="lbl">Costo ($)</label><input class="inp" id="vnp-costo" type="text" inputmode="numeric" value="0.00" oninput="formatoMoneda(this)"></div>
         <div><label class="lbl">Precio ($)</label><input class="inp" id="vnp-precio" type="text" inputmode="numeric" value="0.00" oninput="formatoMoneda(this)"></div>
@@ -4780,8 +4827,9 @@ function recordarMasTarde(){
       <button class="btn" style="background:#00838F;color:white" onclick="toggleNuevoProdPed()">📦 Agregar producto nuevo al catálogo</button>
       <div id="ped-nuevo-prod-wrap" style="display:none;background:#E0F7FA;border-radius:10px;padding:12px;margin-bottom:8px">
         <div style="font-size:12px;font-weight:700;color:#00838F;margin-bottom:8px">📦 NUEVO PRODUCTO</div>
-        <label class="lbl">Nombre *</label><input class="inp" id="pednp-nombre" type="text" placeholder="Nombre del producto">
-        <label class="lbl">Categoría</label><input class="inp" id="pednp-cat" type="text" placeholder="Ej: Pomadas, Navajas...">
+        <label class="lbl">Marca *</label><input class="inp" id="pednp-marca" type="text" placeholder="Ej: DORCO, IMMORTAL" autocomplete="off" oninput="onMarcaInput('pednp-marca')" onblur="ocultarDropdown('pednp-marca')">
+        <label class="lbl">Nombre del producto *</label><input class="inp" id="pednp-nombre" type="text" placeholder="Ej: Roja Cortada, Colonia Venom" autocomplete="off" oninput="onNombreProductoInput('pednp-nombre')" onblur="ocultarDropdown('pednp-nombre')">
+        <label class="lbl">Categoría</label><input class="inp" id="pednp-cat" type="text" placeholder="Ej: Pomadas, Navajas..." autocomplete="off" oninput="onCategoriaInput('pednp-cat')" onblur="ocultarDropdown('pednp-cat')">
         <div class="r2">
           <div><label class="lbl">Costo ($)</label><input class="inp" id="pednp-costo" type="text" inputmode="numeric" value="0.00" oninput="formatoMoneda(this)"></div>
           <div><label class="lbl">Precio ($)</label><input class="inp" id="pednp-precio" type="text" inputmode="numeric" value="0.00" oninput="formatoMoneda(this)"></div>

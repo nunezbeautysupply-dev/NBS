@@ -1127,16 +1127,12 @@ function parsearFechaVenta(fechaStr){
     var p0 = parseInt(partes[0]);
     var p1 = parseInt(partes[1]);
     var p2 = parseInt(partes[2]);
-    // Si primer número > 12, es DD/MM/YYYY (formato Samsung en español)
+    // Si primer número > 12, es DD/MM/YYYY (formato viejo Samsung en español)
     if(p0 > 12){
       return new Date(p2, p1-1, p0);
     }
-    // Si segundo número > 12, es MM/DD/YYYY
-    if(p1 > 12){
-      return new Date(p2, p0-1, p1);
-    }
-    // Ambiguos — asumir DD/MM/YYYY por defecto (Samsung en español)
-    return new Date(p2, p1-1, p0);
+    // En todos los demás casos, asumir MM/DD/YYYY (formato USA que usamos)
+    return new Date(p2, p0-1, p1);
   } catch(e){ return new Date(0); }
 }
 

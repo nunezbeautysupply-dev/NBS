@@ -3113,14 +3113,37 @@ function addPedItem(){
 }
 
 function renderPedItems(){
-  var el = document.getElementById('pedItems'); el.innerHTML = '';
-  pedItemsTemp.forEach(function(it,i){
+  var el = document.getElementById('pedItems');
+  el.innerHTML = '';
+  var totalGeneral = 0;
+  pedItemsTemp.forEach(function(it, i){
+    var subtotal = (it.cant * it.precio);
+    totalGeneral += subtotal;
     var row = document.createElement('div');
-    row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #f0f0f0;font-size:13px';
-    row.innerHTML = '<span style="font-weight:500">'+it.nombre+' x'+it.cant+'</span>'
-      +'<button onclick="rmPedItem('+i+')" style="background:none;border:none;cursor:pointer;color:#D32F2F;font-size:18px">✕</button>';
+    row.style.cssText = 'padding:10px 0;border-bottom:1px solid #f0f0f0';
+    row.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">'
+      +'<span style="font-size:13px;font-weight:600;color:#1a237e;flex:1">'+it.nombre+'</span>'
+      +'<button onclick="rmPedItem('+i+')" style="background:none;border:none;cursor:pointer;color:#D32F2F;font-size:18px;padding:0 4px">✕</button>'
+      +'</div>'
+      +'<div style="display:flex;gap:8px;align-items:center">'
+      +'<div style="flex:1"><label style="font-size:11px;color:#aaa">Cantidad</label>'
+      +'<input type="number" min="1" value="'+it.cant+'" onchange="pedItemsTemp['+i+'].cant=parseInt(this.value)||1;renderPedItems();" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;font-size:14px;text-align:center"></div>'
+      +'<div style="flex:1"><label style="font-size:11px;color:#aaa">Precio ($)</label>'
+      +'<input type="number" min="0" step="0.01" value="'+it.precio.toFixed(2)+'" onchange="pedItemsTemp['+i+'].precio=parseFloat(this.value)||0;renderPedItems();" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;font-size:14px;text-align:center"></div>'
+      +'<div style="flex:1;text-align:right"><label style="font-size:11px;color:#aaa">Subtotal</label>'
+      +'<div style="font-size:14px;font-weight:700;color:#2E7D32;padding-top:6px">$'+fmtNum(subtotal)+'</div></div>'
+      +'</div>';
     el.appendChild(row);
   });
+
+  // Total acumulado
+  if(pedItemsTemp.length > 0){
+    var totalRow = document.createElement('div');
+    totalRow.style.cssText = 'padding:12px 0;display:flex;justify-content:space-between;align-items:center;border-top:2px solid #1a237e;margin-top:4px';
+    totalRow.innerHTML = '<span style="font-size:15px;font-weight:800;color:#1a237e">TOTAL ('+pedItemsTemp.length+' producto(s))</span>'
+      +'<span style="font-size:18px;font-weight:800;color:#1565C0">$'+fmtNum(totalGeneral)+'</span>';
+    el.appendChild(totalRow);
+  }
 }
 
 function irAVenderCliente(id){
@@ -3249,12 +3272,10 @@ function rmPedItem(i){ pedItemsTemp.splice(i,1); renderPedItems(); }
 function savePedido(){
   if(!pedItemsTemp.length){ alert('Agrega al menos un producto'); return; }
 
-  // Si viene del flujo nuevo (barbería → barbero)
   var cid = pedBarberoCid;
   var nombre = pedBarberoNombre;
   var barberia = pedBarberiaSel;
 
-  // Si viene de edición de pedido existente
   if(pedidoEditandoIdx !== null){
     pedidos = LS('npedidos', []);
     var ped = pedidos[pedidoEditandoIdx];
@@ -3265,7 +3286,8 @@ function savePedido(){
 
   if(!nombre) nombre = 'Cliente general';
   var totalItems = pedItemsTemp.reduce(function(s,it){ return s+it.cant; },0);
-  if(!confirm('¿Guardar pedido de '+nombre+'?\n'+(barberia?'Barbería: '+barberia+'\n':'')+pedItemsTemp.length+' producto(s) · '+totalItems+' unidad(es)')) return;
+  var totalMonto = pedItemsTemp.reduce(function(s,it){ return s+(it.cant*it.precio); },0);
+  if(!confirm('¿Guardar pedido de '+nombre+'?\n'+(barberia?'Barbería: '+barberia+'\n':'')+pedItemsTemp.length+' producto(s) · '+totalItems+' unidad(es)\nTotal: $'+fmtNum(totalMonto))) return;
 
   pedidos = LS('npedidos', []);
   if(pedidoEditandoIdx !== null && pedidos[pedidoEditandoIdx]){
@@ -3277,8 +3299,19 @@ function savePedido(){
     pedidos.push({ id: Date.now(), cid: cid, nombre: nombre, barberia: barberia, items: pedItemsTemp.slice() });
   }
   SS('npedidos', pedidos);
-  flash('mk-ped');
-  setTimeout(function(){ cancelarPedido(); renderPedidos(); }, 700);
+
+  // Limpiar inmediatamente sin esperar
+  pedItemsTemp = [];
+  pedidoEditandoIdx = null;
+  pedBarberiaSel = null;
+  pedBarberoCid = null;
+  pedBarberoNombre = null;
+  document.getElementById('ped-form-wrap').style.display = 'none';
+  document.getElementById('ped-barberia-wrap').style.display = 'none';
+  document.getElementById('ped-barbero-wrap').style.display = 'none';
+  document.getElementById('ped-lista-wrap').style.display = 'block';
+  renderPedidos();
+  alert('✅ Pedido de '+nombre+' guardado correctamente.');
 }
 
 function convertirPedidoAVenta(idx){

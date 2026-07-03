@@ -2684,8 +2684,8 @@ function saveV(){
   iV=[];
   renderIV();
   document.getElementById('vcl').value='';
-  document.getElementById('vtipo').value='contado';
-  document.getElementById('vini-g').style.display='none';
+  document.getElementById('vtipo').value='credito';
+  document.getElementById('vini-g').style.display='block';
   if(document.getElementById('vini')) document.getElementById('vini').value='0';
   if(document.getElementById('vdesc-tipo')) document.getElementById('vdesc-tipo').value='ninguno';
   if(document.getElementById('vdesc-val')) document.getElementById('vdesc-val').value='0';
@@ -4854,14 +4854,17 @@ function recordarMasTarde(){
     </div>
     <label class="lbl">Fecha de la venta</label>
     <input class="inp" id="vfecha" type="date">
-    <label class="lbl">Tipo de pago</label>
-    <select class="inp" id="vtipo" onchange="document.getElementById('vini-g').style.display=this.value==='credito'?'block':'none'">
-      <option value="contado">Contado - pago completo</option>
-      <option value="credito">A credito - pago parcial</option>
-    </select>
-    <div id="vini-g" style="display:none">
-      <label class="lbl">Pago inicial ($) - dejar en 0 si no paga nada ahora</label>
-      <input class="inp" id="vini" type="text" inputmode="numeric" value="0.00" oninput="formatoMoneda(this)">
+    <div style="background:#FFF3E0;border-radius:10px;padding:12px;margin-bottom:8px">
+      <label style="font-size:15px;font-weight:800;color:#E65100;display:block;margin-bottom:8px">💳 TIPO DE PAGO</label>
+      <select class="inp" id="vtipo" onchange="document.getElementById('vini-g').style.display=this.value==='credito'?'block':'none'" style="font-size:16px;font-weight:700;border:3px solid #E65100;color:#E65100;background:#FFF8F0;padding:12px">
+        <option value="credito">✅ A crédito - pago parcial</option>
+        <option value="contado">💵 Contado - pago completo</option>
+      </select>
+    </div>
+    <div id="vini-g" style="display:block;background:#E8F5E9;border-radius:10px;padding:12px;margin-bottom:8px">
+      <label style="font-size:14px;font-weight:700;color:#2E7D32;display:block;margin-bottom:6px">💰 Pago inicial recibido ($)</label>
+      <input class="inp" id="vini" type="text" inputmode="numeric" value="0.00" oninput="formatoMoneda(this)" style="font-size:18px;font-weight:700;text-align:center;border:2px solid #2E7D32">
+      <div style="font-size:11px;color:#aaa;margin-top:4px;text-align:center">Deja en 0.00 si no pagó nada ahora</div>
     </div>
     <button class="btn" style="background:#2E7D32;color:white" onclick="saveV()">✓ Registrar venta</button>
     <div class="snk" id="mk-v">Venta registrada</div>

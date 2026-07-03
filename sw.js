@@ -1,4 +1,4 @@
-var CACHE_VERSION = '2026-07-01-v6';
+var CACHE_VERSION = '2026-07-01-v7';
 var CACHE_NAME = 'nbs-cache-' + CACHE_VERSION;
 
 self.addEventListener('install', function(e){

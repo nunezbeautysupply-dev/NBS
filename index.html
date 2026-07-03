@@ -1999,18 +1999,25 @@ function loadProds(){
     var el = document.getElementById('pd');
     if(el && PRODS.length === 0){ PRODS = JSON.parse(el.value); }
     var guardados = LS('np', []);
+    var eliminados = LS('np_eliminados', []);
     if(guardados.length){
       var mapa = {};
       guardados.forEach(function(g){ mapa[String(g.id)] = g; });
-      productos = PRODS.map(function(p){
+      productos = PRODS.filter(function(p){
+        return eliminados.indexOf(String(p.id)) === -1;
+      }).map(function(p){
         var g = mapa[String(p.id)];
         return g ? Object.assign({}, p, g) : p;
       });
       guardados.forEach(function(g){
-        if(!PRODS.find(function(p){ return String(p.id)===String(g.id); })) productos.push(g);
+        if(!PRODS.find(function(p){ return String(p.id)===String(g.id); })){
+          if(eliminados.indexOf(String(g.id)) === -1) productos.push(g);
+        }
       });
     } else {
-      productos = PRODS.slice();
+      productos = PRODS.filter(function(p){
+        return eliminados.indexOf(String(p.id)) === -1;
+      });
     }
   } catch(e){ console.error('loadProds error:', e); }
 }
@@ -2080,6 +2087,11 @@ function renderCatalogo(q){
         var confirmar = window.confirm('¿Eliminar "'+prod.nombre+'" del catálogo?\nEsto no se puede deshacer.');
         if(!confirmar) return;
         loadProds();
+        var eliminados = LS('np_eliminados', []);
+        if(eliminados.indexOf(String(prod.id)) === -1){
+          eliminados.push(String(prod.id));
+          SS('np_eliminados', eliminados);
+        }
         productos = productos.filter(function(x){ return String(x.id) !== String(prod.id); });
         SS('np', productos);
         renderCatalogo(document.getElementById('catbuscar').value || '');
@@ -2457,6 +2469,13 @@ function eliminarProductoCatalogo(){
   var p = productos.find(function(x){ return String(x.id) === String(productoEditandoId); });
   if(!p){ alert('Producto no encontrado'); return; }
   if(!confirm('¿Eliminar "'+p.nombre+'" del catálogo?\nEsto no se puede deshacer.')) return;
+  // Guardar en lista de eliminados
+  var eliminados = LS('np_eliminados', []);
+  if(eliminados.indexOf(String(productoEditandoId)) === -1){
+    eliminados.push(String(productoEditandoId));
+    SS('np_eliminados', eliminados);
+  }
+  // Eliminar del array y guardar
   productos = productos.filter(function(x){ return String(x.id) !== String(productoEditandoId); });
   SS('np', productos);
   productoEditandoId = null;

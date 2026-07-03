@@ -1,5 +1,5 @@
 // Cambiar este número cada vez que se sube una versión nueva a GitHub
-var CACHE_VERSION = '2026-07-01-v2';
+var CACHE_VERSION = '2026-07-01-v3';
 var CACHE_NAME = 'nbs-cache-' + CACHE_VERSION;
 
 self.addEventListener('install', function(e){

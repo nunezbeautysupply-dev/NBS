@@ -1,5 +1,5 @@
 // Service Worker que NUNCA cachea index.html
-var CACHE_VERSION = '2026-07-01-v10';
+var CACHE_VERSION = '2026-07-01-v11';
 var CACHE_NAME = 'nbs-' + CACHE_VERSION;
 
 self.addEventListener('install', function(e){

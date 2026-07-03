@@ -1,47 +1,49 @@
-// Cambiar este número cada vez que se sube una versión nueva a GitHub
-var CACHE_VERSION = '2026-07-01-v3';
+var CACHE_VERSION = '2026-07-01-v6';
 var CACHE_NAME = 'nbs-cache-' + CACHE_VERSION;
 
 self.addEventListener('install', function(e){
+  self.skipWaiting();
   e.waitUntil(
     caches.open(CACHE_NAME).then(function(c){
-      return c.addAll(['./','./index.html']);
+      return c.addAll(['./sw.js']);
     })
   );
-  // Activar inmediatamente sin esperar
-  self.skipWaiting();
 });
 
 self.addEventListener('activate', function(e){
-  // Eliminar cachés viejos automáticamente
   e.waitUntil(
     caches.keys().then(function(keys){
       return Promise.all(
         keys.filter(function(k){ return k !== CACHE_NAME; })
             .map(function(k){ return caches.delete(k); })
       );
+    }).then(function(){
+      return self.clients.claim();
     })
   );
-  self.clients.claim();
 });
 
 self.addEventListener('fetch', function(e){
-  // Para index.html siempre ir a la red primero, caché como respaldo
-  if(e.request.url.indexOf('index.html') > -1 || e.request.url.endsWith('/')){
+  var url = e.request.url;
+  
+  // Para index.html SIEMPRE ir a la red, nunca usar caché
+  if(url.endsWith('/') || url.indexOf('index.html') > -1 || url.indexOf('NBS/') > -1 && !url.indexOf('.') > -1){
     e.respondWith(
-      fetch(e.request).then(function(r){
-        var rc = r.clone();
-        caches.open(CACHE_NAME).then(function(c){ c.put(e.request, rc); });
-        return r;
-      }).catch(function(){
-        return caches.match(e.request);
+      fetch(e.request, {cache: 'no-store'}).catch(function(){
+        return caches.match('./index.html');
       })
     );
-  } else {
-    e.respondWith(
-      caches.match(e.request).then(function(r){
-        return r || fetch(e.request);
-      })
-    );
+    return;
   }
+  
+  // Para otros archivos, red primero y caché como respaldo
+  e.respondWith(
+    fetch(e.request, {cache: 'no-store'}).then(function(r){
+      var rc = r.clone();
+      caches.open(CACHE_NAME).then(function(c){ c.put(e.request, rc); });
+      return r;
+    }).catch(function(){
+      return caches.match(e.request);
+    })
+  );
 });

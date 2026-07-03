@@ -2,6 +2,9 @@
 <html>
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -4979,13 +4982,17 @@ function recordarMasTarde(){
     </div>
     <label class="lbl">Tipo de pago</label>
     <div style="background:#FFF3E0;border-radius:10px;padding:12px;margin-bottom:8px">
-      <label style="font-size:13px;font-weight:800;color:#E65100;display:block;margin-bottom:8px">💳 TIPO DE PAGO</label>
-      <select class="inp" id="cctipo" onchange="document.getElementById('ccini-g').style.display=this.value==='credito'?'block':'none'" style="font-size:15px;font-weight:700;border:2px solid #E65100;color:#E65100">
-        <option value="credito">A crédito - pago parcial</option>
-        <option value="contado">Contado - pago completo</option>
+      <label style="font-size:15px;font-weight:800;color:#E65100;display:block;margin-bottom:8px">💳 TIPO DE PAGO</label>
+      <select class="inp" id="cctipo" onchange="document.getElementById('ccini-g').style.display=this.value==='credito'?'block':'none'" style="font-size:16px;font-weight:700;border:3px solid #E65100;color:#E65100;background:#FFF8F0;padding:12px">
+        <option value="credito">✅ A crédito - pago parcial</option>
+        <option value="contado">💵 Contado - pago completo</option>
       </select>
     </div>
-    <div id="ccini-g" style="display:none">
+    <div id="ccini-g" style="display:block;background:#E8F5E9;border-radius:10px;padding:12px;margin-bottom:8px">
+      <label style="font-size:14px;font-weight:700;color:#2E7D32;display:block;margin-bottom:6px">💰 Pago inicial recibido ($)</label>
+      <input class="inp" id="ccini" type="text" inputmode="numeric" value="0.00" oninput="formatoMoneda(this)" style="font-size:18px;font-weight:700;text-align:center;border:2px solid #2E7D32">
+      <div style="font-size:11px;color:#aaa;margin-top:4px;text-align:center">Deja en 0.00 si no pagó nada ahora</div>
+    </div>
       <label class="lbl">Pago inicial ($) - dejar en 0 si no pagas nada ahora</label>
       <input class="inp" id="ccini" type="text" inputmode="numeric" value="0.00" oninput="formatoMoneda(this)">
     </div>

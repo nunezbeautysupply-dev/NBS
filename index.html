@@ -1014,7 +1014,7 @@ function ir(id){
   if(id==='p-cl'){ renderCl(''); llenarDataLists(); }
   if(id==='p-v'){ syncVcl(); var vf=document.getElementById('vfecha'); if(vf) vf.value=fechaHoyISO(); }
   if(id==='p-rpt') document.getElementById('rto').value=fechaHoyISO();
-  if(id==='p-cxc') renderCxC();
+  if(id==='p-cxc'){ var bc=document.getElementById('cxc-buscar'); if(bc) bc.value=''; renderCxC(); }
   if(id==='p-cat'){ loadProds(); renderCatalogo(''); }
   if(id==='p-sup'){
     document.getElementById('sup-lista-wrap').style.display='block';
@@ -2825,8 +2825,8 @@ function saveCC(){
   iCC = [];
   renderICC();
   document.getElementById('ccsup').value = '';
-  document.getElementById('cctipo').value = 'contado';
-  document.getElementById('ccini-g').style.display = 'none';
+  document.getElementById('cctipo').value = 'credito';
+  document.getElementById('ccini-g').style.display = 'block';
   if(document.getElementById('ccini')) document.getElementById('ccini').value = '0';
   SS('nc', compras);
   SS('np', productos);
@@ -4131,7 +4131,7 @@ function genRpt(){
 
 var cxcClienteId = null;
 
-function renderCxC(){
+function renderCxC(q){
   ventas = LS('nv',[]);
   clientes = LS('ncl',[]);
   var el = document.getElementById('cxc-lista');
@@ -4151,8 +4151,17 @@ function renderCxC(){
 
   var pendientes = Object.keys(balancesPorCliente).map(function(k){
     var b = balancesPorCliente[k];
-    return {cid:b.cid, cn:b.cn, total:b.total, saldo:Math.max(0,b.total-b.pagado)};
+    var cl = clientes.find(function(c){ return String(c.id)===String(b.cid); });
+    return {cid:b.cid, cn:b.cn, total:b.total, saldo:Math.max(0,b.total-b.pagado), negocio: cl ? (cl.negocio||'') : ''};
   }).filter(function(b){ return b.saldo > 0; });
+
+  // Filtrar por búsqueda
+  if(q && q.trim()){
+    var ql = q.toLowerCase();
+    pendientes = pendientes.filter(function(p){
+      return p.cn.toLowerCase().indexOf(ql) >= 0 || p.negocio.toLowerCase().indexOf(ql) >= 0;
+    });
+  }
 
   if(!pendientes.length){
     el.innerHTML = '<div class="card"><p style="color:#aaa;text-align:center;padding:20px">Sin cuentas pendientes<br>Todo al corriente ✓</p></div>';
@@ -4911,10 +4920,13 @@ function recordarMasTarde(){
       <div style="display:flex;justify-content:space-between"><span>Total compra</span><span id="cctot" style="font-weight:700;font-size:18px;color:#5D4037">$0.00</span></div>
     </div>
     <label class="lbl">Tipo de pago</label>
-    <select class="inp" id="cctipo" onchange="document.getElementById('ccini-g').style.display=this.value==='credito'?'block':'none'">
-      <option value="contado">Contado - pago completo</option>
-      <option value="credito">A credito - pago parcial</option>
-    </select>
+    <div style="background:#FFF3E0;border-radius:10px;padding:12px;margin-bottom:8px">
+      <label style="font-size:13px;font-weight:800;color:#E65100;display:block;margin-bottom:8px">💳 TIPO DE PAGO</label>
+      <select class="inp" id="cctipo" onchange="document.getElementById('ccini-g').style.display=this.value==='credito'?'block':'none'" style="font-size:15px;font-weight:700;border:2px solid #E65100;color:#E65100">
+        <option value="credito">A crédito - pago parcial</option>
+        <option value="contado">Contado - pago completo</option>
+      </select>
+    </div>
     <div id="ccini-g" style="display:none">
       <label class="lbl">Pago inicial ($) - dejar en 0 si no pagas nada ahora</label>
       <input class="inp" id="ccini" type="text" inputmode="numeric" value="0.00" oninput="formatoMoneda(this)">
@@ -5082,7 +5094,8 @@ function recordarMasTarde(){
 
 <div id="p-cxc" class="pg">
   <button class="back" onclick="ir('menu')">← Menu principal</button>
-  <h2 style="font-size:20px;font-weight:700;color:#1a237e;margin-bottom:14px">💳 Cuentas por Cobrar</h2>
+  <h2 style="font-size:20px;font-weight:700;color:#1a237e;margin-bottom:10px">💳 Cuentas por Cobrar</h2>
+  <input class="inp" id="cxc-buscar" type="text" placeholder="Buscar por nombre o negocio..." oninput="renderCxC(this.value)" autocomplete="off" style="margin-bottom:10px">
   <div id="cxc-lista"></div>
   <div id="cxc-abono" style="display:none">
     <div class="card">

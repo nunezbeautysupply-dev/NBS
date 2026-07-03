@@ -2077,15 +2077,18 @@ function renderCatalogo(q){
     var pressTimer;
     card.addEventListener('touchstart', (function(prod){ return function(e){
       pressTimer = setTimeout(function(){
-        if(!confirm('¿Eliminar "'+prod.nombre+'" del catálogo? Esto no se puede deshacer.')) return;
+        var confirmar = window.confirm('¿Eliminar "'+prod.nombre+'" del catálogo?\nEsto no se puede deshacer.');
+        if(!confirmar) return;
         loadProds();
         productos = productos.filter(function(x){ return String(x.id) !== String(prod.id); });
         SS('np', productos);
         renderCatalogo(document.getElementById('catbuscar').value || '');
+        alert('✅ Producto eliminado.');
       }, 800);
     }; })(p), false);
-    card.addEventListener('touchend', function(){ clearTimeout(pressTimer); }, false);
-    card.addEventListener('touchmove', function(){ clearTimeout(pressTimer); }, false);
+    card.addEventListener('touchend', function(e){ clearTimeout(pressTimer); }, false);
+    card.addEventListener('touchmove', function(e){ clearTimeout(pressTimer); }, false);
+    card.addEventListener('touchcancel', function(e){ clearTimeout(pressTimer); }, false);
 
     el.appendChild(card);
   });
@@ -2449,14 +2452,17 @@ function guardarEdicionProducto(){
 }
 
 function eliminarProductoCatalogo(){
-  if(productoEditandoId === null) return;
+  if(productoEditandoId === null){ alert('No hay producto seleccionado'); return; }
+  loadProds();
   var p = productos.find(function(x){ return String(x.id) === String(productoEditandoId); });
-  if(!p) return;
-  if(!confirm('¿Eliminar "'+p.nombre+'" del catalogo? Esto no se puede deshacer.')) return;
+  if(!p){ alert('Producto no encontrado'); return; }
+  if(!confirm('¿Eliminar "'+p.nombre+'" del catálogo?\nEsto no se puede deshacer.')) return;
   productos = productos.filter(function(x){ return String(x.id) !== String(productoEditandoId); });
   SS('np', productos);
+  productoEditandoId = null;
   cerrarEdicionProducto();
   renderCatalogo(document.getElementById('catbuscar').value || '');
+  alert('✅ Producto eliminado correctamente.');
 }
 
 function syncVcl(){

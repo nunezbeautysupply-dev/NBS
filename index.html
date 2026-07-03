@@ -2519,12 +2519,21 @@ function filterV(q){
 
 function selV(id){
   var p = productos.find(function(x){ return String(x.id)===String(id); }); if(!p) return;
-  document.getElementById('vsel') || (function(){ var i=document.createElement('input');i.type='hidden';i.id='vsel';document.body.appendChild(i); })();
-  document.getElementById('vsel').value = id;
-  document.getElementById('vsn').textContent = p.nombre + ' - $' + fmtNum(p.precio);
+  // Agregar directamente con cantidad 1
   document.getElementById('vlist').style.display = 'none';
   document.getElementById('vb').value = '';
-  document.getElementById('vchip').style.display = 'flex';
+  document.getElementById('vchip').style.display = 'none';
+  // Verificar stock
+  if(p.stock < 1){
+    if(!confirm('Stock insuficiente (hay '+p.stock+'). ¿Vender de todas formas?')) return;
+  }
+  agregarProducto(p.id, 1, p);
+  // Flash visual
+  var flash = document.createElement('div');
+  flash.textContent = '✅ '+p.nombre+' agregado';
+  flash.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#2E7D32;color:white;padding:10px 20px;border-radius:20px;font-size:13px;font-weight:700;z-index:9999;opacity:1;transition:opacity 0.5s';
+  document.body.appendChild(flash);
+  setTimeout(function(){ flash.style.opacity='0'; setTimeout(function(){ flash.remove(); }, 500); }, 1500);
 }
 
 function clearV(){
@@ -3111,11 +3120,24 @@ function filterPed(q){
 
 function selPed(id){
   var p = productos.find(function(x){ return String(x.id)===String(id); }); if(!p) return;
-  document.getElementById('pedsel').value = id;
-  document.getElementById('pedsn').textContent = p.nombre + ' - $' + fmtNum(p.precio);
-  document.getElementById('pedplist').style.display = 'none';
+  // Agregar directamente al pedido sin pasos extra
+  var encontrado = false;
+  for(var j=0;j<pedItemsTemp.length;j++){
+    if(String(pedItemsTemp[j].pid)===String(p.id)){ pedItemsTemp[j].cant += 1; encontrado = true; break; }
+  }
+  if(!encontrado) pedItemsTemp.push({ pid: p.id, nombre: p.nombre, cant: 1, precio: p.precio, costo: p.costo });
+  // Limpiar búsqueda y mostrar confirmación breve
+  document.getElementById('pedsel').value = '';
+  document.getElementById('pedchip').style.display = 'none';
   document.getElementById('pedb').value = '';
-  document.getElementById('pedchip').style.display = 'flex';
+  document.getElementById('pedplist').style.display = 'none';
+  renderPedItems();
+  // Flash visual en el nombre del producto agregado
+  var flash = document.createElement('div');
+  flash.textContent = '✅ '+p.nombre+' agregado';
+  flash.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#2E7D32;color:white;padding:10px 20px;border-radius:20px;font-size:13px;font-weight:700;z-index:9999;opacity:1;transition:opacity 0.5s';
+  document.body.appendChild(flash);
+  setTimeout(function(){ flash.style.opacity='0'; setTimeout(function(){ flash.remove(); }, 500); }, 1500);
 }
 
 function clearPed(){
@@ -5191,7 +5213,7 @@ function recordarMasTarde(){
 <script>
 if('serviceWorker' in navigator){
   window.addEventListener('load', function(){
-    navigator.serviceWorker.register('sw.js').catch(function(){});
+    navigator.serviceWorker.register('sw.js?v=20260701-0400').catch(function(){});
   });
 }
 </script>

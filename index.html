@@ -934,7 +934,7 @@ function onDireccionInput(inputId){
     }
   });
 
-  // Sugerencias de calles conocidas (solo el nombre de la calle)
+  // Sugerencias de calles conocidas
   var sinNumero = val.replace(/^\d+\s*/, '').toLowerCase();
   var numPrefix = val.match(/^\d+\s*/);
   var prefix = numPrefix ? numPrefix[0].trim() : '';
@@ -944,7 +944,7 @@ function onDireccionInput(inputId){
     return prefix ? prefix + ' ' + d : d;
   });
 
-  // Combinar: primero las direcciones completas de clientes, luego las de calles
+  // Combinar sin duplicados
   var todas = dirsCompletas.concat(dirsCalles.filter(function(d){
     return dirsCompletas.indexOf(d) < 0;
   }));
@@ -952,8 +952,9 @@ function onDireccionInput(inputId){
   if(!todas.length){ ocultarDropdown(inputId); return; }
 
   mostrarDropdown(inputId+'-drop', todas, inputId, function(dir){
+    // Siempre poner la dirección seleccionada completa, sin agregar nada más
     document.getElementById(inputId).value = dir;
-    // Autocompletar ciudad, estado y ZIP si existe un cliente con esa dirección
+    // Autocompletar ciudad, estado y ZIP
     var cliente = clientesConDir.find(function(c){ return c.dir === dir; });
     if(cliente){
       var pre = inputId.replace('d','');

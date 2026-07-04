@@ -160,12 +160,64 @@ body{
 .chip{font-size:11px;padding:3px 10px;border-radius:20px;font-weight:600;}
 .cg{background:#E8F5E9;color:#2E7D32;}
 .ca{background:#FFF3E0;color:#E65100;}
+.menu-lat-btn{display:block;width:100%;padding:12px 14px;font-size:14px;font-weight:600;font-family:'Inter',sans-serif;border:none;border-radius:10px;margin-bottom:6px;cursor:pointer;text-align:left;transition:opacity 0.1s;}
+.menu-lat-btn:active{opacity:0.8;}
 </style>
 
   <link rel="manifest" href="manifest.json">
 </head>
 <body>
-<div class="top" onclick="ir('menu')" style="cursor:pointer">✂️ Nunez Beauty Supply <span style="font-size:11px;font-weight:400;opacity:0.6">v17.3</span></div>
+<div class="top" style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px">
+  <button onclick="abrirMenuLateral()" style="background:rgba(255,255,255,0.15);border:none;color:white;width:38px;height:38px;border-radius:10px;cursor:pointer;font-size:20px;display:flex;align-items:center;justify-content:center">☰</button>
+  <div onclick="ir('p-ped')" style="cursor:pointer;font-size:17px;font-weight:700;letter-spacing:-0.3px">✂️ Nunez Beauty Supply</div>
+  <div style="width:38px"></div>
+</div>
+
+<!-- Overlay del menú lateral -->
+<div id="menu-lateral-overlay" onclick="cerrarMenuLateral()" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9998"></div>
+
+<!-- Menú lateral -->
+<div id="menu-lateral" style="display:none;position:fixed;top:0;left:0;bottom:0;width:280px;background:white;z-index:9999;overflow-y:auto;box-shadow:4px 0 20px rgba(0,0,0,0.15);transform:translateX(-100%);transition:transform 0.3s ease">
+  <div style="background:linear-gradient(135deg,#1a237e,#283593);padding:24px 20px;color:white">
+    <div style="font-size:20px;font-weight:800;margin-bottom:4px">✂️ Nunez Beauty</div>
+    <div style="font-size:12px;opacity:0.7">Supply Manager v17.3</div>
+  </div>
+  <div style="padding:12px">
+    <div style="font-size:10px;color:#aaa;font-weight:700;letter-spacing:1px;padding:8px 8px 4px">PRINCIPAL</div>
+    <button onclick="irMenu('p-ped')" class="menu-lat-btn" style="background:#F9A825;color:#1a1a1a">⚡ Pedidos rápidos</button>
+    <button onclick="irMenu('p-v')" class="menu-lat-btn" style="background:#2E7D32;color:white">🧾 Vender</button>
+    <button onclick="irMenu('p-cl')" class="menu-lat-btn" style="background:#1565C0;color:white">👥 Clientes</button>
+    <button onclick="irMenu('p-cxc')" class="menu-lat-btn" style="background:#6A1B9A;color:white">💳 Cuentas por Cobrar</button>
+    <button onclick="irMenu('p-facturas')" class="menu-lat-btn" style="background:#4527A0;color:white">🧾 Facturas</button>
+
+    <div style="font-size:10px;color:#aaa;font-weight:700;letter-spacing:1px;padding:12px 8px 4px">INVENTARIO</div>
+    <button onclick="irMenuProtegido('p-cat')" class="menu-lat-btn" style="background:#00838F;color:white">📦 Catálogo</button>
+    <button onclick="irMenuProtegido('p-sup')" class="menu-lat-btn" style="background:#5D4037;color:white">🏭 Suplidores</button>
+    <button onclick="irMenuProtegido('p-comp')" class="menu-lat-btn" style="background:#795548;color:white">🚚 Compras</button>
+
+    <div style="font-size:10px;color:#aaa;font-weight:700;letter-spacing:1px;padding:12px 8px 4px">FINANZAS</div>
+    <button onclick="irMenuProtegido('p-gastos')" class="menu-lat-btn" style="background:#C62828;color:white">💸 Gastos</button>
+    <button onclick="irMenuProtegido('p-rpt')" class="menu-lat-btn" style="background:#E65100;color:white">📊 Reportes</button>
+    <button onclick="irMenu('p-vip')" class="menu-lat-btn" style="background:#AD1457;color:white">⭐ Programa VIP</button>
+
+    <div style="font-size:10px;color:#aaa;font-weight:700;letter-spacing:1px;padding:12px 8px 4px">DATOS</div>
+    <button onclick="irProtegido('exportar');cerrarMenuLateral()" class="menu-lat-btn" style="background:#37474F;color:white">📤 Exportar backup</button>
+    <button onclick="irProtegido('importar');cerrarMenuLateral()" class="menu-lat-btn" style="background:#37474F;color:white">📥 Importar backup</button>
+    <button onclick="adminAccion('huerfanas');cerrarMenuLateral()" class="menu-lat-btn" style="background:#4A148C;color:white">🧹 Limpiar ventas huérfanas</button>
+    <button onclick="adminAccion('borrar');cerrarMenuLateral()" class="menu-lat-btn" style="background:#B71C1C;color:white">🗑️ Borrar todos los datos</button>
+
+    <div style="font-size:10px;color:#aaa;font-weight:700;letter-spacing:1px;padding:12px 8px 4px">SEGURIDAD</div>
+    <div style="background:#f5f5f5;border-radius:10px;padding:12px;display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:13px;font-weight:600;color:#333">🔒 PIN</span>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span id="pin-status-txt" style="font-size:12px;color:#aaa">Desactivado</span>
+        <div id="pin-switch" onclick="togglePin()" style="width:44px;height:24px;border-radius:12px;background:#aaa;cursor:pointer;position:relative">
+          <div id="pin-knob" style="position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:white;transition:left 0.2s"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
 <div id="menu" class="menu">
 
@@ -5024,12 +5076,42 @@ function emailFactura(v){
 
 // Inicialización al cargar
 document.addEventListener('DOMContentLoaded', function(){
-  var btn = document.getElementById('btn-menu-extra');
-  if(btn) btn.addEventListener('click', function(){ toggleMenuExtra(); });
+  // Abrir pedidos rápidos por defecto
+  ir('p-ped');
 
   // === SISTEMA DE RECORDATORIO DE BACKUP ===
   verificarBackup();
 });
+
+function abrirMenuLateral(){
+  var menu = document.getElementById('menu-lateral');
+  var overlay = document.getElementById('menu-lateral-overlay');
+  menu.style.display = 'block';
+  overlay.style.display = 'block';
+  setTimeout(function(){ menu.style.transform = 'translateX(0)'; }, 10);
+}
+
+function cerrarMenuLateral(){
+  var menu = document.getElementById('menu-lateral');
+  var overlay = document.getElementById('menu-lateral-overlay');
+  menu.style.transform = 'translateX(-100%)';
+  setTimeout(function(){
+    menu.style.display = 'none';
+    overlay.style.display = 'none';
+  }, 300);
+}
+
+function irMenu(id){
+  cerrarMenuLateral();
+  setTimeout(function(){ ir(id); }, 150);
+}
+
+function irMenuProtegido(id){
+  cerrarMenuLateral();
+  setTimeout(function(){ irProtegido(id); }, 150);
+}
+
+function toggleMenuExtra(){ /* legacy - ya no se usa */ }
 
 function verificarBackup(){
   var hoy = new Date().getTime();

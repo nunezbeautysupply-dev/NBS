@@ -275,7 +275,7 @@ body{
 </div>
 
 <div id="p-mas" class="pg">
-  <button class="back" onclick="ir('menu')">← Menú principal</button>
+  <button class="back" onclick="ir('p-ped')">← Inicio</button>
   <h2 style="font-size:20px;font-weight:700;color:#1a237e;margin-bottom:16px">☰ Más opciones</h2>
   <button class="mb" style="background:#E65100;color:white" id="btn-rpt" onclick="irProtegido('p-rpt')">📊 Reportes</button>
   <button class="mb" style="background:#5D4037;color:white" id="btn-sup" onclick="irProtegido('p-sup')">🏭 Suplidores</button>
@@ -322,7 +322,7 @@ body{
 </div>
 
 <div id="p-cat" class="pg">
-  <button class="back" onclick="ir('menu')">← Menu principal</button>
+  <button class="back" onclick="ir('p-ped')">← Inicio</button>
   <div id="cat-lista-wrap">
     <div style="background:#E0F7FA;border-radius:10px;padding:12px;margin-bottom:12px">
       <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer" onclick="toggleMarcasDetalle()">
@@ -400,7 +400,7 @@ body{
 </div>
 
 <div id="p-cl" class="pg">
-  <button class="back" onclick="ir('menu')">← Menu principal</button>
+  <button class="back" onclick="ir('p-ped')">← Inicio</button>
   <div id="cl-contador" style="display:flex;gap:8px;margin-bottom:12px">
     <div style="flex:1;background:#E3F2FD;border-radius:10px;padding:10px;text-align:center">
       <div style="font-size:11px;color:#1565C0;font-weight:700">CLIENTES</div>
@@ -5124,7 +5124,7 @@ window.addEventListener('popstate', function(){
   for(var i=0;i<pages.length;i++){
     var el=document.getElementById(pages[i]);
     if(el && el.style.display==='block'){
-      ir('menu');
+      ir('p-ped');
       history.pushState(null, '', window.location.href);
       return;
     }
@@ -5244,7 +5244,7 @@ function importD(inp){
       if(d.suplidores){suplidores=d.suplidores;SS('nsup',suplidores);}
       if(d.gastos){SS('ngastos',d.gastos);}
       alert('Datos importados correctamente');
-      ir('menu');
+      ir('p-ped');
     }catch(err){alert('Error al importar');}
     inp.value='';
   };fr.readAsText(file);
@@ -5590,74 +5590,187 @@ function cambiarMeta(){
 }
 
 // ===== RUTAS DE VISITA =====
+var DIAS_SEMANA = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+var DIAS_KEYS = ['lun','mar','mie','jue','vie','sab'];
+
+function getDiaHoy(){
+  var d = new Date().getDay(); // 0=dom,1=lun...6=sab
+  var map = {1:'lun',2:'mar',3:'mie',4:'jue',5:'vie',6:'sab'};
+  return map[d] || 'lun';
+}
+
 function renderRutas(){
-  clientes = LS('ncl',[]);
-  pedidos = LS('npedidos',[]);
   var el = document.getElementById('rutas-contenido');
   if(!el) return;
+  var diaActual = getDiaHoy();
+  var diaIdx = DIAS_KEYS.indexOf(diaActual);
 
+  // Crear botones de días sin problemas de comillas
+  var diasDiv = document.createElement('div');
+  diasDiv.style.cssText = 'display:flex;overflow-x:auto;gap:6px;margin-bottom:16px;padding-bottom:4px';
+  DIAS_KEYS.forEach(function(dk, i){
+    var activo = dk === diaActual;
+    var btn = document.createElement('button');
+    btn.textContent = DIAS_SEMANA[i];
+    btn.style.cssText = 'flex-shrink:0;padding:8px 14px;border:none;border-radius:20px;cursor:pointer;font-size:13px;font-weight:700;background:'+(activo?'#1a237e':'#E8EAF6')+';color:'+(activo?'white':'#1a237e');
+    btn.onclick = (function(d){ return function(){ renderRutaDia(d); }; })(dk);
+    diasDiv.appendChild(btn);
+  });
+
+  var contenido = document.createElement('div');
+  contenido.id = 'ruta-dia-contenido';
+
+  el.innerHTML = '';
+  el.appendChild(diasDiv);
+  el.appendChild(contenido);
+  renderRutaDia(diaActual);
+}
+
+function renderRutaDia(diaKey){
+  var el = document.getElementById('ruta-dia-contenido');
+  if(!el) return;
+  el.innerHTML = '';
+
+  var diaIdx = DIAS_KEYS.indexOf(diaKey);
+  var diaLabel = DIAS_SEMANA[diaIdx] || diaKey;
+  var rutasPorDia = LS('rutas_por_dia', {});
+  var rutaHoy = rutasPorDia[diaKey] || [];
+  var visitas = LS('visitas_'+diaKey+'_'+fechaHoy(),[]);
+
+  clientes = LS('ncl',[]);
   var barberias = {};
   clientes.forEach(function(c){
-    var neg = (c.negocio||'').trim() || 'Sin barbería';
-    if(!barberias[neg]) barberias[neg] = {nombre:neg, clientes:[], visitada:false, pedidosPendientes:0};
-    barberias[neg].clientes.push(c);
+    var neg = (c.negocio||'').trim();
+    if(neg) barberias[neg] = true;
   });
+  var todasBarberias = Object.keys(barberias).sort();
+  var barberiasNoEnDia = todasBarberias.filter(function(b){ return rutaHoy.indexOf(b) < 0; });
 
-  // Contar pedidos pendientes por barbería
-  pedidos.forEach(function(p){
-    if(barberias[p.barberia]) barberias[p.barberia].pedidosPendientes++;
-  });
+  // Header
+  var header = document.createElement('div');
+  header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:12px';
+  header.innerHTML = '<div style="font-size:15px;font-weight:800;color:#1a237e">📅 '+diaLabel+'</div>'
+    +'<div style="font-size:12px;color:#aaa">'+rutaHoy.length+' barbería(s)</div>';
+  el.appendChild(header);
 
-  var rutaGuardada = LS('ruta_hoy',[]);
-  var keys = rutaGuardada.length ? rutaGuardada : Object.keys(barberias).sort();
+  // Lista de barberías en la ruta
+  if(rutaHoy.length === 0){
+    var empty = document.createElement('div');
+    empty.style.cssText = 'background:#f5f5f5;border-radius:10px;padding:20px;text-align:center;color:#aaa;font-size:13px;margin-bottom:12px';
+    empty.textContent = 'Sin barberías asignadas para '+diaLabel;
+    el.appendChild(empty);
+  } else {
+    rutaHoy.forEach(function(neg, idx){
+      var visitada = visitas.indexOf(neg) >= 0;
+      var row = document.createElement('div');
+      row.style.cssText = 'background:white;border-radius:12px;padding:12px 14px;margin-bottom:6px;border:0.5px solid '+(visitada?'#A5D6A7':'#e5e7eb')+';display:flex;align-items:center;gap:10px';
 
-  var negsList = keys;
-  el.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">'
-    +'<div style="font-size:13px;color:#aaa">Arrastra para reordenar</div>'
-    +'<button onclick="resetRuta()" style="font-size:12px;color:#1565C0;background:none;border:none;cursor:pointer;font-weight:600">🔄 Reiniciar ruta</button>'
-    +'</div>'
-    +keys.map(function(neg, idx){
-      var b = barberias[neg];
-      if(!b) return '';
-      var visitada = LS('visitas_hoy_'+fechaHoy(),[]).indexOf(neg) >= 0;
-      return '<div id="ruta-item-'+idx+'" style="background:white;border-radius:12px;padding:14px;margin-bottom:8px;border:0.5px solid '+(visitada?'#A5D6A7':'#e5e7eb')+';display:flex;align-items:center;gap:12px">'
-        +'<div style="font-size:20px;color:#aaa;cursor:move">⠿</div>'
-        +'<div style="width:32px;height:32px;border-radius:8px;background:'+(visitada?'#E8F5E9':'#F3F4F6')+';display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:'+(visitada?'#2E7D32':'#aaa')+';flex-shrink:0">'+(idx+1)+'</div>'
-        +'<div style="flex:1">'
-        +'<div style="font-size:14px;font-weight:700;color:'+(visitada?'#2E7D32':'#1a237e')+'">🏪 '+neg+'</div>'
-        +'<div style="font-size:11px;color:#aaa;margin-top:2px">'+(b?b.clientes.length:0)+' barbero(s)'+(b&&b.pedidosPendientes>0?' · ⚡ '+b.pedidosPendientes+' pedido(s) pendiente(s)':'')+'</div>'
-        +'</div>'
-        +'<button id="vis-btn-'+idx+'" onclick="marcarVisitada('+idx+',negsList)" style="padding:6px 12px;background:'+(visitada?'#E8F5E9':'#1a237e')+';color:'+(visitada?'#2E7D32':'white')+';border:none;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700">'+(visitada?'✓ Visitada':'Marcar')+'</button>'
-        +'</div>';
-    }).join('');
+      var btnUp = document.createElement('button');
+      btnUp.textContent = '⬆️';
+      btnUp.style.cssText = 'background:none;border:none;cursor:pointer;font-size:16px;padding:0';
+      btnUp.onclick = (function(dk,i){ return function(){ moverRutaArriba(dk,i); }; })(diaKey, idx);
 
-  // Resumen de ruta
-  var totalBarberias = keys.length;
-  var visitadas = keys.filter(function(neg){ return LS('visitas_hoy_'+fechaHoy(),[]).indexOf(neg) >= 0; }).length;
-  el.innerHTML += '<div style="background:#E8EAF6;border-radius:12px;padding:12px;margin-top:8px;text-align:center">'
-    +'<div style="font-size:13px;font-weight:700;color:#1a237e">Progreso de ruta hoy</div>'
-    +'<div style="font-size:24px;font-weight:800;color:#1a237e;margin:4px 0">'+visitadas+' / '+totalBarberias+'</div>'
-    +'<div style="background:#C5CAE9;border-radius:20px;height:8px;overflow:hidden;margin-top:8px">'
-    +'<div style="background:#1a237e;height:100%;width:'+(totalBarberias>0?Math.round((visitadas/totalBarberias)*100):0)+'%;border-radius:20px"></div>'
-    +'</div>'
-    +'</div>';
+      var numDiv = document.createElement('div');
+      numDiv.style.cssText = 'width:28px;height:28px;border-radius:8px;background:'+(visitada?'#2E7D32':'#E8EAF6')+';display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:'+(visitada?'white':'#1a237e')+';flex-shrink:0';
+      numDiv.textContent = idx+1;
+
+      var nameDiv = document.createElement('div');
+      nameDiv.style.cssText = 'flex:1;font-size:14px;font-weight:700;color:'+(visitada?'#2E7D32':'#1a237e');
+      nameDiv.textContent = '🏪 '+neg;
+
+      var btnVis = document.createElement('button');
+      btnVis.textContent = visitada ? '✓ Visitada' : 'Marcar';
+      btnVis.style.cssText = 'padding:6px 10px;background:'+(visitada?'#E8F5E9':'#1a237e')+';color:'+(visitada?'#2E7D32':'white')+';border:none;border-radius:8px;cursor:pointer;font-size:11px;font-weight:700';
+      btnVis.onclick = (function(dk,n){ return function(){ toggleVisita(dk,n); }; })(diaKey, neg);
+
+      var btnQuit = document.createElement('button');
+      btnQuit.textContent = '✕';
+      btnQuit.style.cssText = 'padding:6px 8px;background:#FFEBEE;color:#C62828;border:none;border-radius:8px;cursor:pointer;font-size:12px';
+      btnQuit.onclick = (function(dk,n){ return function(){ quitarDeDia(dk,n); }; })(diaKey, neg);
+
+      row.appendChild(btnUp);
+      row.appendChild(numDiv);
+      row.appendChild(nameDiv);
+      row.appendChild(btnVis);
+      row.appendChild(btnQuit);
+      el.appendChild(row);
+    });
+
+    // Progreso
+    var prog = document.createElement('div');
+    prog.style.cssText = 'background:#E8EAF6;border-radius:12px;padding:12px;margin-top:8px;margin-bottom:12px;text-align:center';
+    var pct = Math.round((visitas.length/rutaHoy.length)*100);
+    prog.innerHTML = '<div style="font-size:12px;font-weight:700;color:#1a237e">Progreso de hoy: '+visitas.length+'/'+rutaHoy.length+'</div>'
+      +'<div style="background:#C5CAE9;border-radius:20px;height:8px;overflow:hidden;margin-top:6px">'
+      +'<div style="background:#1a237e;height:100%;width:'+pct+'%;border-radius:20px"></div>'
+      +'</div>';
+    el.appendChild(prog);
+  }
+
+  // Agregar barberías al día
+  if(barberiasNoEnDia.length > 0){
+    var addTitle = document.createElement('div');
+    addTitle.style.cssText = 'font-size:11px;font-weight:700;color:#aaa;letter-spacing:0.5px;text-transform:uppercase;margin-bottom:8px';
+    addTitle.textContent = 'Agregar a '+diaLabel;
+    el.appendChild(addTitle);
+
+    barberiasNoEnDia.forEach(function(neg){
+      var row = document.createElement('div');
+      row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:#f9f9f9;border-radius:8px;margin-bottom:4px';
+
+      var nameSpan = document.createElement('span');
+      nameSpan.style.cssText = 'font-size:13px;color:#555';
+      nameSpan.textContent = '🏪 '+neg;
+
+      var btnAdd = document.createElement('button');
+      btnAdd.textContent = '+ Agregar';
+      btnAdd.style.cssText = 'padding:6px 12px;background:#E8EAF6;color:#1a237e;border:none;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700';
+      btnAdd.onclick = (function(dk,n){ return function(){ agregarADia(dk,n); }; })(diaKey, neg);
+
+      row.appendChild(nameSpan);
+      row.appendChild(btnAdd);
+      el.appendChild(row);
+    });
+  }
 }
 
-function marcarVisitada(idx, lista){
-  var neg = lista ? lista[idx] : idx;
-  var key = 'visitas_hoy_'+fechaHoy();
+
+function agregarADia(diaKey, neg){
+  var rutasPorDia = LS('rutas_por_dia',{});
+  if(!rutasPorDia[diaKey]) rutasPorDia[diaKey] = [];
+  if(rutasPorDia[diaKey].indexOf(neg) < 0) rutasPorDia[diaKey].push(neg);
+  SS('rutas_por_dia', rutasPorDia);
+  renderRutaDia(diaKey);
+}
+
+function quitarDeDia(diaKey, neg){
+  var rutasPorDia = LS('rutas_por_dia',{});
+  if(!rutasPorDia[diaKey]) return;
+  rutasPorDia[diaKey] = rutasPorDia[diaKey].filter(function(b){ return b !== neg; });
+  SS('rutas_por_dia', rutasPorDia);
+  renderRutaDia(diaKey);
+}
+
+function toggleVisita(diaKey, neg){
+  var key = 'visitas_'+diaKey+'_'+fechaHoy();
   var visitas = LS(key,[]);
-  var i = visitas.indexOf(neg);
-  if(i >= 0) visitas.splice(i,1);
+  var idx = visitas.indexOf(neg);
+  if(idx >= 0) visitas.splice(idx,1);
   else visitas.push(neg);
   SS(key, visitas);
-  renderRutas();
+  renderRutaDia(diaKey);
 }
 
-function resetRuta(){
-  if(!confirm('¿Reiniciar el progreso de visitas de hoy?')) return;
-  localStorage.removeItem('visitas_hoy_'+fechaHoy());
-  renderRutas();
+function moverRutaArriba(diaKey, idx){
+  if(idx === 0) return;
+  var rutasPorDia = LS('rutas_por_dia',{});
+  var ruta = rutasPorDia[diaKey] || [];
+  var temp = ruta[idx-1];
+  ruta[idx-1] = ruta[idx];
+  ruta[idx] = temp;
+  rutasPorDia[diaKey] = ruta;
+  SS('rutas_por_dia', rutasPorDia);
+  renderRutaDia(diaKey);
 }
 
 // ===== HISTORIAL DE PRECIOS (registrar automáticamente) =====
@@ -5739,7 +5852,7 @@ function verHistorialCliente(cid){
 </script>
 <input type="hidden" id="vsel">
 <div id="p-v" class="pg">
-  <button class="back" onclick="ir('menu')">← Menu principal</button>
+  <button class="back" onclick="ir('p-ped')">← Inicio</button>
   <div class="card">
     <p style="font-size:15px;font-weight:700;margin-bottom:12px">Nueva venta</p>
     <label class="lbl">Cliente</label>
@@ -5810,7 +5923,7 @@ function verHistorialCliente(cid){
   </div>
 </div>
 <div id="p-ped" class="pg">
-  <button class="back" onclick="ir('menu')">← Menu principal</button>
+  <button class="back" onclick="ir('p-ped')">← Inicio</button>
   <h2 style="font-size:24px;font-weight:800;color:#1a237e;margin-bottom:14px;text-align:center;padding-bottom:12px;border-bottom:2px solid #E8EAF6">⚡ Pedidos Rápidos</h2>
 
   <!-- PASO 1: Lista de pedidos pendientes -->
@@ -5967,14 +6080,14 @@ function verHistorialCliente(cid){
 </div>
 
 <div id="p-facturas" class="pg">
-  <button class="back" onclick="ir('menu')">← Menu principal</button>
+  <button class="back" onclick="ir('p-ped')">← Inicio</button>
   <h2 style="font-size:20px;font-weight:700;color:#1a237e;margin-bottom:10px">🧾 Facturas</h2>
   <input class="inp" id="fact-buscar" type="text" placeholder="Buscar por nombre del cliente..." oninput="renderFacturas(this.value)" autocomplete="off" style="margin-bottom:10px">
   <div id="fact-lista"></div>
 </div>
 
 <div id="p-gastos" class="pg">
-  <button class="back" onclick="ir('menu')">← Menu principal</button>
+  <button class="back" onclick="ir('p-ped')">← Inicio</button>
   <h2 style="font-size:20px;font-weight:700;color:#1a237e;margin-bottom:14px">💸 Gastos</h2>
   <div id="gastos-lista-wrap">
     <div style="display:flex;gap:8px;margin-bottom:12px">
@@ -6090,7 +6203,7 @@ function verHistorialCliente(cid){
   <div id="rptres"></div>
 </div>
 <div id="p-vip" class="pg">
-  <button class="back" onclick="ir('menu')">← Menu principal</button>
+  <button class="back" onclick="ir('p-ped')">← Inicio</button>
   <h2 style="font-size:20px;font-weight:700;color:#1a237e;margin-bottom:4px">⭐ Programa Lealtad VIP</h2>
   <p style="font-size:12px;color:#aaa;margin-bottom:14px">Compra 10 del mismo producto ($10.00) y gana 1 gratis · Válido desde 15 de junio 2026</p>
   <div style="background:linear-gradient(135deg,#880E4F,#AD1457);border-radius:12px;padding:14px;margin-bottom:14px;color:white">
@@ -6116,7 +6229,7 @@ function verHistorialCliente(cid){
 </div>
 
 <div id="p-cxc" class="pg">
-  <button class="back" onclick="ir('menu')">← Menu principal</button>
+  <button class="back" onclick="ir('p-ped')">← Inicio</button>
   <h2 style="font-size:20px;font-weight:700;color:#1a237e;margin-bottom:10px">💳 Cuentas por Cobrar</h2>
   <input class="inp" id="cxc-buscar" type="text" placeholder="Buscar por nombre o negocio..." oninput="renderCxC(this.value)" autocomplete="off" style="margin-bottom:10px">
   <div id="cxc-lista"></div>
@@ -6144,13 +6257,13 @@ function verHistorialCliente(cid){
 
 
 <div id="p-dashboard" class="pg">
-  <button class="back" onclick="ir('menu')">← Menu principal</button>
+  <button class="back" onclick="ir('p-ped')">← Inicio</button>
   <h2 style="font-size:24px;font-weight:800;color:#1a237e;margin-bottom:16px;text-align:center;padding-bottom:12px;border-bottom:2px solid #E8EAF6">📊 Dashboard Financiero</h2>
   <div id="dashboard-contenido"></div>
 </div>
 
 <div id="p-rutas" class="pg">
-  <button class="back" onclick="ir('menu')">← Menu principal</button>
+  <button class="back" onclick="ir('p-ped')">← Inicio</button>
   <h2 style="font-size:24px;font-weight:800;color:#1a237e;margin-bottom:16px;text-align:center;padding-bottom:12px;border-bottom:2px solid #E8EAF6">🗺️ Ruta de Visitas</h2>
   <div id="rutas-contenido"></div>
 </div>

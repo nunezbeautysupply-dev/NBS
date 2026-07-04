@@ -922,30 +922,44 @@ function onEstadoInput(inputId){
 function onDireccionInput(inputId){
   var val = document.getElementById(inputId).value;
   if(!val || val.length < 2){ ocultarDropdown(inputId); return; }
-  var sinNumero = val.replace(/^\d+\s*/, '').toLowerCase();
-  var q = sinNumero.length >= 2 ? sinNumero : val.toLowerCase();
-  if(q.length < 2){ ocultarDropdown(inputId); return; }
-  var dirs = DIR_SUGERENCIAS.filter(function(d){ return d.toLowerCase().indexOf(q) >= 0; });
-  // Agregar dirs de clientes existentes con sus datos completos
+  var q = val.toLowerCase();
+
+  // Sugerencias de clientes existentes con dirección completa
   var clientesConDir = [];
+  var dirsCompletas = [];
   LS('ncl',[]).forEach(function(c){
-    if(c.dir && c.dir.toLowerCase().indexOf(q)>=0){
-      if(dirs.indexOf(c.dir)<0) dirs.unshift(c.dir);
+    if(c.dir && c.dir.toLowerCase().indexOf(q) >= 0){
+      if(dirsCompletas.indexOf(c.dir) < 0) dirsCompletas.push(c.dir);
       clientesConDir.push(c);
     }
   });
+
+  // Sugerencias de calles conocidas (solo el nombre de la calle)
+  var sinNumero = val.replace(/^\d+\s*/, '').toLowerCase();
   var numPrefix = val.match(/^\d+\s*/);
-  var prefix = numPrefix ? numPrefix[0] : '';
-  mostrarDropdown(inputId+'-drop', dirs, inputId, function(dir){
-    document.getElementById(inputId).value = prefix + dir;
-    // Buscar cliente con esa dirección para autocompletar ciudad, estado y ZIP
+  var prefix = numPrefix ? numPrefix[0].trim() : '';
+  var dirsCalles = DIR_SUGERENCIAS.filter(function(d){
+    return sinNumero.length >= 2 && d.toLowerCase().indexOf(sinNumero) >= 0;
+  }).map(function(d){
+    return prefix ? prefix + ' ' + d : d;
+  });
+
+  // Combinar: primero las direcciones completas de clientes, luego las de calles
+  var todas = dirsCompletas.concat(dirsCalles.filter(function(d){
+    return dirsCompletas.indexOf(d) < 0;
+  }));
+
+  if(!todas.length){ ocultarDropdown(inputId); return; }
+
+  mostrarDropdown(inputId+'-drop', todas, inputId, function(dir){
+    document.getElementById(inputId).value = dir;
+    // Autocompletar ciudad, estado y ZIP si existe un cliente con esa dirección
     var cliente = clientesConDir.find(function(c){ return c.dir === dir; });
     if(cliente){
-      // Detectar los IDs de ciudad, estado y zip según el formulario
-      var prefix2 = inputId.replace('d',''); // 'c' para nuevo cliente, 'ecl-' para editar
-      var cityId = prefix2 + 'city';
-      var stateId = prefix2 + 'state';
-      var zipId = prefix2 + 'zip';
+      var pre = inputId.replace('d','');
+      var cityId = pre + 'city';
+      var stateId = pre + 'state';
+      var zipId = pre + 'zip';
       if(document.getElementById(cityId) && cliente.ciudad) document.getElementById(cityId).value = cliente.ciudad;
       if(document.getElementById(stateId) && cliente.estado) document.getElementById(stateId).value = cliente.estado;
       if(document.getElementById(zipId) && cliente.zip) document.getElementById(zipId).value = cliente.zip;

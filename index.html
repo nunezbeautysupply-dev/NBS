@@ -3316,6 +3316,7 @@ function nuevoPedidoRapido(){
 }
 
 var barberiasAbiertas = {};
+var barberosSel = {}; // {cid: {cliente, barberia}}
 
 function renderBarberiasInicio(q){
   clientes = LS('ncl', []);
@@ -3339,7 +3340,6 @@ function renderBarberiasInicio(q){
         return (c.nombre+' '+c.apellido).toLowerCase().indexOf(ql) >= 0;
       });
     });
-    // Si hay búsqueda, abrir todas las que coincidan
     keys.forEach(function(k){ barberiasAbiertas[k] = true; });
   }
 
@@ -3351,60 +3351,62 @@ function renderBarberiasInicio(q){
   keys.forEach(function(neg){
     var barberos = barberias[neg];
     var abierta = barberiasAbiertas[neg];
+    var selCount = barberos.filter(function(c){ return barberosSel[String(c.id)]; }).length;
 
     var wrap = document.createElement('div');
     wrap.style.cssText = 'background:white;border-radius:12px;margin-bottom:8px;border:0.5px solid #e5e7eb;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.05)';
 
-    // Header de la barbería
     var header = document.createElement('div');
-    header.style.cssText = 'padding:14px 16px;display:flex;justify-content:space-between;align-items:center;cursor:pointer';
-    header.innerHTML = '<div>'
-      +'<div style="font-size:15px;font-weight:700;color:#1a237e">🏪 '+neg+'</div>'
-      +'<div style="font-size:11px;color:#aaa;margin-top:2px">'+barberos.length+' barbero(s)</div>'
-      +'</div>'
-      +'<div class="barb-arrow" style="font-size:16px;color:#aaa;transition:transform 0.2s">'+(abierta?'▲':'▼')+'</div>';
+    header.style.cssText = 'padding:12px 14px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;background:#F8F9FF';
+    header.innerHTML = '<div style="font-size:14px;font-weight:700;color:#1a237e">🏪 '+neg+'</div>'
+      +'<div style="font-size:12px;color:#aaa">'+barberos.length+' barbero(s) '+(abierta?'▲':'▼')+'</div>';
 
-    // Lista de barberos
     var lista = document.createElement('div');
-    lista.style.cssText = 'border-top:0.5px solid #e5e7eb;padding:8px;display:'+(abierta?'block':'none');
+    lista.style.cssText = 'padding:8px;display:'+(abierta?'block':'none');
 
     barberos.forEach(function(c){
+      var cid = String(c.id);
+      var seleccionado = !!barberosSel[cid];
       var nombreCompleto = c.nombre + ' ' + c.apellido;
+
       var btn = document.createElement('div');
-      btn.style.cssText = 'display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;cursor:pointer;margin-bottom:4px;transition:background 0.15s';
-      btn.innerHTML = '<div style="width:36px;height:36px;border-radius:8px;background:#E8EAF6;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#1a237e;flex-shrink:0">'+c.nombre[0]+'</div>'
+      btn.id = 'barb-row-'+cid;
+      btn.style.cssText = 'display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;margin-bottom:4px;cursor:pointer;'+(seleccionado?'background:#E8F5E9':'');
+      btn.innerHTML = '<div id="barb-check-'+cid+'" style="width:22px;height:22px;border-radius:6px;'+(seleccionado?'background:#2E7D32;':'border:1.5px solid #ddd;')+'display:flex;align-items:center;justify-content:center;flex-shrink:0">'
+        +(seleccionado?'<span style="color:white;font-size:14px;font-weight:700">✓</span>':'')
+        +'</div>'
+        +'<div style="width:34px;height:34px;border-radius:8px;background:#E8EAF6;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#1a237e;flex-shrink:0">'+c.nombre[0]+'</div>'
         +'<div style="font-size:14px;font-weight:600;color:#1a237e;flex:1">'+nombreCompleto+'</div>'
-        +'<div style="color:#ddd;font-size:18px">›</div>';
-      btn.onmouseover = function(){ this.style.background='#F0F2FF'; };
-      btn.onmouseout = function(){ this.style.background='transparent'; };
-      btn.onclick = (function(cliente, barberia){
+        +(seleccionado?'<div style="font-size:11px;color:#2E7D32;font-weight:700">✓</div>':'');
+
+      btn.onclick = (function(cliente, barberia, id){
         return function(){
-          pedBarberiaSel = barberia;
-          pedBarberoCid = cliente.id;
-          pedBarberoNombre = cliente.nombre + ' ' + cliente.apellido;
-          pedItemsTemp = [];
-          pedidoEditandoIdx = null;
-          document.getElementById('ped-lista-wrap').style.display = 'none';
-          document.getElementById('ped-form-wrap').style.display = 'block';
-          loadProds();
-          renderPedItems();
-          document.getElementById('pedb').value = '';
-          document.getElementById('pedplist').style.display = 'none';
-          document.getElementById('pedchip').style.display = 'none';
-          document.getElementById('ped-barbero-actual').textContent = cliente.nombre+' '+cliente.apellido;
-          document.getElementById('ped-barberia-actual').textContent = barberia;
-          document.getElementById('cctipo').value = 'credito';
-          document.getElementById('ccini-g').style.display = 'block';
+          if(barberosSel[id]){
+            delete barberosSel[id];
+          } else {
+            barberosSel[id] = {cliente: cliente, barberia: barberia};
+          }
+          renderBarberiasInicio(document.getElementById('ped-inicio-buscar') ? document.getElementById('ped-inicio-buscar').value : '');
         };
-      })(c, neg);
+      })(c, neg, cid);
+
       lista.appendChild(btn);
     });
 
-    header.onclick = (function(n, l, a){
+    // Botón de hacer pedido si hay seleccionados en esta barbería
+    var selEnBarberia = barberos.filter(function(c){ return barberosSel[String(c.id)]; });
+    if(selEnBarberia.length > 0 && abierta){
+      var btnPed = document.createElement('div');
+      btnPed.style.cssText = 'padding:10px;border-top:0.5px solid #e5e7eb;background:#FAFAFA';
+      btnPed.innerHTML = '<button onclick="iniciarPedidoMultiple()" style="width:100%;padding:11px;background:#F9A825;color:#1a1a1a;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">⚡ Hacer pedido a '+selEnBarberia.length+' seleccionado(s) →</button>';
+      lista.appendChild(btnPed);
+    }
+
+    header.onclick = (function(n, l, h){
       return function(){
         barberiasAbiertas[n] = !barberiasAbiertas[n];
         l.style.display = barberiasAbiertas[n] ? 'block' : 'none';
-        a.querySelector('.barb-arrow').textContent = barberiasAbiertas[n] ? '▲' : '▼';
+        renderBarberiasInicio(document.getElementById('ped-inicio-buscar') ? document.getElementById('ped-inicio-buscar').value : '');
       };
     })(neg, lista, header);
 
@@ -3413,6 +3415,54 @@ function renderBarberiasInicio(q){
     el.appendChild(wrap);
   });
 }
+
+function iniciarPedidoMultiple(){
+  var selArray = Object.keys(barberosSel).map(function(id){ return barberosSel[id]; });
+  if(!selArray.length){ alert('Selecciona al menos un barbero'); return; }
+  // Crear pedido vacío para cada barbero seleccionado
+  pedidoMultiple = selArray;
+  pedidoMultipleIdx = 0;
+  barberosSel = {};
+  abrirSigPedidoMultiple();
+}
+
+var pedidoMultiple = [];
+var pedidoMultipleIdx = 0;
+
+function abrirSigPedidoMultiple(){
+  if(pedidoMultipleIdx >= pedidoMultiple.length){
+    // Terminamos todos los pedidos
+    renderBarberiasInicio('');
+    renderPedidosPendientes();
+    var flash = document.createElement('div');
+    flash.textContent = '✅ '+pedidoMultiple.length+' pedido(s) guardado(s)';
+    flash.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#2E7D32;color:white;padding:12px 24px;border-radius:20px;font-size:14px;font-weight:700;z-index:9999';
+    document.body.appendChild(flash);
+    setTimeout(function(){ flash.remove(); }, 2500);
+    pedidoMultiple = [];
+    pedidoMultipleIdx = 0;
+    return;
+  }
+  var item = pedidoMultiple[pedidoMultipleIdx];
+  pedBarberiaSel = item.barberia;
+  pedBarberoCid = item.cliente.id;
+  pedBarberoNombre = item.cliente.nombre + ' ' + item.cliente.apellido;
+  pedItemsTemp = [];
+  pedidoEditandoIdx = null;
+  document.getElementById('ped-lista-wrap').style.display = 'none';
+  document.getElementById('ped-form-wrap').style.display = 'block';
+  loadProds();
+  renderPedItems();
+  document.getElementById('pedb').value = '';
+  document.getElementById('pedplist').style.display = 'none';
+  document.getElementById('pedchip').style.display = 'none';
+  document.getElementById('ped-barbero-actual').textContent = item.cliente.nombre+' '+item.cliente.apellido;
+  var restantes = pedidoMultiple.length - pedidoMultipleIdx - 1;
+  document.getElementById('ped-barberia-actual').textContent = item.barberia + (restantes > 0 ? ' · '+restantes+' más después' : '');
+  document.getElementById('cctipo').value = 'credito';
+  document.getElementById('ccini-g').style.display = 'block';
+}
+
 
 function renderPedidosPendientes(){
   pedidos = LS('npedidos', []);
@@ -3435,6 +3485,7 @@ function renderPedidosPendientes(){
       +'<div style="display:flex;gap:6px">'
       +'<button onclick="editarPedido('+idx+')" style="padding:8px 12px;background:#F9A825;color:#1a1a1a;border:none;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700">✏️ Editar</button>'
       +'<button onclick="convertirPedidoAVenta('+idx+')" style="padding:8px 12px;background:#2E7D32;color:white;border:none;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700">🧾 Vender</button>'
+      +'<button onclick="borrarPedido('+idx+')" style="padding:8px 12px;background:#C62828;color:white;border:none;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700">🗑️</button>'
       +'</div>';
     el.appendChild(card);
   });
@@ -3454,6 +3505,17 @@ function iniciarNuevoPedido(){
   document.getElementById('ped-barberia-wrap').style.display = 'block';
   document.getElementById('ped-barberia-buscar').value = '';
   renderBarberias('');
+}
+
+function borrarPedido(idx){
+  pedidos = LS('npedidos', []);
+  if(!pedidos[idx]) return;
+  var nombre = pedidos[idx].nombre;
+  if(!confirm('¿Borrar el pedido de '+nombre+'?')) return;
+  pedidos.splice(idx, 1);
+  SS('npedidos', pedidos);
+  renderPedidosPendientes();
+  renderBarberiasInicio(document.getElementById('ped-inicio-buscar') ? document.getElementById('ped-inicio-buscar').value : '');
 }
 
 function cancelarPedido(){
@@ -3722,6 +3784,11 @@ function savePedido(){
   document.getElementById('ped-barberia-wrap').style.display = 'none';
   document.getElementById('ped-barbero-wrap').style.display = 'none';
   document.getElementById('ped-lista-wrap').style.display = 'block';
+  pedidoMultipleIdx++;
+  if(pedidoMultiple.length > 0 && pedidoMultipleIdx < pedidoMultiple.length){
+    abrirSigPedidoMultiple();
+    return;
+  }
   renderBarberiasInicio(document.getElementById('ped-inicio-buscar') ? document.getElementById('ped-inicio-buscar').value : '');
   renderPedidosPendientes();
   // Flash de confirmación sin bloquear la pantalla
@@ -5393,7 +5460,7 @@ function recordarMasTarde(){
 </div>
 <div id="p-ped" class="pg">
   <button class="back" onclick="ir('menu')">← Menu principal</button>
-  <h2 style="font-size:20px;font-weight:700;color:#1a237e;margin-bottom:14px">⚡ Pedidos rapidos</h2>
+  <h2 style="font-size:24px;font-weight:800;color:#1a237e;margin-bottom:14px;text-align:center;padding-bottom:12px;border-bottom:2px solid #E8EAF6">⚡ Pedidos Rápidos</h2>
 
   <!-- PASO 1: Lista de pedidos pendientes -->
   <div id="ped-lista-wrap">

@@ -1,0 +1,2 @@
+v2.0 - 20260704-0100
+Ultima actualizacion: precios en catalogo, recordatorio backup cada hora

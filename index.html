@@ -2304,7 +2304,8 @@ function renderCatalogo(q){
       +'<div style="font-size:11px;color:#999;margin-top:2px">'+(p.cat||'Sin categoria')+(p.sku?' · SKU: '+p.sku:'')+'</div>'
       +(p.desc ? '<div style="font-size:12px;color:#555;margin-top:4px;line-height:1.4">'+p.desc+'</div>' : '')
       +'<div style="display:flex;gap:8px;align-items:center;margin-top:4px">'
-      +'<span style="font-size:13px;font-weight:700;color:#1565C0">$'+(p.precio||fmtNum(0))+'</span>'
+      +'<span style="font-size:13px;font-weight:700;color:#1565C0">$'+fmtNum(p.precio||0)+'</span>'
+      +'<span style="font-size:11px;color:#aaa;font-weight:500">Costo: $'+fmtNum(p.costo||0)+'</span>'
       +'<span style="font-size:11px;padding:2px 8px;border-radius:8px;font-weight:600;background:'+stockBg+';color:'+stockColor+'">Stock: '+p.stock+'</span>'
       +'</div></div>';
     card.onclick = (function(prod){ return function(){ verProductoCatalogo(prod); }; })(p);
@@ -5350,33 +5351,31 @@ function verificarBackup(){
   var ultimoBackup = parseInt(localStorage.getItem('ultimoBackup') || '0');
   var horasTranscurridas = ultimoBackup > 0 ? (hoy - ultimoBackup) / (1000 * 60 * 60) : 999;
 
-  // Mostrar si nunca ha hecho backup O han pasado 12+ horas
-  if(!ultimoBackup || horasTranscurridas >= 12){
-    // Pequeño delay para que la app cargue primero
+  // Mostrar si nunca ha hecho backup O ha pasado 1+ hora
+  if(!ultimoBackup || horasTranscurridas >= 1){
     setTimeout(function(){ mostrarAlertaBackup(ultimoBackup); }, 1500);
   }
 }
 
 function mostrarAlertaBackup(ultimoBackup){
-  // Evitar duplicar el overlay
   if(document.getElementById('backup-overlay')) return;
-
   var overlay = document.createElement('div');
   overlay.id = 'backup-overlay';
   overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:999999;display:flex;align-items:center;justify-content:center;padding:20px';
-
   var horas = ultimoBackup ? Math.round((new Date().getTime() - ultimoBackup) / (1000 * 60 * 60)) : null;
-  var mensaje = horas ? '⚠️ Han pasado <b>'+horas+' horas</b> desde tu último backup.' : '⚠️ Nunca has hecho un backup de tus datos.';
-
-  overlay.innerHTML = '<div style="background:white;border-radius:16px;padding:28px;max-width:340px;width:100%;text-align:center">'
-    +'<div style="font-size:48px;margin-bottom:12px">💾</div>'
-    +'<div style="font-size:18px;font-weight:800;color:#1a237e;margin-bottom:10px">Recordatorio de Backup</div>'
-    +'<div style="font-size:14px;color:#555;margin-bottom:8px">'+mensaje+'</div>'
-    +'<div style="font-size:13px;color:#888;margin-bottom:20px">Se recomienda hacer backup 2 veces al día para proteger tus datos.</div>'
-    +'<button onclick="hacerBackupAhora()" style="width:100%;padding:14px;background:#1565C0;color:white;border:none;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;margin-bottom:10px">📤 Hacer Backup Ahora</button>'
-    +'<button onclick="recordarMasTarde()" style="width:100%;padding:12px;background:#f5f5f5;color:#888;border:none;border-radius:10px;font-size:13px;cursor:pointer">⏰ Recordar en 1 hora</button>'
+  var mensaje = horas ? 'Han pasado <b>'+horas+' hora(s)</b> desde tu último backup.' : 'Nunca has hecho un backup de tus datos.';
+  overlay.innerHTML = '<div style="background:white;border-radius:16px;padding:24px;max-width:340px;width:100%;text-align:center">'
+    +'<div style="font-size:44px;margin-bottom:10px">💾</div>'
+    +'<div style="font-size:17px;font-weight:800;color:#1a237e;margin-bottom:8px">Recordatorio de Backup</div>'
+    +'<div style="font-size:13px;color:#555;margin-bottom:16px">'+mensaje+'</div>'
+    +'<button onclick="hacerBackupAhora()" style="width:100%;padding:13px;background:#1565C0;color:white;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:12px">📤 Hacer Backup Ahora</button>'
+    +'<div style="font-size:11px;color:#aaa;margin-bottom:8px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px">Posponer recordatorio</div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">'
+    +'<button onclick="posponerBackup(15)" style="padding:9px;background:#f5f5f5;color:#555;border:none;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600">⏰ 15 min</button>'
+    +'<button onclick="posponerBackup(30)" style="padding:9px;background:#f5f5f5;color:#555;border:none;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600">⏰ 30 min</button>'
+    +'<button onclick="posponerBackup(60)" style="padding:9px;background:#f5f5f5;color:#555;border:none;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600">⏰ 1 hora</button>'
+    +'</div>'
     +'</div>';
-
   document.body.appendChild(overlay);
 }
 
@@ -5387,10 +5386,10 @@ function hacerBackupAhora(){
   exportD();
 }
 
-function recordarMasTarde(){
-  // Guardar como si el backup fue hace 11 horas — aparecerá de nuevo en 1 hora
-  var once_horas = new Date().getTime() - (1000 * 60 * 60 * 11);
-  localStorage.setItem('ultimoBackup', once_horas.toString());
+function posponerBackup(minutos){
+  // Guardar como si el backup fue hace (60-minutos) minutos para que vuelva en 'minutos'
+  var tiempoAtras = new Date().getTime() - ((60 - minutos) * 60 * 1000);
+  localStorage.setItem('ultimoBackup', tiempoAtras.toString());
   var overlay = document.getElementById('backup-overlay');
   if(overlay) overlay.remove();
 }

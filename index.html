@@ -5150,15 +5150,13 @@ function verFacturaProfesional(vid){
 
 
 function imprimirFacturaBT(vid){
-  // Primero mostrar la factura, luego imprimir una sola vez
-  verFacturaProfesional(vid);
-  // Usar un flag para evitar impresión múltiple
   if(window._imprimiendo) return;
   window._imprimiendo = true;
+  verFacturaProfesional(vid);
   setTimeout(function(){
     window.print();
-    setTimeout(function(){ window._imprimiendo = false; }, 3000);
   }, 600);
+  setTimeout(function(){ window._imprimiendo = false; }, 5000);
 }
 
 function compartirFactura(vid){

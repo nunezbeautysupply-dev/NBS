@@ -5348,11 +5348,12 @@ function toggleMenuExtra(){ /* legacy - ya no se usa */ }
 function verificarBackup(){
   var hoy = new Date().getTime();
   var ultimoBackup = parseInt(localStorage.getItem('ultimoBackup') || '0');
-  var horasTranscurridas = (hoy - ultimoBackup) / (1000 * 60 * 60);
+  var horasTranscurridas = ultimoBackup > 0 ? (hoy - ultimoBackup) / (1000 * 60 * 60) : 999;
 
-  // Mostrar si nunca ha hecho backup O han pasado 12+ horas (2 veces al día)
+  // Mostrar si nunca ha hecho backup O han pasado 12+ horas
   if(!ultimoBackup || horasTranscurridas >= 12){
-    mostrarAlertaBackup(ultimoBackup);
+    // Pequeño delay para que la app cargue primero
+    setTimeout(function(){ mostrarAlertaBackup(ultimoBackup); }, 1500);
   }
 }
 

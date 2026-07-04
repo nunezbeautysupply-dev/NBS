@@ -16,50 +16,177 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Nunez Beauty Supply App 17.3</title>
 <style>
-body{margin:0;font-family:sans-serif;background:#f5f5f5;}
-.top{background:#1a237e;padding:16px;color:white;font-size:20px;font-weight:700;text-align:center;}
-.menu{padding:16px;}
-.mb{display:block;width:100%;padding:18px;font-size:17px;font-weight:700;border:none;border-radius:12px;margin-bottom:12px;cursor:pointer;text-align:left;padding-left:20px;}
-.pg{display:none;padding:16px;}
-.back{display:block;width:100%;padding:14px;font-size:15px;font-weight:600;border:none;border-radius:10px;margin-bottom:14px;cursor:pointer;background:#546E7A;color:white;}
-.btn{display:block;width:100%;padding:14px;font-size:15px;font-weight:600;border:none;border-radius:10px;margin-bottom:10px;cursor:pointer;}
-.inp{width:100%;padding:12px;font-size:14px;border:1.5px solid #ddd;border-radius:8px;outline:none;font-family:sans-serif;margin-bottom:10px;box-sizing:border-box;}
-.lbl{font-size:12px;color:#1565C0;font-weight:700;display:block;margin-bottom:4px;}
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+:root{
+  --primary:#1a237e;
+  --primary-light:#283593;
+  --accent:#1565C0;
+  --surface:white;
+  --bg:#F0F2F8;
+  --text:#1a1a2e;
+  --text-sub:#6B7280;
+  --border:#E5E7EB;
+  --radius:14px;
+  --shadow:0 2px 12px rgba(0,0,0,0.08);
+  --shadow-md:0 4px 20px rgba(0,0,0,0.12);
+}
+
+*{box-sizing:border-box;}
+
+body{
+  margin:0;
+  font-family:'Inter',system-ui,sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  -webkit-font-smoothing:antialiased;
+}
+
+.top{
+  background:linear-gradient(135deg,#1a237e 0%,#283593 100%);
+  padding:14px 20px;
+  color:white;
+  font-size:18px;
+  font-weight:700;
+  text-align:center;
+  letter-spacing:-0.3px;
+  box-shadow:0 2px 12px rgba(26,35,126,0.3);
+  position:sticky;
+  top:0;
+  z-index:100;
+}
+
+.menu{padding:16px;max-width:480px;margin:0 auto;}
+
+.mb{
+  display:flex;
+  align-items:center;
+  width:100%;
+  padding:16px 18px;
+  font-size:15px;
+  font-weight:600;
+  font-family:'Inter',sans-serif;
+  border:none;
+  border-radius:var(--radius);
+  margin-bottom:10px;
+  cursor:pointer;
+  text-align:left;
+  gap:12px;
+  box-shadow:var(--shadow);
+  transition:transform 0.1s,box-shadow 0.1s;
+  letter-spacing:-0.2px;
+}
+.mb:active{transform:scale(0.98);box-shadow:none;}
+
+.pg{display:none;padding:16px;max-width:480px;margin:0 auto;}
+
+.back{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  width:100%;
+  padding:12px 16px;
+  font-size:14px;
+  font-weight:600;
+  font-family:'Inter',sans-serif;
+  border:none;
+  border-radius:10px;
+  margin-bottom:16px;
+  cursor:pointer;
+  background:#E8EAF6;
+  color:var(--primary);
+  letter-spacing:-0.2px;
+}
+
+.btn{
+  display:block;
+  width:100%;
+  padding:13px;
+  font-size:14px;
+  font-weight:600;
+  font-family:'Inter',sans-serif;
+  border:none;
+  border-radius:10px;
+  margin-bottom:10px;
+  cursor:pointer;
+  letter-spacing:-0.2px;
+  transition:transform 0.1s;
+}
+.btn:active{transform:scale(0.98);}
+
+.inp{
+  width:100%;
+  padding:12px 14px;
+  font-size:14px;
+  font-family:'Inter',sans-serif;
+  border:1.5px solid var(--border);
+  border-radius:10px;
+  outline:none;
+  margin-bottom:10px;
+  background:white;
+  transition:border-color 0.2s;
+  color:var(--text);
+}
+.inp:focus{border-color:var(--accent);}
+
+.lbl{
+  font-size:11px;
+  color:var(--accent);
+  font-weight:700;
+  display:block;
+  margin-bottom:4px;
+  letter-spacing:0.3px;
+  text-transform:uppercase;
+}
+
 .r2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-.card{background:white;border-radius:12px;padding:16px;margin-bottom:12px;}
-.snk{background:#333;color:white;padding:10px;border-radius:6px;font-size:13px;margin-top:8px;display:none;text-align:center;}
-.av{width:44px;height:44px;border-radius:50%;background:#E3F2FD;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:#1565C0;flex-shrink:0;}
-.clrow{display:flex;align-items:center;gap:12px;padding:12px;background:white;border-radius:10px;margin-bottom:8px;cursor:pointer;}
-.chip{font-size:11px;padding:2px 8px;border-radius:10px;font-weight:500;}
+
+.card{
+  background:white;
+  border-radius:var(--radius);
+  padding:16px;
+  margin-bottom:12px;
+  box-shadow:var(--shadow);
+  border:1px solid rgba(0,0,0,0.04);
+}
+
+.snk{background:#1a237e;color:white;padding:10px;border-radius:8px;font-size:13px;margin-top:8px;display:none;text-align:center;font-weight:600;}
+
+.av{width:44px;height:44px;border-radius:12px;background:#E8EAF6;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:var(--primary);flex-shrink:0;}
+
+.clrow{display:flex;align-items:center;gap:12px;padding:12px 14px;background:white;border-radius:12px;margin-bottom:8px;cursor:pointer;box-shadow:var(--shadow);border:1px solid rgba(0,0,0,0.04);transition:transform 0.1s;}
+.clrow:active{transform:scale(0.98);}
+
+.chip{font-size:11px;padding:3px 10px;border-radius:20px;font-weight:600;}
 .cg{background:#E8F5E9;color:#2E7D32;}
-.ca{background:#FFF8E1;color:#E65100;}
+.ca{background:#FFF3E0;color:#E65100;}
 </style>
 
   <link rel="manifest" href="manifest.json">
 </head>
 <body>
-<div class="top" onclick="ir('menu')" style="cursor:pointer">✂️ Nunez Beauty Supply <span style="font-size:11px;font-weight:400;opacity:0.7">v17.3</span></div>
+<div class="top" onclick="ir('menu')" style="cursor:pointer">✂️ Nunez Beauty Supply <span style="font-size:11px;font-weight:400;opacity:0.6">v17.3</span></div>
 
 <div id="menu" class="menu">
 
   <!-- Header -->
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;padding-top:4px">
     <div>
-      <div style="font-size:20px;font-weight:800;color:#1a237e">✂️ Nunez Beauty</div>
-      <div style="font-size:12px;color:#aaa">Supply Manager</div>
+      <div style="font-size:22px;font-weight:800;color:var(--primary);letter-spacing:-0.5px">✂️ Nunez Beauty</div>
+      <div style="font-size:12px;color:var(--text-sub);font-weight:500;margin-top:2px">Supply Manager</div>
     </div>
-    <button id="btn-menu-extra" style="background:#37474F;color:white;border:none;border-radius:10px;padding:10px 14px;cursor:pointer;font-size:13px;font-weight:600">☰ Más</button>
+    <button id="btn-menu-extra" style="background:var(--primary);color:white;border:none;border-radius:12px;padding:10px 16px;cursor:pointer;font-size:13px;font-weight:600;font-family:Inter,sans-serif;box-shadow:var(--shadow)">☰ Más</button>
   </div>
 
   <!-- Botones principales -->
-  <button class="mb" style="background:#1565C0;color:white" onclick="ir('p-cl')">👥 Clientes</button>
-  <button class="mb" style="background:#00838F;color:white" id="btn-cat" onclick="irProtegido('p-cat')">📦 Catálogo</button>
-  <button class="mb" style="background:#F9A825;color:#1a1a1a" onclick="ir('p-ped')">⚡ Pedidos rápidos</button>
-  <button class="mb" style="background:#2E7D32;color:white" onclick="ir('p-v')">🧾 Vender</button>
-  <button class="mb" style="background:#6A1B9A;color:white" onclick="ir('p-cxc')">💳 Cuentas por Cobrar</button>
-  <button class="mb" style="background:#AD1457;color:white" onclick="ir('p-vip')">⭐ Programa Lealtad VIP</button>
-  <button class="mb" style="background:#C62828;color:white" id="btn-gastos" onclick="irProtegido('p-gastos')">💸 Gastos</button>
-  <button class="mb" style="background:#4527A0;color:white" id="btn-facturas" onclick="irProtegido('p-facturas')">🧾 Facturas</button>
+  <button class="mb" style="background:linear-gradient(135deg,#1565C0,#1976D2);color:white" onclick="ir('p-cl')">👥 Clientes</button>
+  <button class="mb" style="background:linear-gradient(135deg,#00838F,#0097A7);color:white" id="btn-cat" onclick="irProtegido('p-cat')">📦 Catálogo</button>
+  <button class="mb" style="background:linear-gradient(135deg,#F9A825,#FFB300);color:#1a1a1a" onclick="ir('p-ped')">⚡ Pedidos rápidos</button>
+  <button class="mb" style="background:linear-gradient(135deg,#2E7D32,#388E3C);color:white" onclick="ir('p-v')">🧾 Vender</button>
+  <button class="mb" style="background:linear-gradient(135deg,#6A1B9A,#7B1FA2);color:white" onclick="ir('p-cxc')">💳 Cuentas por Cobrar</button>
+  <button class="mb" style="background:linear-gradient(135deg,#AD1457,#C2185B);color:white" onclick="ir('p-vip')">⭐ Programa Lealtad VIP</button>
+  <button class="mb" style="background:linear-gradient(135deg,#C62828,#D32F2F);color:white" id="btn-gastos" onclick="irProtegido('p-gastos')">💸 Gastos</button>
+  <button class="mb" style="background:linear-gradient(135deg,#4527A0,#512DA8);color:white" id="btn-facturas" onclick="irProtegido('p-facturas')">🧾 Facturas</button>
 
   <!-- PIN toggle -->
   <div id="pin-toggle-bar" style="background:#37474F;border-radius:10px;padding:10px 14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
@@ -4907,48 +5034,48 @@ document.addEventListener('DOMContentLoaded', function(){
 function verificarBackup(){
   var hoy = new Date().getTime();
   var ultimoBackup = parseInt(localStorage.getItem('ultimoBackup') || '0');
-  var diasTranscurridos = (hoy - ultimoBackup) / (1000 * 60 * 60 * 24);
+  var horasTranscurridas = (hoy - ultimoBackup) / (1000 * 60 * 60);
 
-  // Si nunca ha hecho backup o han pasado 2+ días
-  if(!ultimoBackup || diasTranscurridos >= 1){
+  // Mostrar si nunca ha hecho backup O han pasado 12+ horas (2 veces al día)
+  if(!ultimoBackup || horasTranscurridas >= 12){
     mostrarAlertaBackup(ultimoBackup);
   }
 }
 
 function mostrarAlertaBackup(ultimoBackup){
+  // Evitar duplicar el overlay
+  if(document.getElementById('backup-overlay')) return;
+
   var overlay = document.createElement('div');
   overlay.id = 'backup-overlay';
   overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:999999;display:flex;align-items:center;justify-content:center;padding:20px';
 
-  var dias = ultimoBackup ? Math.floor((new Date().getTime() - ultimoBackup) / (1000 * 60 * 60 * 24)) : null;
-  var mensaje = dias ? '⚠️ Han pasado <b>'+dias+' días</b> desde tu último backup.' : '⚠️ Nunca has hecho un backup de tus datos.';
+  var horas = ultimoBackup ? Math.round((new Date().getTime() - ultimoBackup) / (1000 * 60 * 60)) : null;
+  var mensaje = horas ? '⚠️ Han pasado <b>'+horas+' horas</b> desde tu último backup.' : '⚠️ Nunca has hecho un backup de tus datos.';
 
   overlay.innerHTML = '<div style="background:white;border-radius:16px;padding:28px;max-width:340px;width:100%;text-align:center">'
     +'<div style="font-size:48px;margin-bottom:12px">💾</div>'
-    +'<div style="font-size:18px;font-weight:800;color:#1a237e;margin-bottom:10px">Backup Requerido</div>'
+    +'<div style="font-size:18px;font-weight:800;color:#1a237e;margin-bottom:10px">Recordatorio de Backup</div>'
     +'<div style="font-size:14px;color:#555;margin-bottom:8px">'+mensaje+'</div>'
-    +'<div style="font-size:13px;color:#888;margin-bottom:20px">Por seguridad, debes hacer un backup antes de continuar.</div>'
+    +'<div style="font-size:13px;color:#888;margin-bottom:20px">Se recomienda hacer backup 2 veces al día para proteger tus datos.</div>'
     +'<button onclick="hacerBackupAhora()" style="width:100%;padding:14px;background:#1565C0;color:white;border:none;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;margin-bottom:10px">📤 Hacer Backup Ahora</button>'
-    +'<button onclick="recordarMasTarde()" style="width:100%;padding:12px;background:#f5f5f5;color:#888;border:none;border-radius:10px;font-size:13px;cursor:pointer">Recordar en 1 hora</button>'
+    +'<button onclick="recordarMasTarde()" style="width:100%;padding:12px;background:#f5f5f5;color:#888;border:none;border-radius:10px;font-size:13px;cursor:pointer">⏰ Recordar en 1 hora</button>'
     +'</div>';
 
   document.body.appendChild(overlay);
 }
 
 function hacerBackupAhora(){
-  // Registrar fecha del backup
   localStorage.setItem('ultimoBackup', new Date().getTime().toString());
-  // Cerrar overlay
   var overlay = document.getElementById('backup-overlay');
   if(overlay) overlay.remove();
-  // Ejecutar exportación
   exportD();
 }
 
 function recordarMasTarde(){
-  // Dar 1 hora de gracia
-  var unaHora = new Date().getTime() - (1000 * 60 * 60 * 23); // contar como si el backup fue hace 23h
-  localStorage.setItem('ultimoBackup', unaHora.toString());
+  // Guardar como si el backup fue hace 11 horas — aparecerá de nuevo en 1 hora
+  var once_horas = new Date().getTime() - (1000 * 60 * 60 * 11);
+  localStorage.setItem('ultimoBackup', once_horas.toString());
   var overlay = document.getElementById('backup-overlay');
   if(overlay) overlay.remove();
 }

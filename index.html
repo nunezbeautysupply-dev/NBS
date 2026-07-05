@@ -5216,10 +5216,6 @@ function verFacturaProfesional(vid){
 
 
 function imprimirFacturaBT(vid){
-  if(window._imprimiendo) return;
-  window._imprimiendo = true;
-  setTimeout(function(){ window._imprimiendo = false; }, 5000);
-
   ventas = LS('nv', []);
   clientes = LS('ncl', []);
   var v = ventas.find(function(x){ return String(x.id)===String(vid); });
@@ -5229,116 +5225,80 @@ function imprimirFacturaBT(vid){
   var saldo = Math.max(0, v.total - pagado);
   var numFact = String(v.id).slice(-6);
 
-  var itemsHTML = v.items.map(function(it){
-    return '<tr>'
-      +'<td style="padding:4px 2px;border-bottom:1px solid #eee;font-size:11px">'+it.nombre+'</td>'
-      +'<td style="padding:4px 2px;border-bottom:1px solid #eee;text-align:center;font-size:11px">'+it.cant+'</td>'
-      +'<td style="padding:4px 2px;border-bottom:1px solid #eee;text-align:right;font-size:11px">$'+fmtNum(it.precio)+'</td>'
-      +'<td style="padding:4px 2px;border-bottom:1px solid #eee;text-align:right;font-size:11px;font-weight:700">$'+fmtNum(it.cant*it.precio)+'</td>'
-      +'</tr>';
-  }).join('');
+  // Intentar Web Bluetooth primero
+  if(navigator.bluetooth){
+    function agregarTexto(bytes, texto){
+      for(var i=0; i<texto.length; i++) bytes.push(texto.charCodeAt(i) & 0xFF);
+    }
+    function linea32(izq, der){
+      var esp = 32 - izq.length - der.length;
+      return izq + Array(Math.max(1,esp)+1).join(' ') + der;
+    }
+    function buildESCPOS(){
+      var b = [];
+      b.push(0x1B,0x40); // Init
+      b.push(0x1B,0x61,0x01); // Center
+      b.push(0x1B,0x45,0x01); b.push(0x1D,0x21,0x11);
+      agregarTexto(b,'NUNEZ BEAUTY SUPPLY'); b.push(0x0A);
+      b.push(0x1B,0x45,0x00); b.push(0x1D,0x21,0x00);
+      agregarTexto(b,'Providence, RI'); b.push(0x0A);
+      b.push(0x1B,0x61,0x00);
+      agregarTexto(b,'--------------------------------'); b.push(0x0A);
+      agregarTexto(b,'Factura #'+numFact+' '+v.fecha); b.push(0x0A);
+      b.push(0x1B,0x45,0x01); agregarTexto(b,v.cn); b.push(0x0A); b.push(0x1B,0x45,0x00);
+      if(cl&&cl.negocio){ agregarTexto(b,cl.negocio); b.push(0x0A); }
+      agregarTexto(b,'--------------------------------'); b.push(0x0A);
+      v.items.forEach(function(it){
+        agregarTexto(b,it.nombre.substring(0,32)); b.push(0x0A);
+        agregarTexto(b,linea32('  '+it.cant+' x $'+fmtNum(it.precio),'$'+fmtNum(it.cant*it.precio))); b.push(0x0A);
+      });
+      agregarTexto(b,'--------------------------------'); b.push(0x0A);
+      b.push(0x1B,0x45,0x01); b.push(0x1D,0x21,0x01);
+      agregarTexto(b,linea32('TOTAL:','$'+fmtNum(v.total))); b.push(0x0A);
+      b.push(0x1D,0x21,0x00); b.push(0x1B,0x45,0x00);
+      if(v.pagosFactura) v.pagosFactura.filter(function(p){return p.monto>0;}).forEach(function(p){
+        agregarTexto(b,'Abono '+p.fecha+': $'+fmtNum(p.monto)); b.push(0x0A);
+      });
+      b.push(0x1B,0x45,0x01);
+      agregarTexto(b,linea32('BALANCE:','$'+fmtNum(saldo))); b.push(0x0A);
+      b.push(0x1B,0x45,0x00);
+      b.push(0x1B,0x61,0x01);
+      agregarTexto(b,'Gracias por su preferencia'); b.push(0x0A,0x0A,0x0A,0x0A);
+      b.push(0x1D,0x56,0x42,0x00); // Cortar
+      return new Uint8Array(b);
+    }
 
-  var abonosHTML = '';
-  if(v.tipo==='credito' && v.pagosFactura && v.pagosFactura.length > 0){
-    abonosHTML = '<div style="margin-top:8px;border-top:1px dashed #ccc;padding-top:6px">'
-      +'<div style="font-size:10px;font-weight:700;margin-bottom:4px">ABONOS:</div>'
-      +v.pagosFactura.filter(function(p){ return p.monto>0; }).map(function(p){
-        return '<div style="display:flex;justify-content:space-between;font-size:10px"><span>'+(p.fecha||'')+'</span><span>$'+fmtNum(p.monto)+'</span></div>';
-      }).join('')
-      +'</div>';
-  }
-
-  var html = '<!DOCTYPE html><html><head>'
-    +'<meta charset="UTF-8">'
-    +'<style>'
-    +'* { margin:0; padding:0; box-sizing:border-box; }'
-    +'body { font-family: monospace; font-size: 13px; width: 54mm; padding: 2mm; }'
-    +'@page { margin: 0; size: 58mm auto; }'
-    +'table { width:100%; border-collapse:collapse; }'
-    +'td, th { font-size:11px; padding:3px 2px; }'
-    +'</style></head><body>'
-    +'<div style="text-align:center;border-bottom:1px dashed #000;padding-bottom:6px;margin-bottom:6px">'
-    +'<div style="font-size:14px;font-weight:bold">NUNEZ BEAUTY SUPPLY</div>'
-    +'<div style="font-size:10px">964 Atwells Ave, Providence, RI</div>'
-    +'</div>'
-    +'<div style="margin-bottom:6px">'
-    +'<div style="font-size:10px">Factura #'+numFact+'</div>'
-    +'<div style="font-size:10px">'+v.fecha+' '+v.hora+'</div>'
-    +'<div style="font-size:11px;font-weight:bold">'+v.cn+'</div>'
-    +(cl&&cl.negocio?'<div style="font-size:10px">'+cl.negocio+'</div>':'')
-    +'</div>'
-    +'<table style="width:100%;border-collapse:collapse;margin-bottom:6px">'
-    +'<thead><tr style="border-bottom:1px solid #000">'
-    +'<th style="text-align:left;font-size:9px;padding:2px">Producto</th>'
-    +'<th style="text-align:center;font-size:9px;padding:2px">Cant</th>'
-    +'<th style="text-align:right;font-size:9px;padding:2px">Precio</th>'
-    +'<th style="text-align:right;font-size:9px;padding:2px">Total</th>'
-    +'</tr></thead><tbody>'+itemsHTML+'</tbody></table>'
-    +'<div style="border-top:1px solid #000;padding-top:6px">'
-    +'<div style="display:flex;justify-content:space-between;font-size:13px;font-weight:bold">'
-    +'<span>TOTAL:</span><span>$'+fmtNum(v.total)+'</span></div>'
-    +abonosHTML
-    +'<div style="display:flex;justify-content:space-between;font-size:12px;font-weight:bold;margin-top:4px">'
-    +'<span>BALANCE:</span><span>$'+fmtNum(saldo)+'</span></div>'
-    +'</div>'
-    +'<div style="text-align:center;margin-top:8px;font-size:9px;border-top:1px dashed #000;padding-top:6px">Gracias por su preferencia</div>'
-    +'</body></html>';
-
-  var ventana = window.open('', '_blank', 'width=300,height=600');
-  if(ventana && !ventana.closed){
-    ventana.document.write(html);
-    ventana.document.close();
-    setTimeout(function(){
-      ventana.print();
-      setTimeout(function(){ ventana.close(); }, 1000);
-    }, 500);
+    navigator.bluetooth.requestDevice({
+      acceptAllDevices: true,
+      optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb']
+    }).then(function(device){
+      return device.gatt.connect();
+    }).then(function(server){
+      return server.getPrimaryService('000018f0-0000-1000-8000-00805f9b34fb');
+    }).then(function(service){
+      return service.getCharacteristic('00002af1-0000-1000-8000-00805f9b34fb');
+    }).then(function(char){
+      var datos = buildESCPOS();
+      var p = Promise.resolve();
+      for(var i=0; i<datos.length; i+=20){
+        (function(chunk){ p = p.then(function(){ return char.writeValue(chunk); }); })(datos.slice(i,i+20));
+      }
+      return p;
+    }).then(function(){
+      alert('✅ Impreso directamente en MUNBYN IMP001');
+    }).catch(function(err){
+      // Si falla Bluetooth, usar PrinterShare normalmente
+      console.log('BT falló, usando PrinterShare:', err.message);
+      verFacturaProfesional(vid);
+      setTimeout(function(){ window.print(); }, 800);
+    });
   } else {
-    // Brave bloqueó la ventana - usar método alternativo
-    // Guardar contenido original
-    var bodyOriginal = document.body.innerHTML;
-    var titleOriginal = document.title;
-    
-    // Reemplazar página con solo la factura
-    document.title = 'Factura #'+numFact+' - '+v.cn;
-    document.body.innerHTML = '<div style="font-family:monospace;font-size:13px;width:54mm;padding:2mm;margin:0 auto">'
-      +'<div style="text-align:center;border-bottom:1px dashed #000;padding-bottom:6px;margin-bottom:6px">'
-      +'<div style="font-size:14px;font-weight:bold">NUNEZ BEAUTY SUPPLY</div>'
-      +'<div style="font-size:10px">964 Atwells Ave, Providence, RI</div>'
-      +'</div>'
-      +'<div style="margin-bottom:6px">'
-      +'<div style="font-size:10px">Factura #'+numFact+'</div>'
-      +'<div style="font-size:10px">'+v.fecha+' '+v.hora+'</div>'
-      +'<div style="font-size:12px;font-weight:bold">'+v.cn+'</div>'
-      +(cl&&cl.negocio?'<div style="font-size:10px">'+cl.negocio+'</div>':'')
-      +'</div>'
-      +'<table style="width:100%;border-collapse:collapse;margin-bottom:6px">'
-      +'<thead><tr style="border-bottom:1px solid #000">'
-      +'<th style="text-align:left;font-size:9px;padding:2px">Producto</th>'
-      +'<th style="text-align:center;font-size:9px;padding:2px">Cant</th>'
-      +'<th style="text-align:right;font-size:9px;padding:2px">Precio</th>'
-      +'<th style="text-align:right;font-size:9px;padding:2px">Total</th>'
-      +'</tr></thead><tbody>'+itemsHTML+'</tbody></table>'
-      +'<div style="border-top:1px solid #000;padding-top:6px">'
-      +'<div style="display:flex;justify-content:space-between;font-size:13px;font-weight:bold">'
-      +'<span>TOTAL:</span><span>$'+fmtNum(v.total)+'</span></div>'
-      +abonosHTML
-      +'<div style="display:flex;justify-content:space-between;font-size:12px;font-weight:bold;margin-top:4px">'
-      +'<span>BALANCE:</span><span>$'+fmtNum(saldo)+'</span></div>'
-      +'</div>'
-      +'<div style="text-align:center;margin-top:8px;font-size:9px;border-top:1px dashed #000;padding-top:6px">Gracias por su preferencia</div>'
-      +'</div>';
-    
-    setTimeout(function(){
-      window.print();
-      // Restaurar la app después de imprimir
-      setTimeout(function(){
-        document.title = titleOriginal;
-        document.body.innerHTML = bodyOriginal;
-        window._imprimiendo = false;
-      }, 1500);
-    }, 300);
+    // Sin Web Bluetooth - usar PrinterShare normalmente
+    verFacturaProfesional(vid);
+    setTimeout(function(){ window.print(); }, 800);
   }
 }
+
 
 function compartirFactura(vid){
   ventas = LS('nv', []);

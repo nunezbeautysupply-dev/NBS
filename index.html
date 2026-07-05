@@ -5225,75 +5225,50 @@ function imprimirFacturaBT(vid){
   var saldo = Math.max(0, v.total - pagado);
   var numFact = String(v.id).slice(-6);
 
-  // Intentar Web Bluetooth primero
-  if(navigator.bluetooth){
-    function agregarTexto(bytes, texto){
-      for(var i=0; i<texto.length; i++) bytes.push(texto.charCodeAt(i) & 0xFF);
-    }
-    function linea32(izq, der){
-      var esp = 32 - izq.length - der.length;
-      return izq + Array(Math.max(1,esp)+1).join(' ') + der;
-    }
-    function buildESCPOS(){
-      var b = [];
-      b.push(0x1B,0x40); // Init
-      b.push(0x1B,0x61,0x01); // Center
-      b.push(0x1B,0x45,0x01); b.push(0x1D,0x21,0x11);
-      agregarTexto(b,'NUNEZ BEAUTY SUPPLY'); b.push(0x0A);
-      b.push(0x1B,0x45,0x00); b.push(0x1D,0x21,0x00);
-      agregarTexto(b,'Providence, RI'); b.push(0x0A);
-      b.push(0x1B,0x61,0x00);
-      agregarTexto(b,'--------------------------------'); b.push(0x0A);
-      agregarTexto(b,'Factura #'+numFact+' '+v.fecha); b.push(0x0A);
-      b.push(0x1B,0x45,0x01); agregarTexto(b,v.cn); b.push(0x0A); b.push(0x1B,0x45,0x00);
-      if(cl&&cl.negocio){ agregarTexto(b,cl.negocio); b.push(0x0A); }
-      agregarTexto(b,'--------------------------------'); b.push(0x0A);
-      v.items.forEach(function(it){
-        agregarTexto(b,it.nombre.substring(0,32)); b.push(0x0A);
-        agregarTexto(b,linea32('  '+it.cant+' x $'+fmtNum(it.precio),'$'+fmtNum(it.cant*it.precio))); b.push(0x0A);
-      });
-      agregarTexto(b,'--------------------------------'); b.push(0x0A);
-      b.push(0x1B,0x45,0x01); b.push(0x1D,0x21,0x01);
-      agregarTexto(b,linea32('TOTAL:','$'+fmtNum(v.total))); b.push(0x0A);
-      b.push(0x1D,0x21,0x00); b.push(0x1B,0x45,0x00);
-      if(v.pagosFactura) v.pagosFactura.filter(function(p){return p.monto>0;}).forEach(function(p){
-        agregarTexto(b,'Abono '+p.fecha+': $'+fmtNum(p.monto)); b.push(0x0A);
-      });
-      b.push(0x1B,0x45,0x01);
-      agregarTexto(b,linea32('BALANCE:','$'+fmtNum(saldo))); b.push(0x0A);
-      b.push(0x1B,0x45,0x00);
-      b.push(0x1B,0x61,0x01);
-      agregarTexto(b,'Gracias por su preferencia'); b.push(0x0A,0x0A,0x0A,0x0A);
-      b.push(0x1D,0x56,0x42,0x00); // Cortar
-      return new Uint8Array(b);
-    }
+  // Construir texto formateado para ESC POS de 32 caracteres (58mm)
+  function pad(str, len){ return (str+'').substring(0,len)+Array(Math.max(0,len-(str+'').length)+1).join(' '); }
+  function padRight(str, len){ return Array(Math.max(0,len-(str+'').length)+1).join(' ')+(str+'').substring(0,len); }
+  function linea(izq, der){ var esp=32-izq.length-der.length; return izq+Array(Math.max(1,esp)+1).join(' ')+der; }
 
-    navigator.bluetooth.requestDevice({
-      acceptAllDevices: true,
-      optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb']
-    }).then(function(device){
-      return device.gatt.connect();
-    }).then(function(server){
-      return server.getPrimaryService('000018f0-0000-1000-8000-00805f9b34fb');
-    }).then(function(service){
-      return service.getCharacteristic('00002af1-0000-1000-8000-00805f9b34fb');
-    }).then(function(char){
-      var datos = buildESCPOS();
-      var p = Promise.resolve();
-      for(var i=0; i<datos.length; i+=20){
-        (function(chunk){ p = p.then(function(){ return char.writeValue(chunk); }); })(datos.slice(i,i+20));
-      }
-      return p;
-    }).then(function(){
-      alert('✅ Impreso directamente en MUNBYN IMP001');
+  var lineas = [];
+  lineas.push('================================');
+  lineas.push('    NUNEZ BEAUTY SUPPLY         ');
+  lineas.push(' 964 Atwells Ave Providence RI  ');
+  lineas.push('================================');
+  lineas.push('Factura #'+numFact+'  '+v.fecha);
+  lineas.push(v.cn);
+  if(cl&&cl.negocio) lineas.push(cl.negocio);
+  lineas.push('--------------------------------');
+  v.items.forEach(function(it){
+    var nom = it.nombre.substring(0,32);
+    lineas.push(nom);
+    var cant = it.cant+' x $'+fmtNum(it.precio);
+    var tot = '$'+fmtNum(it.cant*it.precio);
+    lineas.push(linea('  '+cant, tot));
+  });
+  lineas.push('--------------------------------');
+  lineas.push(linea('TOTAL:', '$'+fmtNum(v.total)));
+  if(v.pagosFactura) v.pagosFactura.filter(function(p){return p.monto>0;}).forEach(function(p){
+    lineas.push(linea('Abono '+(p.fecha||''), '$'+fmtNum(p.monto)));
+  });
+  lineas.push(linea('BALANCE:', '$'+fmtNum(saldo)));
+  lineas.push('================================');
+  lineas.push('   Gracias por su preferencia   ');
+  lineas.push('');lineas.push('');lineas.push('');
+
+  var texto = lineas.join('\n');
+
+  // Usar Web Share API para enviar texto a ESC POS Print Service
+  if(navigator.share){
+    navigator.share({
+      title: 'Factura #'+numFact,
+      text: texto
     }).catch(function(err){
-      // Si falla Bluetooth, usar PrinterShare normalmente
-      console.log('BT falló, usando PrinterShare:', err.message);
-      verFacturaProfesional(vid);
-      setTimeout(function(){ window.print(); }, 800);
+      // Si el usuario cancela, no hacer nada
+      console.log('Share cancelado:', err.message);
     });
   } else {
-    // Sin Web Bluetooth - usar PrinterShare normalmente
+    // Fallback: mostrar factura e imprimir
     verFacturaProfesional(vid);
     setTimeout(function(){ window.print(); }, 800);
   }

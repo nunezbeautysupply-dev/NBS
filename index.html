@@ -178,6 +178,12 @@ body{
     max-width: 58mm !important; 
     padding: 2mm !important;
     font-family: monospace !important;
+    page-break-inside: avoid !important;
+  }
+  #factura-imprimible * {
+    page-break-inside: avoid !important;
+    page-break-before: avoid !important;
+    page-break-after: avoid !important;
   }
   #factura-imprimible div[style*="gradient"] {
     background: none !important;
@@ -4853,10 +4859,54 @@ function abrirAbono(cid){
         ph.style.cssText = 'font-size:11px;font-weight:700;color:#6A1B9A;margin-bottom:4px';
         ph.textContent = 'Pagos aplicados:';
         card.appendChild(ph);
-        v.pagosFactura.forEach(function(p){
+        v.pagosFactura.forEach(function(p, pidx){
+          if(!p.monto || p.monto <= 0) return;
           var pr = document.createElement('div');
-          pr.style.cssText = 'display:flex;justify-content:space-between;font-size:12px;color:#aaa;padding:2px 0';
-          pr.innerHTML = '<span>'+p.fecha+'</span><span style="color:#2E7D32">+$'+fmtNum(p.monto)+'</span>';
+          pr.style.cssText = 'display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:4px 0;border-bottom:0.5px solid #f0f0f0';
+          
+          var infoSpan = document.createElement('span');
+          infoSpan.style.cssText = 'color:#555;flex:1';
+          infoSpan.textContent = (p.fecha||'') + (p.nota?' · '+p.nota:'');
+          
+          var montoSpan = document.createElement('span');
+          montoSpan.style.cssText = 'color:#2E7D32;font-weight:700;margin:0 8px';
+          montoSpan.textContent = '+$'+fmtNum(p.monto);
+          
+          var btnEdit = document.createElement('button');
+          btnEdit.textContent = '✏️';
+          btnEdit.style.cssText = 'background:#E8EAF6;border:none;border-radius:6px;padding:3px 7px;cursor:pointer;font-size:12px;margin-right:4px';
+          btnEdit.onclick = (function(vid, pi, pm){ return function(){
+            var nuevo = prompt('Editar monto del abono ($):', pm.toFixed(2));
+            if(nuevo === null) return;
+            var nuevoMonto = parseFloat(nuevo);
+            if(isNaN(nuevoMonto) || nuevoMonto < 0){ alert('Monto inválido'); return; }
+            ventas = LS('nv',[]);
+            var vf = ventas.find(function(x){ return x.id===vid; });
+            if(vf && vf.pagosFactura && vf.pagosFactura[pi] !== undefined){
+              vf.pagosFactura[pi].monto = nuevoMonto;
+              SS('nv', ventas);
+              abrirAbono(cxcClienteId);
+            }
+          }; })(v.id, pidx, p.monto);
+
+          var btnDel = document.createElement('button');
+          btnDel.textContent = '🗑️';
+          btnDel.style.cssText = 'background:#FFEBEE;border:none;border-radius:6px;padding:3px 7px;cursor:pointer;font-size:12px';
+          btnDel.onclick = (function(vid, pi, pm){ return function(){
+            if(!confirm('¿Borrar este abono de $'+fmtNum(pm)+'?')) return;
+            ventas = LS('nv',[]);
+            var vf = ventas.find(function(x){ return x.id===vid; });
+            if(vf && vf.pagosFactura){
+              vf.pagosFactura.splice(pi, 1);
+              SS('nv', ventas);
+              abrirAbono(cxcClienteId);
+            }
+          }; })(v.id, pidx, p.monto);
+
+          pr.appendChild(infoSpan);
+          pr.appendChild(montoSpan);
+          pr.appendChild(btnEdit);
+          pr.appendChild(btnDel);
           card.appendChild(pr);
         });
       }
@@ -5140,7 +5190,23 @@ function verFacturaProfesional(vid){
     +'<span style="font-size:17px;font-weight:800;color:#1a237e">TOTAL</span>'
     +'<span style="font-size:20px;font-weight:800;color:#1565C0">$'+fmtNum(v.total)+'</span>'
     +'</div>'
+    +(v.tipo==='credito' && v.pagosFactura && v.pagosFactura.filter(function(p){ return p.monto>0; }).length > 0 ?
+      '<div style="margin-top:10px;background:#F1F8E9;border-radius:8px;padding:10px">'
+      +'<div style="font-size:11px;font-weight:700;color:#2E7D32;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px">📋 Historial de abonos</div>'
+      +v.pagosFactura.filter(function(p){ return typeof p.monto==='number' && p.monto>0; }).map(function(p){
+        return '<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:0.5px solid #C8E6C9;font-size:12px">'
+          +'<span style="color:#555">'+(p.fecha||'')+(p.nota?' · '+p.nota:'')+'</span>'
+          +'<span style="font-weight:700;color:#2E7D32">$'+fmtNum(p.monto)+'</span>'
+          +'</div>';
+      }).join('')
+      +'<div style="display:flex;justify-content:space-between;padding-top:6px;font-size:13px;font-weight:700">'
+      +'<span style="color:#2E7D32">Total abonado:</span><span style="color:#2E7D32">$'+fmtNum(pagado)+'</span>'
+      +'</div></div>' : '')
     +(saldo>0?'<div style="display:flex;justify-content:space-between;margin-top:8px;background:#FFEBEE;padding:8px;border-radius:8px"><span style="font-size:14px;font-weight:700;color:#C62828">Balance pendiente:</span><span style="font-size:16px;font-weight:800;color:#C62828">$'+fmtNum(saldo)+'</span></div>':'<div style="text-align:center;margin-top:8px;background:#E8F5E9;padding:8px;border-radius:8px;font-size:13px;font-weight:700;color:#2E7D32">✓ PAGADO COMPLETO</div>')
+    +'<div style="display:flex;justify-content:space-between;margin-top:6px;padding:6px 8px;border-radius:8px;background:#f5f5f5">'
+    +'<span style="font-size:13px;font-weight:700;color:#555">Balance:</span>'
+    +'<span style="font-size:14px;font-weight:800;color:'+(saldo>0?'#C62828':'#2E7D32')+'">$'+fmtNum(saldo)+'</span>'
+    +'</div>'
     +'</div>'
     +'<div style="text-align:center;margin-top:16px;font-size:11px;color:#aaa;border-top:0.5px solid #f0f0f0;padding-top:12px">Gracias por su preferencia · Nunez Beauty Supply</div>'
     +'</div>';
@@ -5152,11 +5218,83 @@ function verFacturaProfesional(vid){
 function imprimirFacturaBT(vid){
   if(window._imprimiendo) return;
   window._imprimiendo = true;
-  verFacturaProfesional(vid);
-  setTimeout(function(){
-    window.print();
-  }, 600);
   setTimeout(function(){ window._imprimiendo = false; }, 5000);
+
+  ventas = LS('nv', []);
+  clientes = LS('ncl', []);
+  var v = ventas.find(function(x){ return String(x.id)===String(vid); });
+  if(!v) return;
+  var cl = clientes.find(function(c){ return String(c.id)===String(v.cid); });
+  var pagado = v.tipo==='credito' ? (v.pagosFactura ? v.pagosFactura.filter(function(p){return typeof p.monto==='number';}).reduce(function(s,p){return s+p.monto;},0) : 0) : v.total;
+  var saldo = Math.max(0, v.total - pagado);
+  var numFact = String(v.id).slice(-6);
+
+  var itemsHTML = v.items.map(function(it){
+    return '<tr>'
+      +'<td style="padding:4px 2px;border-bottom:1px solid #eee;font-size:11px">'+it.nombre+'</td>'
+      +'<td style="padding:4px 2px;border-bottom:1px solid #eee;text-align:center;font-size:11px">'+it.cant+'</td>'
+      +'<td style="padding:4px 2px;border-bottom:1px solid #eee;text-align:right;font-size:11px">$'+fmtNum(it.precio)+'</td>'
+      +'<td style="padding:4px 2px;border-bottom:1px solid #eee;text-align:right;font-size:11px;font-weight:700">$'+fmtNum(it.cant*it.precio)+'</td>'
+      +'</tr>';
+  }).join('');
+
+  var abonosHTML = '';
+  if(v.tipo==='credito' && v.pagosFactura && v.pagosFactura.length > 0){
+    abonosHTML = '<div style="margin-top:8px;border-top:1px dashed #ccc;padding-top:6px">'
+      +'<div style="font-size:10px;font-weight:700;margin-bottom:4px">ABONOS:</div>'
+      +v.pagosFactura.filter(function(p){ return p.monto>0; }).map(function(p){
+        return '<div style="display:flex;justify-content:space-between;font-size:10px"><span>'+(p.fecha||'')+'</span><span>$'+fmtNum(p.monto)+'</span></div>';
+      }).join('')
+      +'</div>';
+  }
+
+  var html = '<!DOCTYPE html><html><head>'
+    +'<meta charset="UTF-8">'
+    +'<style>'
+    +'* { margin:0; padding:0; box-sizing:border-box; }'
+    +'body { font-family: monospace; font-size: 13px; width: 54mm; padding: 2mm; }'
+    +'@page { margin: 0; size: 58mm auto; }'
+    +'table { width:100%; border-collapse:collapse; }'
+    +'td, th { font-size:11px; padding:3px 2px; }'
+    +'</style></head><body>'
+    +'<div style="text-align:center;border-bottom:1px dashed #000;padding-bottom:6px;margin-bottom:6px">'
+    +'<div style="font-size:14px;font-weight:bold">NUNEZ BEAUTY SUPPLY</div>'
+    +'<div style="font-size:10px">964 Atwells Ave, Providence, RI</div>'
+    +'</div>'
+    +'<div style="margin-bottom:6px">'
+    +'<div style="font-size:10px">Factura #'+numFact+'</div>'
+    +'<div style="font-size:10px">'+v.fecha+' '+v.hora+'</div>'
+    +'<div style="font-size:11px;font-weight:bold">'+v.cn+'</div>'
+    +(cl&&cl.negocio?'<div style="font-size:10px">'+cl.negocio+'</div>':'')
+    +'</div>'
+    +'<table style="width:100%;border-collapse:collapse;margin-bottom:6px">'
+    +'<thead><tr style="border-bottom:1px solid #000">'
+    +'<th style="text-align:left;font-size:9px;padding:2px">Producto</th>'
+    +'<th style="text-align:center;font-size:9px;padding:2px">Cant</th>'
+    +'<th style="text-align:right;font-size:9px;padding:2px">Precio</th>'
+    +'<th style="text-align:right;font-size:9px;padding:2px">Total</th>'
+    +'</tr></thead><tbody>'+itemsHTML+'</tbody></table>'
+    +'<div style="border-top:1px solid #000;padding-top:6px">'
+    +'<div style="display:flex;justify-content:space-between;font-size:13px;font-weight:bold">'
+    +'<span>TOTAL:</span><span>$'+fmtNum(v.total)+'</span></div>'
+    +abonosHTML
+    +'<div style="display:flex;justify-content:space-between;font-size:12px;font-weight:bold;margin-top:4px">'
+    +'<span>BALANCE:</span><span>$'+fmtNum(saldo)+'</span></div>'
+    +'</div>'
+    +'<div style="text-align:center;margin-top:8px;font-size:9px;border-top:1px dashed #000;padding-top:6px">Gracias por su preferencia</div>'
+    +'</body></html>';
+
+  var ventana = window.open('', '_blank', 'width=300,height=600');
+  if(ventana){
+    ventana.document.write(html);
+    ventana.document.close();
+    setTimeout(function(){
+      ventana.print();
+      setTimeout(function(){ ventana.close(); }, 1000);
+    }, 500);
+  } else {
+    alert('Permite ventanas emergentes en Brave para imprimir');
+  }
 }
 
 function compartirFactura(vid){

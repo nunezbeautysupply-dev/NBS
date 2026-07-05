@@ -1,1 +1,1 @@
-v3.0 - 20260705-0300 (Diseno de factura ahora genera imagen y comparte directo, sin pasar por el sistema de impresion de Android - evita conflicto con PrinterShare)
+v3.0 - 20260705-0400 (letras mas grandes en factura-imagen + blanco/negro puro sin grises para evitar impresion 'descolorida')

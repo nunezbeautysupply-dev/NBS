@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="20260705-0300">
+<meta name="app-version" content="20260705-0400">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -5396,118 +5396,115 @@ function dibujarContenidoFactura(ctx, W, pad, v, cl, pagado, saldo, numFact, abo
   var y;
   // Header negro
   ctx.fillStyle = '#000';
-  ctx.fillRect(0,0,W,64);
+  ctx.fillRect(0,0,W,70);
   ctx.fillStyle = '#fff';
   ctx.textAlign = 'center';
-  ctx.font = 'bold 20px sans-serif';
-  ctx.fillText('Nunez Beauty Supply', W/2, 30);
-  ctx.font = '11px sans-serif';
-  ctx.fillText('964 Atwells Ave, Providence, RI 02909', W/2, 50);
+  ctx.font = 'bold 23px sans-serif';
+  ctx.fillText('Nunez Beauty Supply', W/2, 32);
+  ctx.font = 'bold 13px sans-serif';
+  ctx.fillText('964 Atwells Ave, Providence, RI 02909', W/2, 54);
 
-  y = 64 + 26;
+  y = 70 + 28;
   ctx.fillStyle = '#000';
-  ctx.font = 'bold 9px sans-serif';
+  ctx.font = 'bold 11px sans-serif';
   ctx.textAlign = 'left'; ctx.fillText('CLIENTE', pad, y);
   ctx.textAlign = 'right'; ctx.fillText('FACTURA', W-pad, y);
-  y += 18;
-  ctx.font = 'bold 15px sans-serif';
-  ctx.textAlign = 'left'; ctx.fillText((v.cn||'').substring(0,26), pad, y);
+  y += 20;
+  ctx.font = 'bold 17px sans-serif';
+  ctx.textAlign = 'left'; ctx.fillText((v.cn||'').substring(0,24), pad, y);
   ctx.textAlign = 'right'; ctx.fillText('#'+numFact, W-pad, y);
-  y += 17;
-  ctx.font = '11px sans-serif';
-  if(cl && cl.negocio){ ctx.textAlign='left'; ctx.fillText(cl.negocio.substring(0,26), pad, y); }
+  y += 19;
+  ctx.font = 'bold 13px sans-serif';
+  if(cl && cl.negocio){ ctx.textAlign='left'; ctx.fillText(cl.negocio.substring(0,24), pad, y); }
   ctx.textAlign='right'; ctx.fillText(v.fecha, W-pad, y);
-  y += 15;
+  y += 17;
   if(cl && cl.tel){ ctx.textAlign='left'; ctx.fillText(cl.tel, pad, y); }
   ctx.textAlign='right'; ctx.fillText(v.hora, W-pad, y);
-  y += 14;
+  y += 16;
 
   y += 6;
-  ctx.strokeStyle = '#000'; ctx.lineWidth = 1;
+  ctx.strokeStyle = '#000'; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.moveTo(pad,y); ctx.lineTo(W-pad,y); ctx.stroke();
-  y += 20;
+  y += 22;
 
-  ctx.font = 'bold 9px sans-serif';
+  ctx.font = 'bold 11px sans-serif';
   ctx.textAlign='left'; ctx.fillText('PRODUCTO', pad, y);
   ctx.textAlign='right'; ctx.fillText('TOTAL', W-pad, y);
   y += 10;
   ctx.beginPath(); ctx.moveTo(pad,y); ctx.lineTo(W-pad,y); ctx.stroke();
-  y += 18;
+  y += 22;
 
   (v.items||[]).forEach(function(it){
-    ctx.font = '13px sans-serif';
+    ctx.font = 'bold 15px sans-serif';
     ctx.textAlign='left';
-    ctx.fillText((it.nombre||'').substring(0,28), pad, y);
-    ctx.font='bold 13px sans-serif';
+    ctx.fillText((it.nombre||'').substring(0,26), pad, y);
     ctx.textAlign='right';
     ctx.fillText('$'+fmtNum(it.cant*it.precio), W-pad, y);
-    y += 15;
-    ctx.font='11px sans-serif';
-    ctx.fillStyle='#666';
+    y += 18;
+    ctx.font='bold 13px sans-serif';
     ctx.textAlign='left';
     ctx.fillText(it.cant+' x $'+fmtNum(it.precio), pad, y);
-    ctx.fillStyle='#000';
-    y += 20;
+    y += 22;
   });
 
   y += 2;
   ctx.beginPath(); ctx.moveTo(pad,y); ctx.lineTo(W-pad,y); ctx.stroke();
-  y += 24;
+  y += 26;
 
-  ctx.font='12px sans-serif';
+  ctx.font='bold 14px sans-serif';
   ctx.textAlign='left'; ctx.fillText('Tipo de pago:', pad, y);
-  ctx.font='bold 12px sans-serif';
   ctx.textAlign='right'; ctx.fillText(v.tipo==='credito'?'A credito':'Contado', W-pad, y);
-  y += 28;
+  y += 30;
 
-  ctx.font='bold 18px sans-serif';
+  ctx.font='bold 21px sans-serif';
   ctx.textAlign='left'; ctx.fillText('TOTAL', pad, y);
   ctx.textAlign='right'; ctx.fillText('$'+fmtNum(v.total), W-pad, y);
-  y += 16;
+  y += 18;
 
   if(abonos.length){
-    y += 18;
-    var boxTop = y - 16;
-    ctx.font='bold 10px sans-serif';
-    ctx.textAlign='left'; ctx.fillText('HISTORIAL DE ABONOS', pad, y);
     y += 20;
-    ctx.font='11px sans-serif';
-    abonos.forEach(function(p){
-      ctx.textAlign='left'; ctx.fillText(((p.fecha||'')+(p.nota?' - '+p.nota:'')).substring(0,26), pad, y);
-      ctx.textAlign='right'; ctx.fillText('$'+fmtNum(p.monto), W-pad, y);
-      y += 18;
-    });
+    var boxTop = y - 18;
     ctx.font='bold 12px sans-serif';
+    ctx.textAlign='left'; ctx.fillText('HISTORIAL DE ABONOS', pad, y);
+    y += 22;
+    ctx.font='bold 13px sans-serif';
+    abonos.forEach(function(p){
+      ctx.textAlign='left'; ctx.fillText(((p.fecha||'')+(p.nota?' - '+p.nota:'')).substring(0,24), pad, y);
+      ctx.textAlign='right'; ctx.fillText('$'+fmtNum(p.monto), W-pad, y);
+      y += 20;
+    });
+    ctx.font='bold 14px sans-serif';
     ctx.textAlign='left'; ctx.fillText('Total abonado:', pad, y);
     ctx.textAlign='right'; ctx.fillText('$'+fmtNum(pagado), W-pad, y);
-    y += 10;
+    y += 12;
+    ctx.lineWidth = 2;
     ctx.strokeRect(pad-6, boxTop, W-2*pad+12, y-boxTop);
-    y += 22;
+    y += 24;
   } else {
     y += 16;
   }
 
   if(saldo>0){
-    var bt = y - 16;
-    ctx.font='bold 13px sans-serif';
+    var bt = y - 18;
+    ctx.font='bold 15px sans-serif';
     ctx.textAlign='left'; ctx.fillText('BALANCE PENDIENTE:', pad, y);
     ctx.textAlign='right'; ctx.fillText('$'+fmtNum(saldo), W-pad, y);
-    ctx.strokeRect(pad-6, bt, W-2*pad+12, 24);
-    y += 30;
+    ctx.lineWidth = 2;
+    ctx.strokeRect(pad-6, bt, W-2*pad+12, 26);
+    y += 32;
   } else {
-    ctx.font='bold 13px sans-serif';
+    ctx.font='bold 15px sans-serif';
     ctx.textAlign='center'; ctx.fillText('\u2713 PAGADO COMPLETO', W/2, y);
-    y += 30;
+    y += 32;
   }
 
-  y += 14;
-  ctx.font='10px sans-serif';
-  ctx.fillStyle = '#777';
+  y += 16;
+  ctx.font='bold 12px sans-serif';
   ctx.textAlign='center';
   ctx.fillText('Gracias por su preferencia', W/2, y);
-  y += 14;
-  ctx.fillText('Nunez Beauty Supply', W/2, y);
   y += 16;
+  ctx.fillText('Nunez Beauty Supply', W/2, y);
+  y += 18;
 
   return y;
 }
@@ -5517,17 +5514,31 @@ function generarFacturaCanvas(v, cl, pagado, saldo, numFact){
   var abonos = (v.tipo==='credito' && v.pagosFactura) ? v.pagosFactura.filter(function(p){ return typeof p.monto==='number' && p.monto>0; }) : [];
 
   var tmp = document.createElement('canvas');
-  tmp.width = W; tmp.height = 2000;
+  tmp.width = W; tmp.height = 2200;
   var ctxTmp = tmp.getContext('2d');
-  ctxTmp.fillStyle = '#fff'; ctxTmp.fillRect(0,0,W,2000);
+  ctxTmp.imageSmoothingEnabled = false;
+  ctxTmp.fillStyle = '#fff'; ctxTmp.fillRect(0,0,W,2200);
   var finalY = dibujarContenidoFactura(ctxTmp, W, pad, v, cl, pagado, saldo, numFact, abonos);
 
   var finalH = Math.ceil(finalY) + 16;
   var canvas = document.createElement('canvas');
   canvas.width = W; canvas.height = finalH;
   var ctx = canvas.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
   ctx.fillStyle = '#fff'; ctx.fillRect(0,0,W,finalH);
   ctx.drawImage(tmp, 0, 0, W, finalH, 0, 0, W, finalH);
+
+  // Forzar blanco y negro puro (sin grises) para que la impresora termica
+  // no "diluya" el texto en puntos sueltos - esto evita el efecto de tinta baja.
+  var imgData = ctx.getImageData(0, 0, W, finalH);
+  var d = imgData.data;
+  for(var i = 0; i < d.length; i += 4){
+    var lum = 0.299*d[i] + 0.587*d[i+1] + 0.114*d[i+2];
+    var v2 = lum < 165 ? 0 : 255;
+    d[i] = v2; d[i+1] = v2; d[i+2] = v2; d[i+3] = 255;
+  }
+  ctx.putImageData(imgData, 0, 0);
+
   return canvas;
 }
 

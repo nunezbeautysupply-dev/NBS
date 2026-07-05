@@ -1,1 +1,1 @@
-v3.0 - 20260705-0100 (respaldo de v2.0 guardado; boton Diseno de factura + index.html anti-cache)
+v3.0 - 20260705-0300 (Diseno de factura ahora genera imagen y comparte directo, sin pasar por el sistema de impresion de Android - evita conflicto con PrinterShare)

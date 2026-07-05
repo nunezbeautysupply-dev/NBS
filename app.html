@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="20260705-0100">
+<meta name="app-version" content="20260705-0300">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -5392,12 +5392,170 @@ function imprimirFacturaBT(vid){
 }
 
 
+function dibujarContenidoFactura(ctx, W, pad, v, cl, pagado, saldo, numFact, abonos){
+  var y;
+  // Header negro
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0,0,W,64);
+  ctx.fillStyle = '#fff';
+  ctx.textAlign = 'center';
+  ctx.font = 'bold 20px sans-serif';
+  ctx.fillText('Nunez Beauty Supply', W/2, 30);
+  ctx.font = '11px sans-serif';
+  ctx.fillText('964 Atwells Ave, Providence, RI 02909', W/2, 50);
+
+  y = 64 + 26;
+  ctx.fillStyle = '#000';
+  ctx.font = 'bold 9px sans-serif';
+  ctx.textAlign = 'left'; ctx.fillText('CLIENTE', pad, y);
+  ctx.textAlign = 'right'; ctx.fillText('FACTURA', W-pad, y);
+  y += 18;
+  ctx.font = 'bold 15px sans-serif';
+  ctx.textAlign = 'left'; ctx.fillText((v.cn||'').substring(0,26), pad, y);
+  ctx.textAlign = 'right'; ctx.fillText('#'+numFact, W-pad, y);
+  y += 17;
+  ctx.font = '11px sans-serif';
+  if(cl && cl.negocio){ ctx.textAlign='left'; ctx.fillText(cl.negocio.substring(0,26), pad, y); }
+  ctx.textAlign='right'; ctx.fillText(v.fecha, W-pad, y);
+  y += 15;
+  if(cl && cl.tel){ ctx.textAlign='left'; ctx.fillText(cl.tel, pad, y); }
+  ctx.textAlign='right'; ctx.fillText(v.hora, W-pad, y);
+  y += 14;
+
+  y += 6;
+  ctx.strokeStyle = '#000'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(pad,y); ctx.lineTo(W-pad,y); ctx.stroke();
+  y += 20;
+
+  ctx.font = 'bold 9px sans-serif';
+  ctx.textAlign='left'; ctx.fillText('PRODUCTO', pad, y);
+  ctx.textAlign='right'; ctx.fillText('TOTAL', W-pad, y);
+  y += 10;
+  ctx.beginPath(); ctx.moveTo(pad,y); ctx.lineTo(W-pad,y); ctx.stroke();
+  y += 18;
+
+  (v.items||[]).forEach(function(it){
+    ctx.font = '13px sans-serif';
+    ctx.textAlign='left';
+    ctx.fillText((it.nombre||'').substring(0,28), pad, y);
+    ctx.font='bold 13px sans-serif';
+    ctx.textAlign='right';
+    ctx.fillText('$'+fmtNum(it.cant*it.precio), W-pad, y);
+    y += 15;
+    ctx.font='11px sans-serif';
+    ctx.fillStyle='#666';
+    ctx.textAlign='left';
+    ctx.fillText(it.cant+' x $'+fmtNum(it.precio), pad, y);
+    ctx.fillStyle='#000';
+    y += 20;
+  });
+
+  y += 2;
+  ctx.beginPath(); ctx.moveTo(pad,y); ctx.lineTo(W-pad,y); ctx.stroke();
+  y += 24;
+
+  ctx.font='12px sans-serif';
+  ctx.textAlign='left'; ctx.fillText('Tipo de pago:', pad, y);
+  ctx.font='bold 12px sans-serif';
+  ctx.textAlign='right'; ctx.fillText(v.tipo==='credito'?'A credito':'Contado', W-pad, y);
+  y += 28;
+
+  ctx.font='bold 18px sans-serif';
+  ctx.textAlign='left'; ctx.fillText('TOTAL', pad, y);
+  ctx.textAlign='right'; ctx.fillText('$'+fmtNum(v.total), W-pad, y);
+  y += 16;
+
+  if(abonos.length){
+    y += 18;
+    var boxTop = y - 16;
+    ctx.font='bold 10px sans-serif';
+    ctx.textAlign='left'; ctx.fillText('HISTORIAL DE ABONOS', pad, y);
+    y += 20;
+    ctx.font='11px sans-serif';
+    abonos.forEach(function(p){
+      ctx.textAlign='left'; ctx.fillText(((p.fecha||'')+(p.nota?' - '+p.nota:'')).substring(0,26), pad, y);
+      ctx.textAlign='right'; ctx.fillText('$'+fmtNum(p.monto), W-pad, y);
+      y += 18;
+    });
+    ctx.font='bold 12px sans-serif';
+    ctx.textAlign='left'; ctx.fillText('Total abonado:', pad, y);
+    ctx.textAlign='right'; ctx.fillText('$'+fmtNum(pagado), W-pad, y);
+    y += 10;
+    ctx.strokeRect(pad-6, boxTop, W-2*pad+12, y-boxTop);
+    y += 22;
+  } else {
+    y += 16;
+  }
+
+  if(saldo>0){
+    var bt = y - 16;
+    ctx.font='bold 13px sans-serif';
+    ctx.textAlign='left'; ctx.fillText('BALANCE PENDIENTE:', pad, y);
+    ctx.textAlign='right'; ctx.fillText('$'+fmtNum(saldo), W-pad, y);
+    ctx.strokeRect(pad-6, bt, W-2*pad+12, 24);
+    y += 30;
+  } else {
+    ctx.font='bold 13px sans-serif';
+    ctx.textAlign='center'; ctx.fillText('\u2713 PAGADO COMPLETO', W/2, y);
+    y += 30;
+  }
+
+  y += 14;
+  ctx.font='10px sans-serif';
+  ctx.fillStyle = '#777';
+  ctx.textAlign='center';
+  ctx.fillText('Gracias por su preferencia', W/2, y);
+  y += 14;
+  ctx.fillText('Nunez Beauty Supply', W/2, y);
+  y += 16;
+
+  return y;
+}
+
+function generarFacturaCanvas(v, cl, pagado, saldo, numFact){
+  var W = 384, pad = 16;
+  var abonos = (v.tipo==='credito' && v.pagosFactura) ? v.pagosFactura.filter(function(p){ return typeof p.monto==='number' && p.monto>0; }) : [];
+
+  var tmp = document.createElement('canvas');
+  tmp.width = W; tmp.height = 2000;
+  var ctxTmp = tmp.getContext('2d');
+  ctxTmp.fillStyle = '#fff'; ctxTmp.fillRect(0,0,W,2000);
+  var finalY = dibujarContenidoFactura(ctxTmp, W, pad, v, cl, pagado, saldo, numFact, abonos);
+
+  var finalH = Math.ceil(finalY) + 16;
+  var canvas = document.createElement('canvas');
+  canvas.width = W; canvas.height = finalH;
+  var ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#fff'; ctx.fillRect(0,0,W,finalH);
+  ctx.drawImage(tmp, 0, 0, W, finalH, 0, 0, W, finalH);
+  return canvas;
+}
+
 function imprimirFacturaDiseno(vid){
-  // Muestra la factura con diseño profesional y abre el diálogo de impresión.
-  // En el diálogo de impresión de Android, selecciona "RawBT" como impresora
-  // (debe estar instalada y configurada con la impresora MUNBYN por Bluetooth).
-  verFacturaProfesional(vid);
-  setTimeout(function(){ window.print(); }, 400);
+  ventas = LS('nv', []);
+  clientes = LS('ncl', []);
+  var v = ventas.find(function(x){ return String(x.id)===String(vid); });
+  if(!v) return;
+  var cl = clientes.find(function(c){ return String(c.id)===String(v.cid); });
+  var pagado = v.tipo==='credito' ? (v.pagosFactura ? v.pagosFactura.filter(function(p){return typeof p.monto==='number';}).reduce(function(s,p){return s+p.monto;},0) : 0) : v.total;
+  var saldo = Math.max(0, v.total - pagado);
+  var numFact = String(v.id).slice(-6);
+
+  var canvas = generarFacturaCanvas(v, cl, pagado, saldo, numFact);
+
+  canvas.toBlob(function(blob){
+    if(!blob) return;
+    var file;
+    try{ file = new File([blob], 'factura-'+numFact+'.png', {type:'image/png'}); }catch(e){ file = null; }
+
+    if(file && navigator.canShare && navigator.canShare({files:[file]})){
+      navigator.share({ files:[file], title:'Factura #'+numFact }).catch(function(err){ console.log('Compartir cancelado:', err && err.message); });
+    } else {
+      // Respaldo: abrir la imagen para guardarla/compartirla manualmente
+      var url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+    }
+  }, 'image/png');
 }
 
 function compartirFactura(vid){

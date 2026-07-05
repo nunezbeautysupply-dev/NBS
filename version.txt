@@ -1,1 +1,1 @@
-v3.0 - 20260705-0800 (logo oficial NBS integrado: icono del escudo en encabezado de la app, logo completo en facturas impresas/compartidas y vista Ver)
+v3.0 - 20260705-1000 (el apodo del cliente ahora aparece junto al nombre en el modulo Clientes y se puede buscar por apodo; sigue sin aparecer en la factura)

@@ -5129,12 +5129,18 @@ function verFacturaProfesional(vid){
   }
   overlay.innerHTML = '';
 
+  // Nota de impresión
+  var nota = document.createElement('div');
+  nota.className = 'no-print';
+  nota.style.cssText = 'font-size:11px;color:#E65100;text-align:center;margin-bottom:8px;background:#FFF3E0;padding:6px;border-radius:8px;max-width:400px;margin-left:auto;margin-right:auto';
+  nota.textContent = '💡 Para imprimir usa el botón 🖨️ directamente desde la lista de facturas';
+  overlay.appendChild(nota);
+
   // Botones de acción (no se imprimen)
   var actBtns = document.createElement('div');
   actBtns.className = 'no-print';
   actBtns.style.cssText = 'display:flex;gap:8px;margin-bottom:16px;max-width:400px;margin-left:auto;margin-right:auto';
   [['← Volver','#E8EAF6','#1a237e', cerrarFacturaView],
-   ['🖨️ Imprimir','#1565C0','white', function(){ if(!window._imprimiendo){ window._imprimiendo=true; window.print(); setTimeout(function(){ window._imprimiendo=false; },3000); } }],
    ['📤 Compartir','#2E7D32','white', function(){ compartirFactura(vid); }]
   ].forEach(function(b){
     var btn = document.createElement('button');
@@ -5232,29 +5238,30 @@ function imprimirFacturaBT(vid){
 
   var lineas = [];
   lineas.push('================================');
-  lineas.push('    NUNEZ BEAUTY SUPPLY         ');
-  lineas.push(' 964 Atwells Ave Providence RI  ');
+  lineas.push('     NUNEZ BEAUTY SUPPLY        ');
+  lineas.push('  964 Atwells Ave Providence RI ');
   lineas.push('================================');
-  lineas.push('Factura #'+numFact+'  '+v.fecha);
-  lineas.push(v.cn);
-  if(cl&&cl.negocio) lineas.push(cl.negocio);
+  lineas.push('Fac #'+numFact+'  '+v.fecha+'  '+v.hora);
+  lineas.push(v.cn.substring(0,32));
+  if(cl&&cl.negocio) lineas.push(cl.negocio.substring(0,32));
   lineas.push('--------------------------------');
   v.items.forEach(function(it){
     var nom = it.nombre.substring(0,32);
     lineas.push(nom);
-    var cant = it.cant+' x $'+fmtNum(it.precio);
+    var cant = ' '+it.cant+' x $'+fmtNum(it.precio);
     var tot = '$'+fmtNum(it.cant*it.precio);
-    lineas.push(linea('  '+cant, tot));
+    lineas.push(linea(cant, tot));
   });
   lineas.push('--------------------------------');
-  lineas.push(linea('TOTAL:', '$'+fmtNum(v.total)));
+  lineas.push(linea('TOTAL:','$'+fmtNum(v.total)));
   if(v.pagosFactura) v.pagosFactura.filter(function(p){return p.monto>0;}).forEach(function(p){
-    lineas.push(linea('Abono '+(p.fecha||''), '$'+fmtNum(p.monto)));
+    lineas.push(linea('Abono '+(p.fecha||''),'$'+fmtNum(p.monto)));
   });
-  lineas.push(linea('BALANCE:', '$'+fmtNum(saldo)));
+  lineas.push(linea('BALANCE:','$'+fmtNum(saldo)));
   lineas.push('================================');
-  lineas.push('   Gracias por su preferencia   ');
-  lineas.push('');lineas.push('');lineas.push('');
+  lineas.push('  Gracias por su preferencia    ');
+  // Espacio extra al final para que no quede pegado
+  lineas.push('');lineas.push('');lineas.push('');lineas.push('');lineas.push('');
 
   var texto = lineas.join('\n');
 

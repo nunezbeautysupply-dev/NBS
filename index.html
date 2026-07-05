@@ -331,7 +331,10 @@ body{
       <div class="card">
         <label class="lbl">Nombre de la empresa *</label><input class="inp" id="sn" type="text" placeholder="Ej: Barber Distributors Inc" onblur="capitalizarFinal(this)">
         <label class="lbl">Persona de contacto</label><input class="inp" id="sct" type="text" placeholder="Nombre del representante" onblur="capitalizarFinal(this)">
-        <label class="lbl">Telefono</label><input class="inp" id="stel" type="tel" placeholder="+1 (401) 000-0000" oninput="fmtTel(this)" maxlength="17">
+        <div class="r2">
+          <div><label class="lbl">Tel. Empresa</label><input class="inp" id="stel" type="tel" placeholder="+1 (401) 000-0000" oninput="fmtTel(this)" maxlength="17"></div>
+          <div><label class="lbl">Tel. Contacto</label><input class="inp" id="stelc" type="tel" placeholder="+1 (401) 000-0000" oninput="fmtTel(this)" maxlength="17"></div>
+        </div>
         <label class="lbl">Email</label><input class="inp" id="sem" type="email" placeholder="correo@empresa.com">
         <label class="lbl">Direccion</label><input class="inp" id="sdir" type="text" placeholder="123 Main St" autocomplete="off" oninput="onDireccionInput('sdir')" onblur="ocultarDropdown('sdir')">
         <div id="sdir-drop" style="display:none;background:white;border:1px solid #ddd;border-radius:8px;max-height:200px;overflow-y:auto;margin-bottom:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1)"></div>
@@ -456,6 +459,7 @@ body{
       <div class="r2">
         <div><label class="lbl">Nombre *</label><input class="inp" id="cn" type="text" placeholder="Juan" onblur="capitalizarFinal(this)"></div>
         <div><label class="lbl">Apellido *</label><input class="inp" id="ca" type="text" placeholder="Perez" onblur="capitalizarFinal(this)"></div>
+      <label class="lbl">Apodo / Como lo conoces 🔒 (uso interno)</label><input class="inp" id="capodo" type="text" placeholder="Ej: El Flaco, Cano, Rubio..." onblur="capitalizarFinal(this)">
       </div>
       <label class="lbl">Negocio</label><input class="inp" id="cne" type="text" placeholder="Barberia El Estilo" autocomplete="off" oninput="onNegocioInput('cne')" onblur="capitalizarFinal(this);ocultarDropdown('cne')">
       <label class="lbl">Telefono</label><input class="inp" id="ct" type="tel" placeholder="+1 (401) 000-0000" oninput="fmtTel(this)" maxlength="17">
@@ -1950,6 +1954,7 @@ function saveSup(){
     nombre: n,
     contacto: document.getElementById('sct').value.trim(),
     tel: document.getElementById('stel').value.trim(),
+    telContacto: document.getElementById('stelc').value.trim(),
     email: document.getElementById('sem').value.trim(),
     dir: document.getElementById('sdir').value.trim(),
     ciudad: document.getElementById('sciu').value.trim(),
@@ -1957,7 +1962,7 @@ function saveSup(){
     estado: document.getElementById('sest').value,
     notas: document.getElementById('snotas').value.trim()
   });
-  ['sn','sct','stel','sem','sdir','sciu','szip','snotas'].forEach(function(id){ document.getElementById(id).value=''; });
+  ['sn','sct','stel','stelc','sem','sdir','sciu','szip','snotas'].forEach(function(id){ document.getElementById(id).value=''; });
   document.getElementById('sest').value = '';
   SS('nsup', suplidores);
   flash('mk-sup');
@@ -1993,6 +1998,103 @@ function renderSup(q){
   });
 }
 
+function editarSuplidor(id){
+  suplidores = LS('nsup', []);
+  var s = suplidores.find(function(x){ return String(x.id)===String(id); });
+  if(!s) return;
+
+  var overlay = document.getElementById('sup-edit-overlay');
+  if(!overlay){
+    overlay = document.createElement('div');
+    overlay.id = 'sup-edit-overlay';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:white;z-index:99999;overflow-y:auto;padding:16px';
+    document.body.appendChild(overlay);
+  }
+  overlay.innerHTML = '';
+
+  var wrap = document.createElement('div');
+  wrap.style.cssText = 'max-width:480px;margin:0 auto';
+
+  var header = document.createElement('div');
+  header.style.cssText = 'display:flex;align-items:center;gap:12px;margin-bottom:16px';
+  var btnBack = document.createElement('button');
+  btnBack.textContent = '←';
+  btnBack.style.cssText = 'background:#E8EAF6;border:none;border-radius:8px;padding:10px 14px;cursor:pointer;font-size:14px;font-weight:700;color:#1a237e';
+  btnBack.onclick = function(){ overlay.style.display='none'; };
+  var titulo = document.createElement('div');
+  titulo.style.cssText = 'font-size:17px;font-weight:800;color:#1a237e';
+  titulo.textContent = '✏️ Editar Suplidor';
+  header.appendChild(btnBack);
+  header.appendChild(titulo);
+  wrap.appendChild(header);
+
+  var campos = [
+    {label:'Nombre de la empresa *', id:'esup-n', value:s.nombre||''},
+    {label:'Persona de contacto', id:'esup-ct', value:s.contacto||''},
+    {label:'Teléfono empresa', id:'esup-tel', value:s.tel||''},
+    {label:'Teléfono contacto', id:'esup-telc', value:s.telContacto||''},
+    {label:'Email', id:'esup-em', value:s.email||''},
+    {label:'Dirección', id:'esup-dir', value:s.dir||''},
+    {label:'Ciudad', id:'esup-ciu', value:s.ciudad||''},
+    {label:'ZIP', id:'esup-zip', value:s.zip||''},
+  ];
+
+  campos.forEach(function(c){
+    var lbl = document.createElement('label');
+    lbl.className = 'lbl';
+    lbl.textContent = c.label;
+    var inp = document.createElement('input');
+    inp.className = 'inp';
+    inp.id = c.id;
+    inp.type = 'text';
+    inp.value = c.value;
+    wrap.appendChild(lbl);
+    wrap.appendChild(inp);
+  });
+
+  // Notas
+  var lblNotas = document.createElement('label');
+  lblNotas.className = 'lbl';
+  lblNotas.textContent = 'Notas';
+  var txtNotas = document.createElement('textarea');
+  txtNotas.className = 'inp';
+  txtNotas.id = 'esup-notas';
+  txtNotas.rows = 3;
+  txtNotas.style.resize = 'vertical';
+  txtNotas.value = s.notas||'';
+  wrap.appendChild(lblNotas);
+  wrap.appendChild(txtNotas);
+
+  var btnGuardar = document.createElement('button');
+  btnGuardar.className = 'btn';
+  btnGuardar.style.cssText = 'background:#2E7D32;color:white;margin-top:8px';
+  btnGuardar.textContent = '✅ Guardar cambios';
+  btnGuardar.onclick = (function(sid){ return function(){
+    suplidores = LS('nsup',[]);
+    var idx = suplidores.findIndex(function(x){ return String(x.id)===String(sid); });
+    if(idx<0) return;
+    var n = document.getElementById('esup-n').value.trim();
+    if(!n){ alert('El nombre es requerido'); return; }
+    suplidores[idx].nombre = n;
+    suplidores[idx].contacto = document.getElementById('esup-ct').value.trim();
+    suplidores[idx].tel = document.getElementById('esup-tel').value.trim();
+    suplidores[idx].telContacto = document.getElementById('esup-telc').value.trim();
+    suplidores[idx].email = document.getElementById('esup-em').value.trim();
+    suplidores[idx].dir = document.getElementById('esup-dir').value.trim();
+    suplidores[idx].ciudad = document.getElementById('esup-ciu').value.trim();
+    suplidores[idx].zip = document.getElementById('esup-zip').value.trim();
+    suplidores[idx].notas = document.getElementById('esup-notas').value.trim();
+    SS('nsup', suplidores);
+    overlay.style.display='none';
+    verSup(sid);
+    alert('✅ Suplidor actualizado');
+  }; })(id);
+  wrap.appendChild(btnGuardar);
+
+  overlay.appendChild(wrap);
+  overlay.style.display='block';
+}
+
 function verSup(id){
   suplidores = LS('nsup', []);
   compras = LS('nc', []);
@@ -2018,14 +2120,18 @@ function verSup(id){
     +'<div><div style="font-size:22px;font-weight:700">'+s.nombre+'</div>'
     +'<div style="font-size:13px;color:#aaa">'+(s.contacto?'Contacto: '+s.contacto:'Sin contacto registrado')+'</div></div></div>'
     +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">'
-    +'<div style="background:#f5f5f5;border-radius:8px;padding:10px"><div style="font-size:10px;color:#aaa;font-weight:700">TELEFONO</div><div style="font-size:14px;margin-top:2px">'+(s.tel||'N/A')+'</div></div>'
+    +'<div style="background:#f5f5f5;border-radius:8px;padding:10px"><div style="font-size:10px;color:#aaa;font-weight:700">TEL. EMPRESA</div><div style="font-size:14px;margin-top:2px">'+(s.tel||'N/A')+'</div></div>'
+    +'<div style="background:#f5f5f5;border-radius:8px;padding:10px"><div style="font-size:10px;color:#aaa;font-weight:700">TEL. CONTACTO</div><div style="font-size:14px;margin-top:2px">'+(s.telContacto||'N/A')+'</div></div>'
     +'<div style="background:#f5f5f5;border-radius:8px;padding:10px"><div style="font-size:10px;color:#aaa;font-weight:700">EMAIL</div><div style="font-size:14px;margin-top:2px">'+(s.email||'N/A')+'</div></div>'
     +'<div style="background:#f5f5f5;border-radius:8px;padding:10px;grid-column:span 2"><div style="font-size:10px;color:#aaa;font-weight:700">DIRECCION</div><div style="font-size:14px;margin-top:2px">'+((s.dir||'')+(s.ciudad?', '+s.ciudad:'')+(s.estado?', '+s.estado:'')+(s.zip?' '+s.zip:'')||'N/A')+'</div></div>'
     +'<div style="background:#f5f5f5;border-radius:8px;padding:10px"><div style="font-size:10px;color:#aaa;font-weight:700">TOTAL COMPRADO</div><div style="font-size:18px;font-weight:700;color:#1565C0;margin-top:2px">$'+fmtNum(totalComprado)+'</div></div>'
     +'<div style="background:'+(debo>0?'#FFEBEE':'#f5f5f5')+';border-radius:8px;padding:10px"><div style="font-size:10px;color:#aaa;font-weight:700">DEBO (CUENTAS POR PAGAR)</div><div style="font-size:18px;font-weight:700;color:'+(debo>0?'#C62828':'#2E7D32')+';margin-top:2px">$'+fmtNum(debo)+'</div></div>'
     +(s.notas ? '<div style="background:#FFF8E1;border-radius:8px;padding:10px;grid-column:span 2"><div style="font-size:10px;color:#aaa;font-weight:700">NOTAS</div><div style="font-size:13px;margin-top:2px">'+s.notas+'</div></div>' : '')
     +'</div>'
-    +'<button class="btn" style="background:#D32F2F;color:white;margin-top:0" onclick="eliminarSup('+id+')">🗑️ Eliminar suplidor</button>';
+    +'<div style="display:flex;gap:8px;margin-top:8px">'
+    +'<button class="btn" style="background:#1565C0;color:white;flex:1;margin:0" onclick="editarSuplidor('+id+')">✏️ Editar suplidor</button>'
+    +'<button class="btn" style="background:#D32F2F;color:white;flex:1;margin:0" onclick="eliminarSup('+id+')">🗑️ Eliminar</button>'
+    +'</div>';
   el.appendChild(header);
 
   if(comprasS.length){
@@ -2169,7 +2275,7 @@ function saveCl(){
   if(!confirm('¿Guardar el cliente "'+n+' '+a+'"?')) return;
   var nuevoId = Date.now();
   var vipActivo = document.getElementById('cvip-activo').value === '1';
-  clientes.push({id:nuevoId,nombre:n,apellido:a,negocio:document.getElementById('cne').value.trim(),tel:document.getElementById('ct').value.trim(),email:document.getElementById('ce').value.trim(),dir:document.getElementById('cd').value.trim(),ciudad:document.getElementById('ccity').value.trim(),zip:document.getElementById('czip').value.trim(),estado:document.getElementById('cstate').value,vipActivo:vipActivo});
+  clientes.push({id:nuevoId,nombre:n,apellido:a,apodo:document.getElementById('capodo').value.trim(),negocio:document.getElementById('cne').value.trim(),tel:document.getElementById('ct').value.trim(),email:document.getElementById('ce').value.trim(),dir:document.getElementById('cd').value.trim(),ciudad:document.getElementById('ccity').value.trim(),zip:document.getElementById('czip').value.trim(),estado:document.getElementById('cstate').value,vipActivo:vipActivo});
   SS('ncl',clientes);
 
   // Registrar balance inicial si se ingresó
@@ -4357,6 +4463,7 @@ function editarCl(id){
     +'<div class="r2">'
     +'<div><label class="lbl">Nombre *</label><input class="inp" id="ecl-n" type="text" value="'+( c.nombre||'')+'" onblur="capitalizarFinal(this)"></div>'
     +'<div><label class="lbl">Apellido *</label><input class="inp" id="ecl-a" type="text" value="'+(c.apellido||'')+'" onblur="capitalizarFinal(this)"></div>'
+    +'<label class="lbl">Apodo / Como lo conoces 🔒 (uso interno)</label><input class="inp" id="ecl-apodo" type="text" value="'+(c.apodo||'')+'" placeholder="Ej: El Flaco, Cano..." onblur="capitalizarFinal(this)">'
     +'</div>'
     +'<label class="lbl">Negocio / Barberia</label><input class="inp" id="ecl-ne" type="text" value="'+(c.negocio||'')+'" autocomplete="off" oninput="onNegocioInput(\'ecl-ne\')" onblur="capitalizarFinal(this);ocultarDropdown(\'ecl-ne\')">'
     +'<label class="lbl">Telefono</label><input class="inp" id="ecl-t" type="tel" value="'+(c.tel||'')+'" oninput="fmtTel(this)" maxlength="17">'
@@ -4384,6 +4491,7 @@ function guardarEdicionCl(id){
   clientes[idx].nombre = nombre;
   clientes[idx].apellido = apellido;
   clientes[idx].negocio = document.getElementById('ecl-ne').value.trim();
+  var apodoEl = document.getElementById('ecl-apodo'); if(apodoEl) clientes[idx].apodo = apodoEl.value.trim();
   clientes[idx].tel = document.getElementById('ecl-t').value.trim();
   clientes[idx].email = document.getElementById('ecl-e').value.trim();
   clientes[idx].dir = document.getElementById('ecl-d').value.trim();

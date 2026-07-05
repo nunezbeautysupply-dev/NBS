@@ -5285,7 +5285,7 @@ function imprimirFacturaBT(vid){
     +'</body></html>';
 
   var ventana = window.open('', '_blank', 'width=300,height=600');
-  if(ventana){
+  if(ventana && !ventana.closed){
     ventana.document.write(html);
     ventana.document.close();
     setTimeout(function(){
@@ -5293,7 +5293,50 @@ function imprimirFacturaBT(vid){
       setTimeout(function(){ ventana.close(); }, 1000);
     }, 500);
   } else {
-    alert('Permite ventanas emergentes en Brave para imprimir');
+    // Brave bloqueó la ventana - usar método alternativo
+    // Guardar contenido original
+    var bodyOriginal = document.body.innerHTML;
+    var titleOriginal = document.title;
+    
+    // Reemplazar página con solo la factura
+    document.title = 'Factura #'+numFact+' - '+v.cn;
+    document.body.innerHTML = '<div style="font-family:monospace;font-size:13px;width:54mm;padding:2mm;margin:0 auto">'
+      +'<div style="text-align:center;border-bottom:1px dashed #000;padding-bottom:6px;margin-bottom:6px">'
+      +'<div style="font-size:14px;font-weight:bold">NUNEZ BEAUTY SUPPLY</div>'
+      +'<div style="font-size:10px">964 Atwells Ave, Providence, RI</div>'
+      +'</div>'
+      +'<div style="margin-bottom:6px">'
+      +'<div style="font-size:10px">Factura #'+numFact+'</div>'
+      +'<div style="font-size:10px">'+v.fecha+' '+v.hora+'</div>'
+      +'<div style="font-size:12px;font-weight:bold">'+v.cn+'</div>'
+      +(cl&&cl.negocio?'<div style="font-size:10px">'+cl.negocio+'</div>':'')
+      +'</div>'
+      +'<table style="width:100%;border-collapse:collapse;margin-bottom:6px">'
+      +'<thead><tr style="border-bottom:1px solid #000">'
+      +'<th style="text-align:left;font-size:9px;padding:2px">Producto</th>'
+      +'<th style="text-align:center;font-size:9px;padding:2px">Cant</th>'
+      +'<th style="text-align:right;font-size:9px;padding:2px">Precio</th>'
+      +'<th style="text-align:right;font-size:9px;padding:2px">Total</th>'
+      +'</tr></thead><tbody>'+itemsHTML+'</tbody></table>'
+      +'<div style="border-top:1px solid #000;padding-top:6px">'
+      +'<div style="display:flex;justify-content:space-between;font-size:13px;font-weight:bold">'
+      +'<span>TOTAL:</span><span>$'+fmtNum(v.total)+'</span></div>'
+      +abonosHTML
+      +'<div style="display:flex;justify-content:space-between;font-size:12px;font-weight:bold;margin-top:4px">'
+      +'<span>BALANCE:</span><span>$'+fmtNum(saldo)+'</span></div>'
+      +'</div>'
+      +'<div style="text-align:center;margin-top:8px;font-size:9px;border-top:1px dashed #000;padding-top:6px">Gracias por su preferencia</div>'
+      +'</div>';
+    
+    setTimeout(function(){
+      window.print();
+      // Restaurar la app después de imprimir
+      setTimeout(function(){
+        document.title = titleOriginal;
+        document.body.innerHTML = bodyOriginal;
+        window._imprimiendo = false;
+      }, 1500);
+    }, 300);
   }
 }
 

@@ -1,1 +1,1 @@
-v3.0 - 20260705-0400 (letras mas grandes en factura-imagen + blanco/negro puro sin grises para evitar impresion 'descolorida')
+v3.0 - 20260705-0800 (logo oficial NBS integrado: icono del escudo en encabezado de la app, logo completo en facturas impresas/compartidas y vista Ver)

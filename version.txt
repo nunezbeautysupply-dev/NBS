@@ -1,1 +1,1 @@
-v3.0 - 20260705-1000 (el apodo del cliente ahora aparece junto al nombre en el modulo Clientes y se puede buscar por apodo; sigue sin aparecer en la factura)
+v3.0 - 20260705-1100 (mas espacio entre el logo y la direccion en la factura; agregado telefono 401-305-0188 en todas las versiones de factura: color, blanco y negro, texto)

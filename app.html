@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="20260705-1000">
+<meta name="app-version" content="20260705-1100">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -5329,9 +5329,10 @@ function verFacturaProfesional(vid){
   var factDiv = document.createElement('div');
   factDiv.id = 'factura-imprimible';
   factDiv.style.cssText = 'max-width:400px;margin:0 auto;font-family:sans-serif';
-  factDiv.innerHTML = '<div style="background:white;padding:14px 20px 10px;text-align:center;border:0.5px solid #e5e7eb;border-bottom:none;border-radius:12px 12px 0 0">'
+  factDiv.innerHTML = '<div style="background:white;padding:14px 20px 12px;text-align:center;border:0.5px solid #e5e7eb;border-bottom:none;border-radius:12px 12px 0 0">'
     +'<img src="'+LOGO_SRC+'" style="height:70px;display:inline-block" alt="Nunez Beauty Supply">'
-    +'<div style="font-size:12px;color:#888;font-weight:700;margin-top:4px">964 Atwells Ave, Providence, Rhode Island 02909</div>'
+    +'<div style="font-size:12px;color:#888;font-weight:700;margin-top:14px">964 Atwells Ave, Providence, Rhode Island 02909</div>'
+    +'<div style="font-size:12px;color:#888;font-weight:700;margin-top:2px">401-305-0188</div>'
     +'</div>'
     +'<div style="border:0.5px solid #e5e7eb;border-top:none;padding:16px;border-radius:0 0 12px 12px">'
     +'<div style="display:flex;justify-content:space-between;margin-bottom:12px;padding-bottom:12px;border-bottom:0.5px solid #f0f0f0">'
@@ -5405,6 +5406,7 @@ function imprimirFacturaBT(vid){
   lineas.push('================================');
   lineas.push('     NUNEZ BEAUTY SUPPLY        ');
   lineas.push('  964 Atwells Ave Providence RI ');
+  lineas.push('        401-305-0188            ');
   lineas.push('================================');
   lineas.push('Fac #'+numFact+'  '+v.fecha+'  '+v.hora);
   lineas.push(v.cn.substring(0,32));
@@ -5454,7 +5456,7 @@ function dibujarContenidoFactura(ctx, W, pad, v, cl, pagado, saldo, numFact, abo
   var logoH = logoW * (245/300);
   if(LOGO_IMG && LOGO_IMG.naturalWidth > 0){
     ctx.drawImage(LOGO_IMG, W/2 - logoW/2, 10, logoW, logoH);
-    y = 10 + logoH + 6;
+    y = 10 + logoH + 20;
   } else {
     // Respaldo si el logo no cargo a tiempo
     ctx.fillStyle = colorMode ? '#1a237e' : '#000';
@@ -5467,6 +5469,8 @@ function dibujarContenidoFactura(ctx, W, pad, v, cl, pagado, saldo, numFact, abo
   ctx.fillStyle = colorMode ? '#888' : '#000';
   ctx.textAlign = 'center';
   ctx.fillText('964 Atwells Ave, Providence, RI 02909', W/2, y);
+  y += 15;
+  ctx.fillText('401-305-0188', W/2, y);
   y += 24;
 
   ctx.font = 'bold 11px sans-serif';
@@ -5697,7 +5701,7 @@ function compartirFactura(vid){
         navigator.share({ files:[file], title:'Factura #'+numFact+' - '+v.cn }).catch(function(err){ console.log('Compartir cancelado:', err && err.message); });
       } else {
         // Respaldo: texto plano si el navegador no soporta compartir imagenes
-        var lineas = ['NUNEZ BEAUTY SUPPLY','964 Atwells Ave, Providence, RI 02909','------------------------','FACTURA #'+numFact,'Fecha: '+v.fecha+' '+v.hora,'Cliente: '+v.cn];
+        var lineas = ['NUNEZ BEAUTY SUPPLY','964 Atwells Ave, Providence, RI 02909','401-305-0188','------------------------','FACTURA #'+numFact,'Fecha: '+v.fecha+' '+v.hora,'Cliente: '+v.cn];
         if(cl&&cl.negocio) lineas.push('Negocio: '+cl.negocio);
         lineas.push('------------------------');
         v.items.forEach(function(it){ lineas.push(it.nombre); lineas.push('  '+it.cant+' x $'+fmtNum(it.precio)+' = $'+fmtNum(it.cant*it.precio)); });
@@ -6011,6 +6015,7 @@ function imprimirFactura(v){
     +'<div style="background:#1a237e;color:white;padding:24px;text-align:center;border-radius:8px 8px 0 0">'
     +'<div style="font-size:22px;font-weight:800">✂️ Nunez Beauty Supply</div>'
     +'<div style="font-size:12px;opacity:0.7;margin-top:4px">964 Atwells Ave, Providence, Rhode Island 02909</div>'
+    +'<div style="font-size:12px;opacity:0.7;margin-top:2px">401-305-0188</div>'
     +'</div>'
     +'<div style="border:1px solid #eee;padding:20px">'
     +'<h2 style="margin-bottom:16px;font-size:18px">Factura</h2>'

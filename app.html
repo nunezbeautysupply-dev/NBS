@@ -1443,7 +1443,7 @@ function toggleVIP(id){
     }
     if(encontrado === -1){ alert('Error: Cliente no encontrado'); return; }
     var cl = todos[encontrado];
-    var nombre = nombreCl(cl);
+    var nombre = nombreClConNegocio(cl);
     if(cl.vipActivo){
       if(!confirm('¿Retirar a '+nombre+' del programa VIP?')) return;
       todos[encontrado].vipActivo = false;
@@ -1486,7 +1486,7 @@ function filtrarVIPBusqueda(q){
       var i2=-1;
       for(var j=0;j<todos2.length;j++){ if(String(todos2[j].id)===String(cid)){i2=j;break;} }
       if(i2===-1) return;
-      var nom=nombreCl(todos2[i2]);
+      var nom=nombreClConNegocio(todos2[i2]);
       if(todos2[i2].vipActivo){
         if(!confirm('¿Retirar a '+nom+' del programa VIP?')) return;
         todos2[i2].vipActivo=false; SS('ncl',todos2); clientes=todos2;
@@ -1519,7 +1519,7 @@ function diagnosticoVIP(){
   var inscritos = clientes.filter(function(c){ return c.vipActivo; });
   var msg = '=== DIAGNÓSTICO VIP ===\n\nInscritos: '+inscritos.length+'\n\n';
   inscritos.forEach(function(c){
-    msg += '👤 '+nombreCl(c)+' (id:'+c.id+')\n';
+    msg += '👤 '+nombreClConNegocio(c)+' (id:'+c.id+')\n';
     var todas = ventas.filter(function(v){ return String(v.cid)===String(c.id) && !v.cancelada; });
     msg += '  Ventas totales: '+todas.length+'\n';
     todas.forEach(function(v){
@@ -1538,7 +1538,7 @@ function diagnosticoVIP(){
     (v.items||[]).forEach(function(it){
       if((it.nombre||'').toUpperCase().indexOf('DORCO')>=0){
         var cl = clientes.find(function(c){ return String(c.id)===String(v.cid); });
-        msg += (cl?nombreCl(cl):'cid:'+v.cid)+' - '+it.nombre+' x'+it.cant+' $'+it.precio+' fecha:'+v.fecha+'\n';
+        msg += (cl?nombreClConNegocio(cl):'cid:'+v.cid)+' - '+it.nombre+' x'+it.cant+' $'+it.precio+' fecha:'+v.fecha+'\n';
       }
     });
   });
@@ -1601,7 +1601,7 @@ function verificarVIPdespuesDeVenta(cid, itemsVendidos){
     }
   });
   if(alertas.length){
-    var nombre=nombreCl(cl);
+    var nombre=nombreClConNegocio(cl);
     setTimeout(function(){
       alert('⭐ PROGRAMA LEALTAD VIP ⭐\n\n'+nombre+'\n\n'+alertas.join('\n')+'\n\n¡Entrégale su producto gratis!');
     },500);
@@ -1986,6 +1986,18 @@ function nombreVentaCliente(v){
   if(!v) return '';
   var cl = clientes.find(function(x){ return String(x.id)===String(v.cid); });
   return cl ? nombreCl(cl) : (v.cn||'Cliente general');
+}
+
+// Nombre + negocio/barbería, para pantallas donde el negocio no se muestra ya por separado
+function nombreClConNegocio(c){
+  if(!c) return '';
+  var base = nombreCl(c);
+  return c.negocio ? (base + ' · 🏪 ' + c.negocio) : base;
+}
+function nombreVentaClienteConNegocio(v){
+  if(!v) return '';
+  var cl = clientes.find(function(x){ return String(x.id)===String(v.cid); });
+  return cl ? nombreClConNegocio(cl) : (v.cn||'Cliente general');
 }
 
 function saveSup(){
@@ -4107,7 +4119,7 @@ function verFactura(v){
   card.innerHTML='<div style="font-size:18px;font-weight:700;margin-bottom:4px">Factura</div>'
     +'<div style="font-size:13px;color:#aaa;margin-bottom:14px">'+v.fecha+' a las '+v.hora+'</div>'
     +'<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f0f0f0">'
-    +'<span style="color:#777">Cliente</span><span style="font-weight:600">'+nombreVentaCliente(v)+'</span></div>'
+    +'<span style="color:#777">Cliente</span><span style="font-weight:600">'+nombreVentaClienteConNegocio(v)+'</span></div>'
     +'<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f0f0f0">'
     +'<span style="color:#777">Tipo de pago</span><span style="font-size:16px;padding:4px 11px;border-radius:10px;font-weight:600;'+(v.tipo==='credito'?'background:#FFF8E1;color:#E65100':'background:#E8F5E9;color:#2E7D32')+'">'+(v.tipo==='credito'?'a credito':v.tipo)+'</span></div>'
     +'<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f0f0f0">'
@@ -4316,7 +4328,7 @@ function modificarFactura(v){
 
     var titulo = document.createElement('div');
     titulo.innerHTML = '<div style="font-size:16px;font-weight:700;color:#E65100;margin-bottom:12px">✏️ Modificar factura</div>'
-      +'<div style="font-size:12px;color:#aaa;margin-bottom:16px">'+nombreVentaCliente(v)+' · '+v.fecha+'</div>';
+      +'<div style="font-size:12px;color:#aaa;margin-bottom:16px">'+nombreVentaClienteConNegocio(v)+' · '+v.fecha+'</div>';
     el.appendChild(titulo);
 
     var itemsEdit = v.items.map(function(it){ return Object.assign({}, it); });
@@ -4620,7 +4632,7 @@ function genRpt(){
     var pc={};
     filt.forEach(function(v){
       var k = v.cid ? String(v.cid) : (v.cn||'Cliente general');
-      if(!pc[k]) pc[k]={v:0,g:0,c:0,nombre:nombreVentaCliente(v)};
+      if(!pc[k]) pc[k]={v:0,g:0,c:0,nombre:nombreVentaClienteConNegocio(v)};
       pc[k].v+=v.total; pc[k].g+=(v.ganancia||0); pc[k].c++;
     });
     // Totales generales
@@ -4936,7 +4948,7 @@ function abrirAbono(cid){
   var facturasC = ventas.filter(function(v){ return String(v.cid)===String(cid) && v.tipo==='credito' && !v.cancelada; });
   if(!facturasC.length) return;
   var cl = clientes.find(function(x){ return String(x.id)===String(cid); });
-  var cn = cl ? nombreCl(cl) : facturasC[0].cn;
+  var cn = cl ? nombreClConNegocio(cl) : facturasC[0].cn;
   document.getElementById('cxc-lista').style.display = 'none';
   document.getElementById('cxc-abono').style.display = 'block';
   document.getElementById('cxc-nombre').textContent = cn;
@@ -5116,7 +5128,7 @@ function eliminarDuplicadosClientes(){
   var resumen = 'Se encontraron '+conDuplicados.length+' nombre(s) duplicado(s):\n\n';
   conDuplicados.forEach(function(k){
     var g = grupos[k];
-    resumen += '• '+nombreCl(g[0])+' ('+g.length+' copias';
+    resumen += '• '+nombreClConNegocio(g[0])+' ('+g.length+' copias';
     var vips = g.filter(function(c){ return c.vipActivo; }).length;
     if(vips) resumen += ', '+vips+' con VIP activo';
     resumen += ')\n';
@@ -5271,7 +5283,7 @@ function renderFacturas(q){
     // Header de la card
     var header = '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">'
       +'<div>'
-      +'<div style="font-size:16px;font-weight:800;color:#1a237e">'+nombreVentaCliente(v)+'</div>'
+      +'<div style="font-size:16px;font-weight:800;color:#1a237e">'+nombreVentaClienteConNegocio(v)+'</div>'
       +'<div style="font-size:11px;color:#aaa;margin-top:2px">'+v.fecha+' · '+v.hora+'</div>'
       +'<div style="font-size:11px;color:#aaa">Factura #'+numFact+'</div>'
       +'</div>'
@@ -5787,7 +5799,7 @@ function editarFactura(vid){
   // Info
   var info = document.createElement('div');
   info.style.cssText = 'background:#f5f5f5;border-radius:10px;padding:12px;margin-bottom:16px;font-size:13px;color:#555';
-  info.innerHTML = '<b>'+nombreVentaCliente(v)+'</b> · '+v.fecha;
+  info.innerHTML = '<b>'+nombreVentaClienteConNegocio(v)+'</b> · '+v.fecha;
   wrap.appendChild(info);
 
   // Items

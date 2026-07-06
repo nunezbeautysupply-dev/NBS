@@ -1,1 +1,2 @@
 v3.0 - 20260706-0100 (apodo del cliente visible en: Programa VIP, pantalla principal de barberias/pedidos, perfil de cliente, CxC/abonos, historial de compras. El apodo NUNCA aparece en facturas impresas, compartidas o enviadas por email al cliente - solo en pantallas internas de administracion. Tambien: logo a color (dorado) en facturas para el cliente; logo en blanco y negro para impresion termica.)
+                                                                                       

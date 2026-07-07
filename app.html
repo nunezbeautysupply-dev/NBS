@@ -4418,8 +4418,18 @@ function abrirEditarProductosDeMarca(){
 
   var opcionesProveedor = '<option value="">-- Sin proveedor --</option>' + suplidores.map(function(s){ return '<option value="'+s.nombre.replace(/"/g,"'")+'">'+s.nombre+'</option>'; }).join('');
 
+  // Listas de sugerencias (autocompletado) con todo lo que ya existe en el catálogo
+  var marcasExistentes = {};
+  var categoriasExistentes = {};
+  productos.forEach(function(p){
+    marcasExistentes[p.marca || marcaDe(p)] = true;
+    if(p.cat) categoriasExistentes[p.cat] = true;
+  });
+  var datalistMarcas = '<datalist id="epml-marcas-datalist">' + Object.keys(marcasExistentes).sort().map(function(m){ return '<option value="'+m.replace(/"/g,"'")+'">'; }).join('') + '</datalist>';
+  var datalistCats = '<datalist id="epml-cat-datalist">' + Object.keys(categoriasExistentes).sort().map(function(c){ return '<option value="'+c.replace(/"/g,"'")+'">'; }).join('') + '</datalist>';
+
   var el = document.getElementById('epml-lista');
-  el.innerHTML = afectados.map(function(p, i){
+  el.innerHTML = datalistMarcas + datalistCats + afectados.map(function(p, i){
     return '<div class="card" id="epml-card-'+i+'" style="border:0.5px solid var(--nbs-line);box-shadow:var(--nbs-shadow-card)" data-pid="'+p.id+'">'
       +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">'
       +'<span style="font-size:11px;color:var(--nbs-muted-2)">Producto '+(i+1)+'</span>'
@@ -4428,8 +4438,8 @@ function abrirEditarProductosDeMarca(){
       +'<label class="lbl">Nombre del producto</label>'
       +'<input class="inp" id="epml-nombre-'+i+'" type="text" value="'+(p.nombre||'').replace(/"/g,"'")+'" style="margin-bottom:10px">'
       +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">'
-      +'<div><label class="lbl">Marca</label><input class="inp" id="epml-marca-'+i+'" type="text" value="'+(p.marca||marcaDe(p)).replace(/"/g,"'")+'"></div>'
-      +'<div><label class="lbl">Categoría</label><input class="inp" id="epml-cat-'+i+'" type="text" value="'+(p.cat||'').replace(/"/g,"'")+'"></div>'
+      +'<div><label class="lbl">Marca</label><input class="inp" id="epml-marca-'+i+'" type="text" list="epml-marcas-datalist" value="'+(p.marca||marcaDe(p)).replace(/"/g,"'")+'"></div>'
+      +'<div><label class="lbl">Categoría</label><input class="inp" id="epml-cat-'+i+'" type="text" list="epml-cat-datalist" value="'+(p.cat||'').replace(/"/g,"'")+'"></div>'
       +'</div>'
       +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">'
       +'<div><label class="lbl">Costo ($)</label><input class="inp" id="epml-costo-'+i+'" type="text" inputmode="decimal" value="'+(p.costo||0).toFixed(2)+'"></div>'

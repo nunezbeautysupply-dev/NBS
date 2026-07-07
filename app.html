@@ -5357,7 +5357,7 @@ function renderFacturas(q){
       var btn = document.createElement('button');
       btn.innerHTML = '<i class="ti '+b[0]+'" style="font-size:16px" aria-hidden="true"></i>'+b[1];
       var esPrincipal = b[2];
-      btn.style.cssText = 'flex:1;padding:9px;background:'+(esPrincipal?'var(--nbs-ink)':'transparent')+';color:'+(esPrincipal?'white':'var(--nbs-ink)')+';border:'+(esPrincipal?'none':'0.5px solid #d8d8dc')+';border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;display:flex;align-items:center;justify-content:center;gap:6px';
+      btn.style.cssText = 'flex:1;padding:9px;background:'+(esPrincipal?'var(--nbs-ink)':'#F0F0F2')+';color:'+(esPrincipal?'white':'var(--nbs-ink)')+';border:'+(esPrincipal?'none':'0.5px solid #d8d8dc')+';border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;display:flex;align-items:center;justify-content:center;gap:6px';
       btn.onclick = (function(fn,id){ return function(){ fn(id); }; })(b[3], v.id);
       btnsDiv.appendChild(btn);
     });
@@ -5407,7 +5407,7 @@ function verFacturaProfesional(vid){
     var btn = document.createElement('button');
     btn.innerHTML = '<i class="ti '+b[0]+'" style="font-size:16px" aria-hidden="true"></i>'+b[1];
     var esPrincipal = b[2];
-    btn.style.cssText = 'flex:1;padding:10px;background:'+(esPrincipal?'var(--nbs-ink)':'transparent')+';color:'+(esPrincipal?'white':'var(--nbs-ink)')+';border:'+(esPrincipal?'none':'0.5px solid #d8d8dc')+';border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;display:flex;align-items:center;justify-content:center;gap:6px';
+    btn.style.cssText = 'flex:1;padding:10px;background:'+(esPrincipal?'var(--nbs-ink)':'#F0F0F2')+';color:'+(esPrincipal?'white':'var(--nbs-ink)')+';border:'+(esPrincipal?'none':'0.5px solid #d8d8dc')+';border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;display:flex;align-items:center;justify-content:center;gap:6px';
     btn.onclick = b[3];
     actBtns.appendChild(btn);
   });
@@ -5853,11 +5853,25 @@ function editarFactura(vid){
   header.appendChild(titulo);
   wrap.appendChild(header);
 
-  // Info
+  var numFactEdit = String(v.id).slice(-6);
+
+  // Encabezado tipo factura (logo + numero de factura)
+  var facHeader = document.createElement('div');
+  facHeader.style.cssText = 'background:white;border:0.5px solid var(--nbs-line);border-radius:12px 12px 0 0;padding:16px;text-align:center;box-shadow:var(--nbs-shadow-card)';
+  facHeader.innerHTML = '<img src="'+LOGO_SRC_COLOR+'" style="height:48px" alt="Nunez Beauty Supply">'
+    +'<div style="margin-top:8px;display:inline-block;background:var(--nbs-ink);color:white;font-size:10px;font-weight:500;letter-spacing:1.5px;padding:3px 14px;border-radius:20px">FACTURA #'+numFactEdit+'</div>';
+  wrap.appendChild(facHeader);
+
+  // Info del cliente (parte del "cuerpo" de la factura, sin redondear arriba para que se vea unido al encabezado)
   var info = document.createElement('div');
-  info.style.cssText = 'background:var(--nbs-gold-bg);border-radius:12px;padding:12px 14px;margin-bottom:18px;font-size:13px;color:var(--nbs-gold-dark);display:flex;align-items:center;gap:8px';
-  info.innerHTML = '<i class="ti ti-user" style="font-size:15px;color:var(--nbs-gold)" aria-hidden="true"></i><span style="font-weight:500">'+nombreVentaClienteConNegocio(v)+'</span><span style="color:var(--nbs-gold)">· '+v.fecha+'</span>';
+  info.style.cssText = 'background:white;border:0.5px solid var(--nbs-line);border-top:none;padding:12px 16px;margin-bottom:14px;font-size:13px;color:var(--nbs-ink);display:flex;justify-content:space-between;align-items:center';
+  info.innerHTML = '<span style="font-weight:500">'+nombreVentaClienteConNegocio(v)+'</span><span style="color:var(--nbs-muted);font-size:12px">'+v.fecha+'</span>';
   wrap.appendChild(info);
+
+  var tituloEdicion = document.createElement('div');
+  tituloEdicion.style.cssText = 'font-size:11px;color:var(--nbs-muted);font-weight:500;margin-bottom:8px;padding-left:2px';
+  tituloEdicion.textContent = 'Productos (toca para editar)';
+  wrap.appendChild(tituloEdicion);
 
   // Items
   var itemsWrap = document.createElement('div');
@@ -5876,6 +5890,12 @@ function editarFactura(vid){
   });
   wrap.appendChild(itemsWrap);
 
+  // Total (para que se sienta como el cierre de una factura, no solo un formulario)
+  var totalBox = document.createElement('div');
+  totalBox.style.cssText = 'border-top:2px solid var(--nbs-ink);padding-top:10px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center';
+  totalBox.innerHTML = '<span style="font-size:14px;font-weight:500;color:var(--nbs-ink)">TOTAL</span><span style="font-size:18px;font-weight:500;color:var(--nbs-ink)">$'+fmtNum(v.total)+'</span>';
+  wrap.appendChild(totalBox);
+
   // Botones
   var btnsRow = document.createElement('div');
   btnsRow.style.cssText = 'display:flex;gap:8px;margin-top:8px';
@@ -5884,8 +5904,8 @@ function editarFactura(vid){
   btnGuardar.style.cssText = 'flex:1;padding:14px;background:var(--nbs-ink);color:white;border:none;border-radius:10px;font-size:15px;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px';
   btnGuardar.onclick = (function(id, n){ return function(){ guardarEdicionFactura(id, n); }; })(vid, v.items.length);
   var btnCancel = document.createElement('button');
-  btnCancel.textContent = 'Cancelar';
-  btnCancel.style.cssText = 'padding:14px 20px;background:transparent;color:var(--nbs-muted);border:0.5px solid #d8d8dc;border-radius:10px;font-size:15px;cursor:pointer';
+  btnCancel.innerHTML = '<i class="ti ti-x" style="font-size:16px" aria-hidden="true"></i>Cancelar';
+  btnCancel.style.cssText = 'padding:14px 20px;background:#F0F0F2;color:var(--nbs-ink);border:0.5px solid #d8d8dc;border-radius:10px;font-size:15px;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px';
   btnCancel.onclick = cerrarFacturaEdit;
   btnsRow.appendChild(btnGuardar);
   btnsRow.appendChild(btnCancel);

@@ -19,6 +19,12 @@
   <div>Cargando NBS...</div>
 </div>
 <script>
+  // Registra el service worker para poder abrir la app sin internet mas adelante.
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(function(err){
+      console.log('No se pudo registrar el service worker:', err);
+    });
+  }
   // Siempre agrega un valor unico (la hora exacta) para forzar que el telefono
   // pida SIEMPRE la version mas nueva de app.html, nunca una copia guardada.
   location.replace('app.html?v=' + Date.now());

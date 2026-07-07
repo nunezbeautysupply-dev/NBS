@@ -4479,8 +4479,8 @@ function abrirEditarProductosDeMarca(){
       +'<input class="inp" id="epml-cat-'+i+'" type="text" placeholder="Escribe la categoría nueva" value="'+(catEnLista?'':catActual.replace(/"/g,"'"))+'" style="display:'+(catEnLista?'none':'block')+'">'
       +'</div>'
       +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">'
-      +'<div><label class="lbl">Costo ($)</label><input class="inp" id="epml-costo-'+i+'" type="text" inputmode="decimal" value="'+(p.costo||0).toFixed(2)+'"></div>'
-      +'<div><label class="lbl">Precio ($)</label><input class="inp" id="epml-precio-'+i+'" type="text" inputmode="decimal" value="'+(p.precio||0).toFixed(2)+'"></div>'
+      +'<div><label class="lbl">Costo ($)</label><input class="inp" id="epml-costo-'+i+'" type="text" inputmode="decimal" value="'+(p.costo||0).toFixed(2)+'" oninput="formatoMoneda(this)"></div>'
+      +'<div><label class="lbl">Precio ($)</label><input class="inp" id="epml-precio-'+i+'" type="text" inputmode="decimal" value="'+(p.precio||0).toFixed(2)+'" oninput="formatoMoneda(this)"></div>'
       +'</div>'
       +'<label class="lbl">Proveedor</label>'
       +'<select class="inp" id="epml-suplidor-'+i+'">'+opcionesProveedor+'</select>'
@@ -6129,7 +6129,7 @@ function editarFactura(vid){
       +'<div><label style="font-size:11px;color:var(--nbs-muted);font-weight:500;display:block;margin-bottom:4px">Cantidad</label>'
       +'<input type="number" value="'+it.cant+'" id="fact-item-cant-'+i+'" style="width:100%;padding:9px 10px;border:0.5px solid #d8d8dc;border-radius:8px;font-size:14px;text-align:center;box-sizing:border-box;color:var(--nbs-ink)"></div>'
       +'<div><label style="font-size:11px;color:var(--nbs-muted);font-weight:500;display:block;margin-bottom:4px">Precio ($)</label>'
-      +'<input type="text" inputmode="decimal" value="'+it.precio.toFixed(2)+'" id="fact-item-precio-'+i+'" style="width:100%;padding:9px 10px;border:0.5px solid #d8d8dc;border-radius:8px;font-size:14px;text-align:center;box-sizing:border-box;color:var(--nbs-ink)"></div>'
+      +'<input type="text" inputmode="decimal" value="'+it.precio.toFixed(2)+'" id="fact-item-precio-'+i+'" oninput="formatoMoneda(this)" style="width:100%;padding:9px 10px;border:0.5px solid #d8d8dc;border-radius:8px;font-size:14px;text-align:center;box-sizing:border-box;color:var(--nbs-ink)"></div>'
       +'</div>';
     itemsWrap.appendChild(row);
   });

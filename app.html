@@ -412,36 +412,13 @@ body{
   <div id="cat-marca-wrap" style="display:none">
     <div class="card">
       <p style="font-size:16px;font-weight:700;margin-bottom:4px;color:var(--nbs-ink)">✏️ Editar toda una marca</p>
-      <p style="font-size:12px;color:var(--nbs-muted);margin-bottom:14px">Cambia precio, categoría, proveedor o el nombre de la marca en todos sus productos de una sola vez. Deja en blanco lo que NO quieras cambiar.</p>
+      <p style="font-size:12px;color:var(--nbs-muted);margin-bottom:14px">Elige la marca y luego edita cada uno de sus productos (precio, categoría, nombre, proveedor). Guardas todos los cambios juntos al final.</p>
 
       <label class="lbl">Marca a editar</label>
       <select class="inp" id="epm-marca" onchange="actualizarConteoMarca()" style="margin-bottom:4px"></select>
-      <p id="epm-conteo" style="font-size:12px;color:var(--nbs-gold-dark);font-weight:600;margin-bottom:14px">0 productos</p>
+      <p id="epm-conteo" style="font-size:12px;color:var(--nbs-gold-dark);font-weight:600;margin-bottom:16px">0 productos</p>
 
-      <label class="lbl">Renombrar marca a (opcional)</label>
-      <input class="inp" id="epm-nueva-marca" type="text" placeholder="Dejar en blanco para no cambiar" style="margin-bottom:14px">
-
-      <label class="lbl">Nueva categoría para todos (opcional)</label>
-      <input class="inp" id="epm-cat" type="text" placeholder="Dejar en blanco para no cambiar" style="margin-bottom:14px">
-
-      <label class="lbl">Asignar proveedor a todos (opcional)</label>
-      <select class="inp" id="epm-suplidor" style="margin-bottom:14px">
-        <option value="">-- No cambiar --</option>
-      </select>
-
-      <label class="lbl">Cambiar precio de venta (opcional)</label>
-      <select class="inp" id="epm-precio-tipo" onchange="actualizarLabelPrecioMarca()" style="margin-bottom:8px">
-        <option value="">-- No cambiar --</option>
-        <option value="fijo">Poner el mismo precio fijo a todos</option>
-        <option value="aumentar_pct">Aumentar % a cada precio actual</option>
-        <option value="disminuir_pct">Disminuir % a cada precio actual</option>
-        <option value="aumentar_monto">Aumentar $ fijo a cada precio actual</option>
-        <option value="disminuir_monto">Disminuir $ fijo a cada precio actual</option>
-      </select>
-      <input class="inp" id="epm-precio-valor" type="number" step="0.01" placeholder="Valor" style="margin-bottom:16px">
-
-      <button class="btn" style="background:var(--nbs-gold);color:white;font-weight:700" onclick="aplicarEdicionMarca()">✓ Aplicar el mismo cambio a todos</button>
-      <button class="btn" style="background:#546E7A;color:white;font-weight:700" onclick="abrirEditarProductosDeMarca()">📝 Ver y editar cada producto individualmente</button>
+      <button class="btn" style="background:var(--nbs-gold);color:white;font-weight:700" onclick="abrirEditarProductosDeMarca()">📝 Ver y editar los productos de esta marca</button>
       <button class="btn" style="background:#F0F0F2;color:var(--nbs-ink)" onclick="cerrarEditarPorMarca()">Cancelar</button>
     </div>
   </div>
@@ -4390,17 +4367,6 @@ function abrirEditarPorMarca(){
   var sel = document.getElementById('epm-marca');
   sel.innerHTML = marcas.map(function(m){ return '<option value="'+m+'">'+m+' ('+conteo[m]+' productos)</option>'; }).join('');
 
-  // Poblar proveedores
-  suplidores = LS('nsup', []);
-  var selSup = document.getElementById('epm-suplidor');
-  selSup.innerHTML = '<option value="">-- No cambiar --</option>' + suplidores.map(function(s){ return '<option value="'+s.nombre.replace(/"/g,"'")+'">'+s.nombre+'</option>'; }).join('');
-
-  // Limpiar campos
-  document.getElementById('epm-nueva-marca').value = '';
-  document.getElementById('epm-cat').value = '';
-  document.getElementById('epm-precio-tipo').value = '';
-  document.getElementById('epm-precio-valor').value = '';
-
   actualizarConteoMarca();
 }
 
@@ -4408,15 +4374,6 @@ function actualizarConteoMarca(){
   var marcaSel = document.getElementById('epm-marca').value;
   var n = productos.filter(function(p){ return marcaDe(p) === marcaSel; }).length;
   document.getElementById('epm-conteo').textContent = n + ' producto(s) con esta marca';
-}
-
-function actualizarLabelPrecioMarca(){
-  var tipo = document.getElementById('epm-precio-tipo').value;
-  var input = document.getElementById('epm-precio-valor');
-  if(tipo === 'fijo') input.placeholder = 'Precio fijo, ej: 15.00';
-  else if(tipo.indexOf('pct') > -1) input.placeholder = 'Porcentaje, ej: 10 (=10%)';
-  else if(tipo.indexOf('monto') > -1) input.placeholder = 'Monto en $, ej: 2.00';
-  else input.placeholder = 'Valor';
 }
 
 function cerrarEditarPorMarca(){
@@ -4492,58 +4449,6 @@ function guardarTodosLosProductosDeMarca(){
   cerrarEditarProductosDeMarca();
   renderCatalogo('');
 }
-
-function aplicarEdicionMarca(){
-  var marcaSel = document.getElementById('epm-marca').value;
-  if(!marcaSel){ alert('Selecciona una marca.'); return; }
-
-  var nuevaMarca = document.getElementById('epm-nueva-marca').value.trim();
-  var nuevaCat = document.getElementById('epm-cat').value.trim();
-  var nuevoSuplidor = document.getElementById('epm-suplidor').value;
-  var precioTipo = document.getElementById('epm-precio-tipo').value;
-  var precioValor = parseFloat(document.getElementById('epm-precio-valor').value);
-
-  if(precioTipo && isNaN(precioValor)){ alert('Escribe un valor para el cambio de precio.'); return; }
-
-  loadProds();
-  var afectados = productos.filter(function(p){ return marcaDe(p) === marcaSel; });
-  if(!afectados.length){ alert('No hay productos con esa marca.'); return; }
-
-  // Armar resumen para confirmar antes de aplicar
-  var resumen = 'Vas a modificar ' + afectados.length + ' producto(s) de la marca "' + marcaSel + '":\n';
-  if(nuevaMarca) resumen += '• Marca nueva: ' + nuevaMarca + '\n';
-  if(nuevaCat) resumen += '• Categoría nueva: ' + nuevaCat + '\n';
-  if(nuevoSuplidor) resumen += '• Proveedor: ' + nuevoSuplidor + '\n';
-  if(precioTipo === 'fijo') resumen += '• Precio fijo: $' + precioValor.toFixed(2) + '\n';
-  if(precioTipo === 'aumentar_pct') resumen += '• Aumentar precio ' + precioValor + '%\n';
-  if(precioTipo === 'disminuir_pct') resumen += '• Disminuir precio ' + precioValor + '%\n';
-  if(precioTipo === 'aumentar_monto') resumen += '• Aumentar $' + precioValor.toFixed(2) + ' a cada precio\n';
-  if(precioTipo === 'disminuir_monto') resumen += '• Disminuir $' + precioValor.toFixed(2) + ' a cada precio\n';
-  if(!nuevaMarca && !nuevaCat && !nuevoSuplidor && !precioTipo){ alert('No seleccionaste ningún cambio para aplicar.'); return; }
-  resumen += '\nEsta acción no se puede deshacer automáticamente (pero puedes editar cada producto de vuelta si hace falta). ¿Continuar?';
-
-  if(!confirm(resumen)) return;
-
-  afectados.forEach(function(p){
-    if(nuevaMarca){
-      p.marca = nuevaMarca;
-      p.nombre = nuevaMarca + ' ' + (p.nombreCorto || p.nombre.replace(new RegExp('^'+marcaSel,'i'),'').trim());
-    }
-    if(nuevaCat) p.cat = nuevaCat;
-    if(nuevoSuplidor) p.proveedorPref = nuevoSuplidor;
-    if(precioTipo === 'fijo') p.precio = precioValor;
-    else if(precioTipo === 'aumentar_pct') p.precio = Math.round((p.precio * (1 + precioValor/100)) * 100) / 100;
-    else if(precioTipo === 'disminuir_pct') p.precio = Math.round((p.precio * (1 - precioValor/100)) * 100) / 100;
-    else if(precioTipo === 'aumentar_monto') p.precio = Math.round((p.precio + precioValor) * 100) / 100;
-    else if(precioTipo === 'disminuir_monto') p.precio = Math.max(0, Math.round((p.precio - precioValor) * 100) / 100);
-  });
-
-  SS('np', productos);
-  alert('✅ Se actualizaron ' + afectados.length + ' producto(s) correctamente.');
-  cerrarEditarPorMarca();
-  renderCatalogo('');
-}
-
 
 function verificarPIN(callback){
   var pin = prompt('Ingresa el PIN de administrador:');

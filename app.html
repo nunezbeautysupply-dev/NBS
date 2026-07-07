@@ -4956,10 +4956,11 @@ function abrirAbono(cid){
   var facturasC = ventas.filter(function(v){ return String(v.cid)===String(cid) && v.tipo==='credito' && !v.cancelada; });
   if(!facturasC.length) return;
   var cl = clientes.find(function(x){ return String(x.id)===String(cid); });
-  var cn = cl ? nombreClConNegocio(cl) : facturasC[0].cn;
+  var cn = cl ? nombreCl(cl) : facturasC[0].cn;
+  var negocioTxt = cl && cl.negocio ? cl.negocio.trim() : '';
   document.getElementById('cxc-lista').style.display = 'none';
   document.getElementById('cxc-abono').style.display = 'block';
-  document.getElementById('cxc-nombre').textContent = cn;
+  document.getElementById('cxc-nombre').innerHTML = cn + (negocioTxt ? '<div style="font-size:14px;font-weight:600;color:#6A1B9A;margin-top:2px">🏪 '+negocioTxt+'</div>' : '');
   var totalFacturado = 0;
   var totalPagado = 0;
   facturasC.forEach(function(v){
@@ -5279,6 +5280,28 @@ function renderFacturas(q){
     return;
   }
 
+  // Calcular totales generales (sobre la lista filtrada/buscada actual)
+  var totalGeneral = 0;
+  var totalPendiente = 0;
+  var countAbiertas = 0;
+  lista.forEach(function(v){
+    var pagadoT = v.tipo==='credito' ? (v.pagosFactura ? v.pagosFactura.filter(function(p){return typeof p.monto==='number';}).reduce(function(s,p){return s+p.monto;},0) : 0) : v.total;
+    var saldoT = Math.max(0, v.total - pagadoT);
+    totalGeneral += v.total;
+    if(saldoT > 0){ totalPendiente += saldoT; countAbiertas++; }
+  });
+  var resumenTotales = document.createElement('div');
+  resumenTotales.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px';
+  resumenTotales.innerHTML = '<div style="background:#E8EAF6;border-radius:10px;padding:12px;text-align:center">'
+    +'<div style="font-size:10px;color:#1a237e;font-weight:700">TOTAL GENERAL · '+lista.length+' FACTURA(S)</div>'
+    +'<div style="font-size:18px;font-weight:800;color:#1a237e;margin-top:2px">$'+fmtNum(totalGeneral)+'</div>'
+    +'</div>'
+    +'<div style="background:'+(totalPendiente>0?'#FFEBEE':'#E8F5E9')+';border-radius:10px;padding:12px;text-align:center">'
+    +'<div style="font-size:10px;color:'+(totalPendiente>0?'#C62828':'#2E7D32')+';font-weight:700">FACTURAS ABIERTAS · '+countAbiertas+'</div>'
+    +'<div style="font-size:18px;font-weight:800;color:'+(totalPendiente>0?'#C62828':'#2E7D32')+';margin-top:2px">$'+fmtNum(totalPendiente)+'</div>'
+    +'</div>';
+  el.appendChild(resumenTotales);
+
   lista.forEach(function(v){
     var pagado = v.tipo==='credito' ? (v.pagosFactura ? v.pagosFactura.filter(function(p){return typeof p.monto==='number';}).reduce(function(s,p){return s+p.monto;},0) : 0) : v.total;
     var saldo = Math.max(0, v.total - pagado);
@@ -5291,7 +5314,8 @@ function renderFacturas(q){
     // Header de la card
     var header = '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">'
       +'<div>'
-      +'<div style="font-size:16px;font-weight:800;color:#1a237e">'+nombreVentaClienteConNegocio(v)+'</div>'
+      +'<div style="font-size:16px;font-weight:800;color:#1a237e">'+nombreVentaCliente(v)+'</div>'
+      +(function(){ var cl=clientes.find(function(x){return String(x.id)===String(v.cid);}); var neg = cl && cl.negocio ? cl.negocio.trim() : ''; return neg ? '<div style="font-size:12px;font-weight:600;color:#6A1B9A;margin-top:1px">🏪 '+neg+'</div>' : ''; })()
       +'<div style="font-size:11px;color:#aaa;margin-top:2px">'+v.fecha+' · '+v.hora+'</div>'
       +'<div style="font-size:11px;color:#aaa">Factura #'+numFact+'</div>'
       +'</div>'
@@ -5367,22 +5391,24 @@ function verFacturaProfesional(vid){
   overlay.appendChild(actBtns);
 
   // Contenido de la factura
-  var itemsHTML = v.items.map(function(it){
-    return '<tr>'
-      +'<td style="padding:8px 6px;border-bottom:0.5px solid #f0f0f0;font-size:13px">'+it.nombre+'</td>'
-      +'<td style="padding:8px 6px;border-bottom:0.5px solid #f0f0f0;text-align:center;font-size:13px">'+it.cant+'</td>'
-      +'<td style="padding:8px 6px;border-bottom:0.5px solid #f0f0f0;text-align:right;font-size:13px">$'+fmtNum(it.precio)+'</td>'
-      +'<td style="padding:8px 6px;border-bottom:0.5px solid #f0f0f0;text-align:right;font-size:13px;font-weight:700">$'+fmtNum(it.cant*it.precio)+'</td>'
+  var itemsHTML = v.items.map(function(it, idx){
+    var bg = idx % 2 === 0 ? 'transparent' : '#FAFAFA';
+    return '<tr style="background:'+bg+'">'
+      +'<td style="padding:9px 6px;border-bottom:0.5px solid #f0f0f0;font-size:13px">'+it.nombre+'</td>'
+      +'<td style="padding:9px 6px;border-bottom:0.5px solid #f0f0f0;text-align:center;font-size:13px">'+it.cant+'</td>'
+      +'<td style="padding:9px 6px;border-bottom:0.5px solid #f0f0f0;text-align:right;font-size:13px">$'+fmtNum(it.precio)+'</td>'
+      +'<td style="padding:9px 6px;border-bottom:0.5px solid #f0f0f0;text-align:right;font-size:13px;font-weight:700">$'+fmtNum(it.cant*it.precio)+'</td>'
       +'</tr>';
   }).join('');
 
   var factDiv = document.createElement('div');
   factDiv.id = 'factura-imprimible';
-  factDiv.style.cssText = 'max-width:400px;margin:0 auto;font-family:sans-serif';
+  factDiv.style.cssText = 'max-width:400px;margin:0 auto;font-family:sans-serif;box-shadow:0 2px 12px rgba(0,0,0,0.08);border-radius:12px';
   factDiv.innerHTML = '<div style="background:white;padding:14px 20px 12px;text-align:center;border:0.5px solid #e5e7eb;border-bottom:none;border-radius:12px 12px 0 0">'
     +'<img src="'+LOGO_SRC_COLOR+'" style="height:70px;display:inline-block" alt="Nunez Beauty Supply">'
     +'<div style="font-size:12px;color:#888;font-weight:700;margin-top:14px">964 Atwells Ave, Providence, Rhode Island 02909</div>'
     +'<div style="font-size:12px;color:#888;font-weight:700;margin-top:2px">401-305-0188</div>'
+    +'<div style="margin-top:10px;display:inline-block;background:#1a237e;color:white;font-size:11px;font-weight:800;letter-spacing:1.5px;padding:4px 16px;border-radius:20px">FACTURA</div>'
     +'</div>'
     +'<div style="border:0.5px solid #e5e7eb;border-top:none;padding:16px;border-radius:0 0 12px 12px">'
     +'<div style="display:flex;justify-content:space-between;margin-bottom:12px;padding-bottom:12px;border-bottom:0.5px solid #f0f0f0">'

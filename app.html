@@ -4381,6 +4381,32 @@ function cerrarEditarPorMarca(){
   document.getElementById('cat-lista-wrap').style.display = 'block';
 }
 
+function toggleOtraMarca(i){
+  var sel = document.getElementById('epml-marca-sel-'+i);
+  var input = document.getElementById('epml-marca-'+i);
+  if(sel.value === '__otra__'){
+    input.style.display = 'block';
+    input.value = '';
+    input.focus();
+  } else {
+    input.style.display = 'none';
+    input.value = sel.value;
+  }
+}
+
+function toggleOtraCat(i){
+  var sel = document.getElementById('epml-cat-sel-'+i);
+  var input = document.getElementById('epml-cat-'+i);
+  if(sel.value === '__otra__'){
+    input.style.display = 'block';
+    input.value = '';
+    input.focus();
+  } else {
+    input.style.display = 'none';
+    input.value = sel.value;
+  }
+}
+
 function marcarEliminarProductoMarca(i){
   window._epmlEliminar = window._epmlEliminar || {};
   var card = document.getElementById('epml-card-'+i);
@@ -4418,18 +4444,25 @@ function abrirEditarProductosDeMarca(){
 
   var opcionesProveedor = '<option value="">-- Sin proveedor --</option>' + suplidores.map(function(s){ return '<option value="'+s.nombre.replace(/"/g,"'")+'">'+s.nombre+'</option>'; }).join('');
 
-  // Listas de sugerencias (autocompletado) con todo lo que ya existe en el catálogo
+  // Listas de marcas y categorias existentes en todo el catalogo (para los menus desplegables)
   var marcasExistentes = {};
   var categoriasExistentes = {};
   productos.forEach(function(p){
     marcasExistentes[p.marca || marcaDe(p)] = true;
     if(p.cat) categoriasExistentes[p.cat] = true;
   });
-  var datalistMarcas = '<datalist id="epml-marcas-datalist">' + Object.keys(marcasExistentes).sort().map(function(m){ return '<option value="'+m.replace(/"/g,"'")+'">'; }).join('') + '</datalist>';
-  var datalistCats = '<datalist id="epml-cat-datalist">' + Object.keys(categoriasExistentes).sort().map(function(c){ return '<option value="'+c.replace(/"/g,"'")+'">'; }).join('') + '</datalist>';
+  var listaMarcas = Object.keys(marcasExistentes).sort();
+  var listaCats = Object.keys(categoriasExistentes).sort();
 
   var el = document.getElementById('epml-lista');
-  el.innerHTML = datalistMarcas + datalistCats + afectados.map(function(p, i){
+  el.innerHTML = afectados.map(function(p, i){
+    var marcaActual = (p.marca || marcaDe(p));
+    var catActual = (p.cat || '');
+    var marcaEnLista = listaMarcas.indexOf(marcaActual) > -1;
+    var catEnLista = listaCats.indexOf(catActual) > -1;
+    var opcionesMarca = listaMarcas.map(function(m){ return '<option value="'+m.replace(/"/g,"'")+'"'+(m===marcaActual?' selected':'')+'>'+m+'</option>'; }).join('') + '<option value="__otra__"'+(marcaEnLista?'':' selected')+'>✏️ Otra (escribir nueva)</option>';
+    var opcionesCat = listaCats.map(function(c){ return '<option value="'+c.replace(/"/g,"'")+'"'+(c===catActual?' selected':'')+'>'+c+'</option>'; }).join('') + '<option value="__otra__"'+(catEnLista?'':' selected')+'>✏️ Otra (escribir nueva)</option>';
+
     return '<div class="card" id="epml-card-'+i+'" style="border:0.5px solid var(--nbs-line);box-shadow:var(--nbs-shadow-card)" data-pid="'+p.id+'">'
       +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">'
       +'<span style="font-size:11px;color:var(--nbs-muted-2)">Producto '+(i+1)+'</span>'
@@ -4437,9 +4470,13 @@ function abrirEditarProductosDeMarca(){
       +'</div>'
       +'<label class="lbl">Nombre del producto</label>'
       +'<input class="inp" id="epml-nombre-'+i+'" type="text" value="'+(p.nombre||'').replace(/"/g,"'")+'" style="margin-bottom:10px">'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px">'
+      +'<div><label class="lbl">Marca</label><select class="inp" id="epml-marca-sel-'+i+'" onchange="toggleOtraMarca('+i+')">'+opcionesMarca+'</select></div>'
+      +'<div><label class="lbl">Categoría</label><select class="inp" id="epml-cat-sel-'+i+'" onchange="toggleOtraCat('+i+')">'+opcionesCat+'</select></div>'
+      +'</div>'
       +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">'
-      +'<div><label class="lbl">Marca</label><input class="inp" id="epml-marca-'+i+'" type="text" list="epml-marcas-datalist" value="'+(p.marca||marcaDe(p)).replace(/"/g,"'")+'"></div>'
-      +'<div><label class="lbl">Categoría</label><input class="inp" id="epml-cat-'+i+'" type="text" list="epml-cat-datalist" value="'+(p.cat||'').replace(/"/g,"'")+'"></div>'
+      +'<input class="inp" id="epml-marca-'+i+'" type="text" placeholder="Escribe la marca nueva" value="'+(marcaEnLista?'':marcaActual.replace(/"/g,"'"))+'" style="display:'+(marcaEnLista?'none':'block')+'">'
+      +'<input class="inp" id="epml-cat-'+i+'" type="text" placeholder="Escribe la categoría nueva" value="'+(catEnLista?'':catActual.replace(/"/g,"'"))+'" style="display:'+(catEnLista?'none':'block')+'">'
       +'</div>'
       +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">'
       +'<div><label class="lbl">Costo ($)</label><input class="inp" id="epml-costo-'+i+'" type="text" inputmode="decimal" value="'+(p.costo||0).toFixed(2)+'"></div>'
@@ -4492,6 +4529,8 @@ function guardarTodosLosProductosDeMarca(){
     var p = productos.find(function(x){ return String(x.id) === String(pid); });
     if(!p) return;
     var nombreInput = document.getElementById('epml-nombre-'+i);
+    var marcaSelInput = document.getElementById('epml-marca-sel-'+i);
+    var catSelInput = document.getElementById('epml-cat-sel-'+i);
     var marcaInput = document.getElementById('epml-marca-'+i);
     var catInput = document.getElementById('epml-cat-'+i);
     var costoInput = document.getElementById('epml-costo-'+i);
@@ -4499,8 +4538,8 @@ function guardarTodosLosProductosDeMarca(){
     var supInput = document.getElementById('epml-suplidor-'+i);
     if(!nombreInput) return;
     p.nombre = nombreInput.value.trim();
-    p.marca = marcaInput.value.trim();
-    p.cat = catInput.value.trim();
+    p.marca = (marcaSelInput.value === '__otra__' ? marcaInput.value.trim() : marcaSelInput.value);
+    p.cat = (catSelInput.value === '__otra__' ? catInput.value.trim() : catSelInput.value);
     p.costo = parseFloat(costoInput.value) || 0;
     p.precio = parseFloat(precioInput.value) || 0;
     p.proveedorPref = supInput.value;

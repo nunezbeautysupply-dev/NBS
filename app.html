@@ -440,9 +440,19 @@ body{
       </select>
       <input class="inp" id="epm-precio-valor" type="number" step="0.01" placeholder="Valor" style="margin-bottom:16px">
 
-      <button class="btn" style="background:var(--nbs-gold);color:white;font-weight:700" onclick="aplicarEdicionMarca()">✓ Aplicar cambios a toda la marca</button>
+      <button class="btn" style="background:var(--nbs-gold);color:white;font-weight:700" onclick="aplicarEdicionMarca()">✓ Aplicar el mismo cambio a todos</button>
+      <button class="btn" style="background:#546E7A;color:white;font-weight:700" onclick="abrirEditarProductosDeMarca()">📝 Ver y editar cada producto individualmente</button>
       <button class="btn" style="background:#F0F0F2;color:var(--nbs-ink)" onclick="cerrarEditarPorMarca()">Cancelar</button>
     </div>
+  </div>
+  <div id="cat-marca-lista-wrap" style="display:none">
+    <div class="card">
+      <p id="epml-titulo" style="font-size:16px;font-weight:700;margin-bottom:4px;color:var(--nbs-ink)">Editar productos</p>
+      <p style="font-size:12px;color:var(--nbs-muted);margin-bottom:14px">Edita lo que necesites en cada producto. Los cambios se guardan todos juntos al final con el botón de abajo.</p>
+    </div>
+    <div id="epml-lista"></div>
+    <button class="btn" style="background:var(--nbs-gold);color:white;font-weight:700;position:sticky;bottom:10px" onclick="guardarTodosLosProductosDeMarca()">✓ Guardar todos los cambios</button>
+    <button class="btn" style="background:#F0F0F2;color:var(--nbs-ink)" onclick="cerrarEditarProductosDeMarca()">Cancelar</button>
   </div>
   <div id="cat-edit-wrap" style="display:none">
     <div class="card">
@@ -4412,6 +4422,75 @@ function actualizarLabelPrecioMarca(){
 function cerrarEditarPorMarca(){
   document.getElementById('cat-marca-wrap').style.display = 'none';
   document.getElementById('cat-lista-wrap').style.display = 'block';
+}
+
+function abrirEditarProductosDeMarca(){
+  var marcaSel = document.getElementById('epm-marca').value;
+  if(!marcaSel){ alert('Selecciona una marca primero.'); return; }
+
+  loadProds();
+  suplidores = LS('nsup', []);
+  var afectados = productos.filter(function(p){ return marcaDe(p) === marcaSel; });
+  if(!afectados.length){ alert('No hay productos con esa marca.'); return; }
+
+  document.getElementById('cat-marca-wrap').style.display = 'none';
+  document.getElementById('cat-marca-lista-wrap').style.display = 'block';
+  document.getElementById('epml-titulo').textContent = marcaSel + ' — ' + afectados.length + ' producto(s)';
+
+  var opcionesProveedor = '<option value="">-- Sin proveedor --</option>' + suplidores.map(function(s){ return '<option value="'+s.nombre.replace(/"/g,"'")+'">'+s.nombre+'</option>'; }).join('');
+
+  var el = document.getElementById('epml-lista');
+  el.innerHTML = afectados.map(function(p, i){
+    return '<div class="card" style="border:0.5px solid var(--nbs-line);box-shadow:var(--nbs-shadow-card)" data-pid="'+p.id+'">'
+      +'<label class="lbl">Nombre del producto</label>'
+      +'<input class="inp" id="epml-nombre-'+i+'" type="text" value="'+(p.nombre||'').replace(/"/g,"'")+'" style="margin-bottom:10px">'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">'
+      +'<div><label class="lbl">Categoría</label><input class="inp" id="epml-cat-'+i+'" type="text" value="'+(p.cat||'').replace(/"/g,"'")+'"></div>'
+      +'<div><label class="lbl">Precio ($)</label><input class="inp" id="epml-precio-'+i+'" type="text" inputmode="decimal" value="'+(p.precio||0).toFixed(2)+'"></div>'
+      +'</div>'
+      +'<label class="lbl">Proveedor</label>'
+      +'<select class="inp" id="epml-suplidor-'+i+'">'+opcionesProveedor+'</select>'
+      +'</div>';
+  }).join('');
+
+  // Marcar el proveedor actual seleccionado en cada select
+  afectados.forEach(function(p, i){
+    if(p.proveedorPref) document.getElementById('epml-suplidor-'+i).value = p.proveedorPref;
+  });
+
+  // Guardar referencia de los ids afectados para el guardado
+  window._epmlIds = afectados.map(function(p){ return p.id; });
+}
+
+function cerrarEditarProductosDeMarca(){
+  document.getElementById('cat-marca-lista-wrap').style.display = 'none';
+  document.getElementById('cat-lista-wrap').style.display = 'block';
+}
+
+function guardarTodosLosProductosDeMarca(){
+  var ids = window._epmlIds || [];
+  if(!ids.length) return;
+  if(!confirm('¿Guardar los cambios de estos ' + ids.length + ' producto(s)?')) return;
+
+  loadProds();
+  ids.forEach(function(pid, i){
+    var p = productos.find(function(x){ return String(x.id) === String(pid); });
+    if(!p) return;
+    var nombreInput = document.getElementById('epml-nombre-'+i);
+    var catInput = document.getElementById('epml-cat-'+i);
+    var precioInput = document.getElementById('epml-precio-'+i);
+    var supInput = document.getElementById('epml-suplidor-'+i);
+    if(!nombreInput) return;
+    p.nombre = nombreInput.value.trim();
+    p.cat = catInput.value.trim();
+    p.precio = parseFloat(precioInput.value) || 0;
+    p.proveedorPref = supInput.value;
+  });
+
+  SS('np', productos);
+  alert('✅ Se guardaron los cambios de ' + ids.length + ' producto(s).');
+  cerrarEditarProductosDeMarca();
+  renderCatalogo('');
 }
 
 function aplicarEdicionMarca(){

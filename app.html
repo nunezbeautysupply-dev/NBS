@@ -5948,6 +5948,10 @@ function fmtTel(el){
 
 function exportD(){
   loadProds();
+  ventas = LS('nv', []);
+  clientes = LS('ncl', []);
+  compras = LS('nc', []);
+  creditos = LS('ncr', []);
   suplidores = LS('nsup', []);
   var gastos = LS('ngastos', []);
   var d = {v:1, productos:productos, ventas:ventas, compras:compras, creditos:creditos, clientes:clientes, suplidores:suplidores, gastos:gastos};

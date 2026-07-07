@@ -4392,6 +4392,16 @@ function toggleOtraMarca(i){
     input.style.display = 'none';
     input.value = sel.value;
   }
+  actualizarPrefijoNombre(i);
+}
+
+function actualizarPrefijoNombre(i){
+  var sel = document.getElementById('epml-marca-sel-'+i);
+  var input = document.getElementById('epml-marca-'+i);
+  var pref = document.getElementById('epml-nombre-prefijo-'+i);
+  if(!pref) return;
+  var marcaTxt = (sel.value === '__otra__') ? input.value.trim() : sel.value;
+  pref.textContent = marcaTxt || '(sin marca)';
 }
 
 function toggleOtraCat(i){
@@ -4463,19 +4473,27 @@ function abrirEditarProductosDeMarca(){
     var opcionesMarca = listaMarcas.map(function(m){ return '<option value="'+m.replace(/"/g,"'")+'"'+(m===marcaActual?' selected':'')+'>'+m+'</option>'; }).join('') + '<option value="__otra__"'+(marcaEnLista?'':' selected')+'>✏️ Otra (escribir nueva)</option>';
     var opcionesCat = listaCats.map(function(c){ return '<option value="'+c.replace(/"/g,"'")+'"'+(c===catActual?' selected':'')+'>'+c+'</option>'; }).join('') + '<option value="__otra__"'+(catEnLista?'':' selected')+'>✏️ Otra (escribir nueva)</option>';
 
+    // Calcular el "resto" del nombre sin la marca, para mostrar la marca como prefijo automatico
+    var restoNombre = (p.nombre||'');
+    var prefRegex = new RegExp('^\\s*'+marcaActual.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'\\s*','i');
+    restoNombre = restoNombre.replace(prefRegex, '').trim();
+
     return '<div class="card" id="epml-card-'+i+'" style="border:0.5px solid var(--nbs-line);box-shadow:var(--nbs-shadow-card)" data-pid="'+p.id+'">'
       +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">'
       +'<span style="font-size:11px;color:var(--nbs-muted-2)">Producto '+(i+1)+'</span>'
       +'<button type="button" onclick="marcarEliminarProductoMarca('+i+')" id="epml-btn-elim-'+i+'" style="background:var(--nbs-red-bg);color:var(--nbs-red-dark);border:none;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:600;cursor:pointer"><i class="ti ti-trash" style="font-size:13px;vertical-align:-2px" aria-hidden="true"></i> Eliminar</button>'
       +'</div>'
       +'<label class="lbl">Nombre del producto</label>'
-      +'<input class="inp" id="epml-nombre-'+i+'" type="text" value="'+(p.nombre||'').replace(/"/g,"'")+'" style="margin-bottom:10px">'
+      +'<div style="display:flex;align-items:stretch;gap:6px;margin-bottom:10px">'
+      +'<div id="epml-nombre-prefijo-'+i+'" style="background:var(--nbs-gold-bg);color:var(--nbs-gold-dark);border-radius:8px;padding:0 12px;display:flex;align-items:center;font-size:14px;font-weight:700;white-space:nowrap">'+marcaActual+'</div>'
+      +'<input class="inp" id="epml-nombre-'+i+'" type="text" value="'+restoNombre.replace(/"/g,"'")+'" placeholder="resto del nombre..." style="margin-bottom:0;flex:1">'
+      +'</div>'
       +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px">'
       +'<div><label class="lbl">Marca</label><select class="inp" id="epml-marca-sel-'+i+'" onchange="toggleOtraMarca('+i+')">'+opcionesMarca+'</select></div>'
       +'<div><label class="lbl">Categoría</label><select class="inp" id="epml-cat-sel-'+i+'" onchange="toggleOtraCat('+i+')">'+opcionesCat+'</select></div>'
       +'</div>'
       +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">'
-      +'<input class="inp" id="epml-marca-'+i+'" type="text" placeholder="Escribe la marca nueva" value="'+(marcaEnLista?'':marcaActual.replace(/"/g,"'"))+'" style="display:'+(marcaEnLista?'none':'block')+'">'
+      +'<input class="inp" id="epml-marca-'+i+'" type="text" placeholder="Escribe la marca nueva" value="'+(marcaEnLista?'':marcaActual.replace(/"/g,"'"))+'" style="display:'+(marcaEnLista?'none':'block')+'" oninput="actualizarPrefijoNombre('+i+')">'
       +'<input class="inp" id="epml-cat-'+i+'" type="text" placeholder="Escribe la categoría nueva" value="'+(catEnLista?'':catActual.replace(/"/g,"'"))+'" style="display:'+(catEnLista?'none':'block')+'">'
       +'</div>'
       +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">'
@@ -4537,8 +4555,11 @@ function guardarTodosLosProductosDeMarca(){
     var precioInput = document.getElementById('epml-precio-'+i);
     var supInput = document.getElementById('epml-suplidor-'+i);
     if(!nombreInput) return;
-    p.nombre = nombreInput.value.trim();
-    p.marca = (marcaSelInput.value === '__otra__' ? marcaInput.value.trim() : marcaSelInput.value);
+    var marcaFinal = (marcaSelInput.value === '__otra__' ? marcaInput.value.trim() : marcaSelInput.value);
+    var restoFinal = nombreInput.value.trim();
+    p.nombre = (marcaFinal ? marcaFinal + ' ' : '') + restoFinal;
+    p.nombreCorto = restoFinal;
+    p.marca = marcaFinal;
     p.cat = (catSelInput.value === '__otra__' ? catInput.value.trim() : catSelInput.value);
     p.costo = parseFloat(costoInput.value) || 0;
     p.precio = parseFloat(precioInput.value) || 0;

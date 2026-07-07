@@ -4381,6 +4381,28 @@ function cerrarEditarPorMarca(){
   document.getElementById('cat-lista-wrap').style.display = 'block';
 }
 
+function marcarEliminarProductoMarca(i){
+  window._epmlEliminar = window._epmlEliminar || {};
+  var card = document.getElementById('epml-card-'+i);
+  var btn = document.getElementById('epml-btn-elim-'+i);
+  var marcado = !!window._epmlEliminar[i];
+  if(!marcado){
+    window._epmlEliminar[i] = true;
+    card.style.opacity = '0.4';
+    card.style.background = '#FBECEC';
+    btn.innerHTML = '<i class="ti ti-arrow-back-up" style="font-size:13px;vertical-align:-2px" aria-hidden="true"></i> Deshacer';
+    btn.style.background = '#F0F0F2';
+    btn.style.color = 'var(--nbs-ink)';
+  } else {
+    delete window._epmlEliminar[i];
+    card.style.opacity = '1';
+    card.style.background = 'white';
+    btn.innerHTML = '<i class="ti ti-trash" style="font-size:13px;vertical-align:-2px" aria-hidden="true"></i> Eliminar';
+    btn.style.background = 'var(--nbs-red-bg)';
+    btn.style.color = 'var(--nbs-red-dark)';
+  }
+}
+
 function abrirEditarProductosDeMarca(){
   var marcaSel = document.getElementById('epm-marca').value;
   if(!marcaSel){ alert('Selecciona una marca primero.'); return; }
@@ -4398,17 +4420,27 @@ function abrirEditarProductosDeMarca(){
 
   var el = document.getElementById('epml-lista');
   el.innerHTML = afectados.map(function(p, i){
-    return '<div class="card" style="border:0.5px solid var(--nbs-line);box-shadow:var(--nbs-shadow-card)" data-pid="'+p.id+'">'
+    return '<div class="card" id="epml-card-'+i+'" style="border:0.5px solid var(--nbs-line);box-shadow:var(--nbs-shadow-card)" data-pid="'+p.id+'">'
+      +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">'
+      +'<span style="font-size:11px;color:var(--nbs-muted-2)">Producto '+(i+1)+'</span>'
+      +'<button type="button" onclick="marcarEliminarProductoMarca('+i+')" id="epml-btn-elim-'+i+'" style="background:var(--nbs-red-bg);color:var(--nbs-red-dark);border:none;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:600;cursor:pointer"><i class="ti ti-trash" style="font-size:13px;vertical-align:-2px" aria-hidden="true"></i> Eliminar</button>'
+      +'</div>'
       +'<label class="lbl">Nombre del producto</label>'
       +'<input class="inp" id="epml-nombre-'+i+'" type="text" value="'+(p.nombre||'').replace(/"/g,"'")+'" style="margin-bottom:10px">'
       +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">'
+      +'<div><label class="lbl">Marca</label><input class="inp" id="epml-marca-'+i+'" type="text" value="'+(p.marca||marcaDe(p)).replace(/"/g,"'")+'"></div>'
       +'<div><label class="lbl">Categoría</label><input class="inp" id="epml-cat-'+i+'" type="text" value="'+(p.cat||'').replace(/"/g,"'")+'"></div>'
+      +'</div>'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">'
+      +'<div><label class="lbl">Costo ($)</label><input class="inp" id="epml-costo-'+i+'" type="text" inputmode="decimal" value="'+(p.costo||0).toFixed(2)+'"></div>'
       +'<div><label class="lbl">Precio ($)</label><input class="inp" id="epml-precio-'+i+'" type="text" inputmode="decimal" value="'+(p.precio||0).toFixed(2)+'"></div>'
       +'</div>'
       +'<label class="lbl">Proveedor</label>'
       +'<select class="inp" id="epml-suplidor-'+i+'">'+opcionesProveedor+'</select>'
       +'</div>';
   }).join('');
+
+  window._epmlEliminar = {};
 
   // Marcar el proveedor actual seleccionado en cada select
   afectados.forEach(function(p, i){
@@ -4427,25 +4459,46 @@ function cerrarEditarProductosDeMarca(){
 function guardarTodosLosProductosDeMarca(){
   var ids = window._epmlIds || [];
   if(!ids.length) return;
-  if(!confirm('¿Guardar los cambios de estos ' + ids.length + ' producto(s)?')) return;
+  var aEliminar = window._epmlEliminar || {};
+  var cantEliminar = Object.keys(aEliminar).length;
+  var cantEditar = ids.length - cantEliminar;
+
+  var msg = '';
+  if(cantEditar > 0) msg += 'Guardar cambios de ' + cantEditar + ' producto(s). ';
+  if(cantEliminar > 0) msg += 'Eliminar ' + cantEliminar + ' producto(s). ';
+  msg += '¿Continuar?';
+  if(!confirm(msg)) return;
 
   loadProds();
+  var eliminados = LS('np_eliminados', []);
+
   ids.forEach(function(pid, i){
+    if(aEliminar[i]){
+      // Eliminar este producto
+      if(eliminados.indexOf(String(pid)) === -1) eliminados.push(String(pid));
+      productos = productos.filter(function(x){ return String(x.id) !== String(pid); });
+      return;
+    }
     var p = productos.find(function(x){ return String(x.id) === String(pid); });
     if(!p) return;
     var nombreInput = document.getElementById('epml-nombre-'+i);
+    var marcaInput = document.getElementById('epml-marca-'+i);
     var catInput = document.getElementById('epml-cat-'+i);
+    var costoInput = document.getElementById('epml-costo-'+i);
     var precioInput = document.getElementById('epml-precio-'+i);
     var supInput = document.getElementById('epml-suplidor-'+i);
     if(!nombreInput) return;
     p.nombre = nombreInput.value.trim();
+    p.marca = marcaInput.value.trim();
     p.cat = catInput.value.trim();
+    p.costo = parseFloat(costoInput.value) || 0;
     p.precio = parseFloat(precioInput.value) || 0;
     p.proveedorPref = supInput.value;
   });
 
+  SS('np_eliminados', eliminados);
   SS('np', productos);
-  alert('✅ Se guardaron los cambios de ' + ids.length + ' producto(s).');
+  alert('✅ Listo. ' + (cantEditar>0 ? cantEditar+' producto(s) actualizado(s). ' : '') + (cantEliminar>0 ? cantEliminar+' producto(s) eliminado(s).' : ''));
   cerrarEditarProductosDeMarca();
   renderCatalogo('');
 }

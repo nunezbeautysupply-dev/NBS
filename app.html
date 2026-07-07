@@ -174,9 +174,9 @@ body{
 
 .snk{background:#1a237e;color:white;padding:10px;border-radius:8px;font-size:13px;margin-top:8px;display:none;text-align:center;font-weight:600;}
 
-.av{width:44px;height:44px;border-radius:12px;background:#E8EAF6;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:var(--primary);flex-shrink:0;}
+.av{width:44px;height:44px;border-radius:12px;background:var(--nbs-gold-bg);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:var(--nbs-gold-dark);flex-shrink:0;}
 
-.clrow{display:flex;align-items:center;gap:12px;padding:12px 14px;background:white;border-radius:12px;margin-bottom:8px;cursor:pointer;box-shadow:var(--shadow);border:1px solid rgba(0,0,0,0.04);transition:transform 0.1s;}
+.clrow{display:flex;align-items:center;gap:12px;padding:14px;background:white;border-radius:12px;margin-bottom:8px;cursor:pointer;box-shadow:var(--nbs-shadow-card);border:0.5px solid var(--nbs-line);transition:transform 0.1s;}
 .clrow:active{transform:scale(0.98);}
 
 .chip{font-size:11px;padding:3px 10px;border-radius:20px;font-weight:600;}
@@ -2424,9 +2424,9 @@ function renderCl(q){
     var balance = Math.max(0, totalCred - totalPag);
     var d=document.createElement('div');d.className='clrow';
     d.innerHTML='<div class="av">'+ini(c.nombre,c.apellido)+'</div>'
-      +'<div style="flex:1"><div style="font-size:17px;font-weight:800;color:#1a237e">'+c.nombre+' '+c.apellido+(c.apodo?' <span style="color:#6A1B9A;font-weight:700">"'+c.apodo+'"</span>':'')+(c.vipActivo?' <span style="color:#C62828;font-size:13px">★</span>':'')+'</div>'
-      +'<div style="font-size:12px;color:#aaa">'+(c.negocio||'Cliente')+' · '+(c.tel||'Sin tel.')+'</div>'
-      +'<div style="font-size:12px;font-weight:700;margin-top:2px;color:'+(balance>0?'#C62828':'#aaa')+'">Balance: $'+fmtNum(balance)+'</div>'
+      +'<div style="flex:1"><div style="font-size:16px;font-weight:700;color:var(--nbs-ink)">'+c.nombre+' '+c.apellido+(c.apodo?' <span style="color:var(--nbs-gold-dark);font-weight:700">"'+c.apodo+'"</span>':'')+(c.vipActivo?' <span style="color:var(--nbs-red-text);font-size:13px">★</span>':'')+'</div>'
+      +'<div style="font-size:12px;color:var(--nbs-muted)">'+(c.negocio||'Cliente')+' · '+(c.tel||'Sin tel.')+'</div>'
+      +'<div style="font-size:12px;font-weight:700;margin-top:2px;color:'+(balance>0?'var(--nbs-red-text)':'var(--nbs-muted-2)')+'">Balance: $'+fmtNum(balance)+'</div>'
       +'</div>'
       +'<span style="color:#ddd;font-size:20px">›</span>';
     d.onclick=(function(cid){return function(){verCl(cid);};})(c.id);
@@ -4914,28 +4914,29 @@ function renderCxC(q){
 
   var total = pendientes.reduce(function(s,c){ return s+c.saldo; }, 0);
   var resumen = document.createElement('div');
-  resumen.style.cssText = 'background:#FFEBEE;border-radius:12px;padding:14px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center';
-  resumen.innerHTML = '<div><div style="font-size:13px;color:#C62828;font-weight:700">TOTAL POR COBRAR</div>'
-    +'<div style="font-size:18px;color:#C62828;font-weight:800;margin-top:2px">'+pendientes.length+' cliente(s) con balance</div></div>'
-    +'<div style="font-size:24px;font-weight:700;color:#C62828">$'+fmtNum(total)+'</div>';
+  resumen.style.cssText = 'background:var(--nbs-red-bg);border-radius:12px;padding:14px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center';
+  resumen.innerHTML = '<div><div style="font-size:11px;color:var(--nbs-red-text);font-weight:500">Total por cobrar</div>'
+    +'<div style="font-size:13px;color:var(--nbs-red-text);margin-top:2px">'+pendientes.length+' cliente(s) con balance</div></div>'
+    +'<div style="font-size:22px;font-weight:700;color:var(--nbs-red-dark)">$'+fmtNum(total)+'</div>';
   el.appendChild(resumen);
 
+  var btnsAdmin = document.createElement('div');
+  btnsAdmin.style.cssText = 'display:flex;gap:8px;margin-bottom:14px';
   var btnDiag = document.createElement('button');
-  btnDiag.className = 'btn';
-  btnDiag.style.cssText = 'background:#546E7A;color:white;font-size:12px;margin-bottom:8px';
-  btnDiag.textContent = '🔍 Diagnóstico de clientes en CxC';
+  btnDiag.innerHTML = '<i class="ti ti-stethoscope" style="font-size:14px" aria-hidden="true"></i> Diagnóstico';
+  btnDiag.style.cssText = 'flex:1;padding:9px;background:#F0F0F2;color:var(--nbs-ink);border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px';
   btnDiag.onclick = function(){ diagnosticoCxC(pendientes); };
-  el.appendChild(btnDiag);
+  btnsAdmin.appendChild(btnDiag);
 
   var btnBuscar = document.createElement('button');
-  btnBuscar.className = 'btn';
-  btnBuscar.style.cssText = 'background:#6A1B9A;color:white;font-size:12px;margin-bottom:12px';
-  btnBuscar.textContent = '🔎 Buscar cliente por nombre';
+  btnBuscar.innerHTML = '<i class="ti ti-search" style="font-size:14px" aria-hidden="true"></i> Buscar cliente';
+  btnBuscar.style.cssText = 'flex:1;padding:9px;background:#F0F0F2;color:var(--nbs-ink);border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px';
   btnBuscar.onclick = function(){
     var n = prompt('Escribe el nombre del cliente a buscar:');
     if(n) buscarClienteEspecifico(n);
   };
-  el.appendChild(btnBuscar);
+  btnsAdmin.appendChild(btnBuscar);
+  el.appendChild(btnsAdmin);
 
   pendientes.sort(function(a,b){ return b.saldo-a.saldo; }).forEach(function(c){
     var pct = c.total>0 ? Math.round((1-c.saldo/c.total)*100) : 0;
@@ -4943,18 +4944,23 @@ function renderCxC(q){
     var negocio = cl && cl.negocio ? cl.negocio.trim() : '';
     var card = document.createElement('div');
     card.className = 'card';
-    card.style.cursor = 'pointer';
-    card.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'
-      +'<div><div style="font-size:15px;font-weight:700">'+(cl?nombreCl(cl):c.cn)+'</div>'
-      +(negocio ? '<div style="font-size:12px;color:#6A1B9A;font-weight:600">🏪 '+negocio+'</div>' : '')
-      +'<div style="font-size:12px;color:#aaa">Total facturado: $'+fmtNum(c.total)+'</div></div>'
-      +'<div style="text-align:right"><div style="font-size:20px;font-weight:700;color:#C62828">$'+fmtNum(c.saldo)+'</div>'
-      +'<div style="font-size:11px;color:#aaa">pendiente</div></div></div>'
-      +'<div style="height:6px;background:#eee;border-radius:3px;overflow:hidden;margin-bottom:8px">'
-      +'<div style="height:100%;width:'+pct+'%;background:#2E7D32;border-radius:3px"></div></div>'
-      +'<div style="display:flex;justify-content:space-between;font-size:12px;color:#aaa;margin-bottom:10px">'
+    card.style.cssText = 'cursor:pointer;border:0.5px solid var(--nbs-line);border-radius:12px;box-shadow:var(--nbs-shadow-card);background:white;padding:16px';
+    card.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">'
+      +'<div style="display:flex;gap:10px">'
+      +'<div style="width:38px;height:38px;border-radius:10px;background:var(--nbs-gold-bg);display:flex;align-items:center;justify-content:center;flex-shrink:0">'
+      +'<span style="font-size:13px;font-weight:700;color:var(--nbs-gold-dark)">'+(cl?ini(cl.nombre,cl.apellido):'?')+'</span>'
+      +'</div>'
+      +'<div><div style="font-size:16px;font-weight:700;color:var(--nbs-ink)">'+(cl?nombreCl(cl):c.cn)+'</div>'
+      +(negocio ? '<div style="font-size:12px;color:var(--nbs-muted);margin-top:1px;display:flex;align-items:center;gap:4px"><i class="ti ti-building-store" style="font-size:13px" aria-hidden="true"></i>'+negocio+'</div>' : '')
+      +'<div style="font-size:11px;color:var(--nbs-muted-2);margin-top:3px">Total facturado: $'+fmtNum(c.total)+'</div></div>'
+      +'</div>'
+      +'<div style="text-align:right"><div style="font-size:18px;font-weight:700;color:var(--nbs-red-dark)">$'+fmtNum(c.saldo)+'</div>'
+      +'<div style="font-size:11px;color:var(--nbs-muted)">pendiente</div></div></div>'
+      +'<div style="height:6px;background:#F0F0F2;border-radius:3px;overflow:hidden;margin-bottom:8px">'
+      +'<div style="height:100%;width:'+pct+'%;background:var(--nbs-green-text);border-radius:3px"></div></div>'
+      +'<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--nbs-muted);margin-bottom:12px">'
       +'<span>Pagado: '+pct+'%</span><span>Pendiente: '+(100-pct)+'%</span></div>'
-      +'<button style="width:100%;padding:8px;background:#6A1B9A;color:white;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600">💰 Registrar pago</button>';
+      +'<button style="width:100%;padding:10px;background:var(--nbs-gold);color:white;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px"><i class="ti ti-cash" style="font-size:15px" aria-hidden="true"></i>Registrar pago</button>';
     card.style.cursor='pointer';
     card.onclick=(function(cid){return function(){abrirAbono(cid);};})(c.cid);
     card.querySelector('button').onclick=(function(cid){return function(e){e.stopPropagation();abrirAbono(cid);};})(c.cid);
@@ -4973,7 +4979,7 @@ function abrirAbono(cid){
   var negocioTxt = cl && cl.negocio ? cl.negocio.trim() : '';
   document.getElementById('cxc-lista').style.display = 'none';
   document.getElementById('cxc-abono').style.display = 'block';
-  document.getElementById('cxc-nombre').innerHTML = cn + (negocioTxt ? '<div style="font-size:14px;font-weight:600;color:#6A1B9A;margin-top:2px">🏪 '+negocioTxt+'</div>' : '');
+  document.getElementById('cxc-nombre').innerHTML = cn + (negocioTxt ? '<div style="font-size:14px;font-weight:600;color:var(--nbs-muted);margin-top:2px;display:flex;align-items:center;gap:5px"><i class="ti ti-building-store" style="font-size:14px" aria-hidden="true"></i>'+negocioTxt+'</div>' : '');
   var totalFacturado = 0;
   var totalPagado = 0;
   facturasC.forEach(function(v){
@@ -4984,9 +4990,9 @@ function abrirAbono(cid){
   });
   var saldoReal = Math.max(0, totalFacturado - totalPagado);
   document.getElementById('cxc-saldo-txt').innerHTML = 
-    '<span style="color:#C62828">Balance: $'+fmtNum(saldoReal)+'</span>' +
-    ' | <span style="color:#2E7D32">Pagado: $'+fmtNum(totalPagado)+'</span>' +
-    ' | <span style="color:#555">Total factura: $'+fmtNum(totalFacturado)+'</span>';
+    '<span style="color:var(--nbs-red-dark);font-weight:700">Balance: $'+fmtNum(saldoReal)+'</span>' +
+    ' | <span style="color:var(--nbs-green-text);font-weight:700">Pagado: $'+fmtNum(totalPagado)+'</span>' +
+    ' | <span style="color:var(--nbs-muted)">Total factura: $'+fmtNum(totalFacturado)+'</span>';
   var el = document.getElementById('cxc-facturas');
   el.innerHTML = '';
 
@@ -5357,7 +5363,7 @@ function renderFacturas(q){
       var btn = document.createElement('button');
       btn.innerHTML = '<i class="ti '+b[0]+'" style="font-size:16px" aria-hidden="true"></i>'+b[1];
       var esPrincipal = b[2];
-      btn.style.cssText = 'flex:1;padding:9px;background:'+(esPrincipal?'var(--nbs-gold-bg)':'#F0F0F2')+';color:'+(esPrincipal?'var(--nbs-gold-dark)':'var(--nbs-ink)')+';border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;display:flex;align-items:center;justify-content:center;gap:6px';
+      btn.style.cssText = 'flex:1;padding:9px;background:'+(esPrincipal?'var(--nbs-gold-bg)':'#F0F0F2')+';color:'+(esPrincipal?'var(--nbs-gold-dark)':'var(--nbs-ink)')+';border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px';
       btn.onclick = (function(fn,id){ return function(){ fn(id); }; })(b[3], v.id);
       btnsDiv.appendChild(btn);
     });
@@ -5407,7 +5413,7 @@ function verFacturaProfesional(vid){
     var btn = document.createElement('button');
     btn.innerHTML = '<i class="ti '+b[0]+'" style="font-size:16px" aria-hidden="true"></i>'+b[1];
     var esPrincipal = b[2];
-    btn.style.cssText = 'flex:1;padding:10px;background:'+(esPrincipal?'var(--nbs-ink)':'#F0F0F2')+';color:'+(esPrincipal?'white':'var(--nbs-ink)')+';border:'+(esPrincipal?'none':'0.5px solid #d8d8dc')+';border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;display:flex;align-items:center;justify-content:center;gap:6px';
+    btn.style.cssText = 'flex:1;padding:10px;background:'+(esPrincipal?'var(--nbs-gold)':'#F0F0F2')+';color:'+(esPrincipal?'white':'var(--nbs-ink)')+';border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px';
     btn.onclick = b[3];
     actBtns.appendChild(btn);
   });
@@ -5901,11 +5907,11 @@ function editarFactura(vid){
   btnsRow.style.cssText = 'display:flex;gap:8px;margin-top:8px';
   var btnGuardar = document.createElement('button');
   btnGuardar.innerHTML = '<i class="ti ti-check" style="font-size:16px" aria-hidden="true"></i>Guardar cambios';
-  btnGuardar.style.cssText = 'flex:1;padding:14px;background:var(--nbs-ink);color:white;border:none;border-radius:10px;font-size:15px;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px';
+  btnGuardar.style.cssText = 'flex:1;padding:14px;background:var(--nbs-gold);color:white;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px';
   btnGuardar.onclick = (function(id, n){ return function(){ guardarEdicionFactura(id, n); }; })(vid, v.items.length);
   var btnCancel = document.createElement('button');
   btnCancel.innerHTML = '<i class="ti ti-x" style="font-size:16px" aria-hidden="true"></i>Cancelar';
-  btnCancel.style.cssText = 'padding:14px 20px;background:#F0F0F2;color:var(--nbs-ink);border:0.5px solid #d8d8dc;border-radius:10px;font-size:15px;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px';
+  btnCancel.style.cssText = 'padding:14px 20px;background:#F0F0F2;color:var(--nbs-ink);border:0.5px solid #d8d8dc;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px';
   btnCancel.onclick = cerrarFacturaEdit;
   btnsRow.appendChild(btnGuardar);
   btnsRow.appendChild(btnCancel);
@@ -7224,7 +7230,7 @@ function verHistorialCliente(cid){
       <p style="font-size:26px;font-weight:700;margin-bottom:6px" id="cxc-nombre"></p>
       <p style="font-size:16px;font-weight:700;color:#C62828;margin-bottom:14px" id="cxc-saldo-txt"></p>
       <div id="cxc-facturas" style="margin-bottom:12px"></div>
-      <button class="btn" style="background:#546E7A;color:white" onclick="document.getElementById('cxc-abono').style.display='none';document.getElementById('cxc-lista').style.display='block'">← Volver a la lista</button>
+      <button class="btn" style="background:#F0F0F2;color:var(--nbs-ink);font-weight:700" onclick="document.getElementById('cxc-abono').style.display='none';document.getElementById('cxc-lista').style.display='block'"><i class="ti ti-arrow-left" style="font-size:14px;vertical-align:-2px;margin-right:4px" aria-hidden="true"></i>Volver a la lista</button>
 
 <div id="scanner-overlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:#000;z-index:9999">
   <video id="scanner-video" style="width:100%;height:100%;object-fit:cover" autoplay muted playsinline></video>

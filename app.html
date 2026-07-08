@@ -3810,8 +3810,8 @@ function editarPedido(idx){
   document.getElementById('ped-barberia-wrap').style.display = 'none';
   document.getElementById('ped-barbero-wrap').style.display = 'none';
   document.getElementById('ped-form-wrap').style.display = 'block';
-  document.getElementById('ped-form-titulo').textContent = 'Editar pedido';
-  document.getElementById('ped-cliente-label').textContent = (p.barberia?'🏪 '+p.barberia+' · ':'')+' ✂️ '+(p.nombre||'');
+  document.getElementById('ped-barbero-actual').textContent = '✏️ Editando: ' + (p.nombre||'');
+  document.getElementById('ped-barberia-actual').textContent = p.barberia||'';
   renderPedItems();
 }
 
@@ -3933,8 +3933,8 @@ function selBarbero(cid, nombre){
   pedBarberoNombre = nombre;
   document.getElementById('ped-barbero-wrap').style.display = 'none';
   document.getElementById('ped-form-wrap').style.display = 'block';
-  document.getElementById('ped-form-titulo').textContent = 'Pedido de '+nombre;
-  document.getElementById('ped-cliente-label').textContent = '🏪 '+pedBarberiaSel+' · ✂️ '+nombre;
+  document.getElementById('ped-barbero-actual').textContent = nombre;
+  document.getElementById('ped-barberia-actual').textContent = pedBarberiaSel||'';
   pedItemsTemp = [];
   renderPedItems();
 }
@@ -4286,8 +4286,8 @@ function irAPedidoCliente(id){
     document.getElementById('ped-barberia-wrap').style.display='none';
     document.getElementById('ped-barbero-wrap').style.display='none';
     document.getElementById('ped-form-wrap').style.display='block';
-    document.getElementById('ped-form-titulo').textContent='Pedido de '+nombreCl(cl);
-    document.getElementById('ped-cliente-label').textContent=(cl.negocio?'🏪 '+cl.negocio+' · ':'')+' ✂️ '+nombreCl(cl);
+    document.getElementById('ped-barbero-actual').textContent = nombreCl(cl);
+    document.getElementById('ped-barberia-actual').textContent = cl.negocio||'';
     renderPedItems();
   }, 100);
 }

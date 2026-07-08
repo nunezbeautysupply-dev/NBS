@@ -276,6 +276,9 @@ body{
     <button onclick="adminAccion('huerfanas');cerrarMenuLateral()" class="mlb2"><span class="mlb2-icon"><span style="font-size:10px;font-weight:800;color:var(--nbs-gold-dark);letter-spacing:0.3px">LI</span></span>Limpiar ventas huérfanas</button>
     <button onclick="adminAccion('borrar');cerrarMenuLateral()" class="mlb2"><span class="mlb2-icon" style="background:var(--nbs-red-bg)"><span style="font-size:10px;font-weight:800;color:var(--nbs-red-dark);letter-spacing:0.3px">BO</span></span><span style="color:var(--nbs-red-dark)">Borrar todos los datos</span></button>
 
+    <div style="font-size:10px;color:var(--nbs-muted-2);font-weight:700;letter-spacing:1px;padding:12px 8px 4px">AYUDA</div>
+    <button onclick="irMenu('p-manual')" class="mlb2"><span class="mlb2-icon"><span style="font-size:14px">📖</span></span>Manual de Usuario</button>
+
     <div style="font-size:10px;color:var(--nbs-muted-2);font-weight:700;letter-spacing:1px;padding:12px 8px 4px">SEGURIDAD</div>
     <div style="background:#F5F3EF;border-radius:10px;padding:12px;display:flex;justify-content:space-between;align-items:center">
       <span style="font-size:13px;font-weight:600;color:var(--nbs-ink);display:flex;align-items:center;gap:6px">🔒PIN</span>
@@ -1348,7 +1351,7 @@ function mostrarDirSugerencias(inputId, dropId, val){
 
 var historialPantallas = [];
 function pantallaActual(){
-  var all = ['menu','p-cl','p-v','p-rpt','p-cxc','p-cl-perfil','p-cl-factura','p-cat','p-sup','p-comp','p-ped','p-gastos','p-vip','p-mas','p-facturas','p-dashboard','p-rutas'];
+  var all = ['menu','p-cl','p-v','p-rpt','p-cxc','p-cl-perfil','p-cl-factura','p-cat','p-sup','p-comp','p-ped','p-gastos','p-vip','p-mas','p-facturas','p-dashboard','p-rutas','p-manual'];
   for(var i=0;i<all.length;i++){
     var el = document.getElementById(all[i]);
     if(el && el.style.display === 'block') return all[i];
@@ -1368,7 +1371,7 @@ function ir(id, sinHistorial){
     var actual = pantallaActual();
     if(actual && actual !== id) historialPantallas.push(actual);
   }
-  var all = ['menu','p-cl','p-v','p-rpt','p-cxc','p-cl-perfil','p-cl-factura','p-cat','p-sup','p-comp','p-ped','p-gastos','p-vip','p-mas','p-facturas','p-dashboard','p-rutas'];
+  var all = ['menu','p-cl','p-v','p-rpt','p-cxc','p-cl-perfil','p-cl-factura','p-cat','p-sup','p-comp','p-ped','p-gastos','p-vip','p-mas','p-facturas','p-dashboard','p-rutas','p-manual'];
   for(var i=0;i<all.length;i++) document.getElementById(all[i]).style.display='none';
   document.getElementById(id).style.display='block';
   if(id==='p-cl'){ renderCl(''); llenarDataLists(); }
@@ -1408,6 +1411,10 @@ function ir(id, sinHistorial){
     document.getElementById('vip-buscar-cl').value = '';
     document.getElementById('vip-buscar-lista').style.display = 'none';
     renderVIP('');
+  }
+  if(id==='p-manual'){
+    document.getElementById('manual-buscar').value = '';
+    renderManual('');
   }
 }
 
@@ -2047,6 +2054,133 @@ function flash(id){
   if(!el) return;
   el.style.display = 'block';
   setTimeout(function(){ el.style.display = 'none'; }, 1800);
+}
+
+// ===== MANUAL DE USUARIO =====
+var MANUAL_SECCIONES = [
+  { t:'📖 Introducción', c: [
+    'NBS (Nunez Beauty Supply) es la aplicación para llevar el control completo del negocio: clientes, ventas, facturas, cuentas por cobrar, inventario, proveedores, gastos y reportes financieros.',
+    'Este manual explica paso a paso cómo usar cada parte de la app — útil tanto para quien ya la conoce como para un empleado nuevo.'
+  ]},
+  { t:'🧭 Navegación general', c: [
+    'Toca el ícono ☰ arriba a la izquierda en cualquier pantalla para abrir el menú lateral, con acceso a todos los módulos.',
+    '"← Atrás" regresa a la pantalla anterior en la que estabas. "🏠 Inicio" te lleva directo a Pedidos Rápidos.'
+  ]},
+  { t:'⚡ Pedidos Rápidos', c: [
+    '1. Busca o toca la barbería (se despliega mostrando sus barberos).',
+    '2. Marca la casilla de cada barbero al que le vas a llevar producto.',
+    '3. Presiona "Hacer pedido a X seleccionado(s)".',
+    '4. Agrega los productos con cantidad para cada barbero.',
+    '5. El pedido queda en "Pedidos pendientes" hasta convertirlo en venta.',
+    'Botones de cada pedido pendiente: ✏️ Editar, 🛒 Convertir en venta, 🗑️ Borrar.'
+  ]},
+  { t:'🛒 Vender (Nueva Venta)', c: [
+    '1. Elige el cliente (o "Cliente general").',
+    '2. Busca el producto y agrega cantidad.',
+    '3. Aplica descuento si corresponde (% o monto fijo).',
+    '4. Elige Contado o A Crédito.',
+    '5. Guarda — esto genera la factura automáticamente.',
+    'Si es a crédito, el saldo aparece solo en Cuentas por Cobrar.'
+  ]},
+  { t:'👥 Clientes', c: [
+    'La lista muestra nombre, apodo, negocio/barbería, teléfono y balance pendiente — puedes buscar por cualquiera de estos datos.',
+    'El apodo es solo para uso interno — nunca aparece en las facturas que ve el cliente.',
+    'Si un cliente ya te debía dinero antes de usar la app, puedes registrar ese "balance inicial" desde su perfil.'
+  ]},
+  { t:'💳 Cuentas por Cobrar (CxC)', c: [
+    'Muestra todos los clientes con saldo pendiente. Puedes buscar por nombre, apodo, o negocio.',
+    'Para registrar un pago: toca la tarjeta del cliente → "Registrar pago" → escribe el monto (puede ser parcial) → guarda.',
+    'Regla recomendada: no dejar pasar de 2-3 semanas de saldo sin conversar con el cliente.'
+  ]},
+  { t:'🧾 Facturas', c: [
+    'Muestra todas las facturas con el total general y cuántas siguen abiertas (con saldo).',
+    'Botones de cada factura: 👁️ Ver (diseño profesional) y 📤 Compartir (imprimir o enviar al cliente).',
+    'Dentro de "Ver factura": ← Volver, 📤 Compartir, y ✏️ Editar (para corregir productos, cantidades o precios).',
+    'El apodo y el negocio del cliente nunca aparecen en la factura compartida — solo el nombre real.'
+  ]},
+  { t:'⭐ Programa VIP', c: [
+    'Un cliente acumula puntos por comprar productos configurados como "VIP". Al llegar a la meta, el siguiente producto es gratis.',
+    'Inscribe al cliente desde su perfil o desde el módulo VIP con el buscador.',
+    'La barra de progreso se llena por producto; al completarse se marca 🎁 listo para regalo.'
+  ]},
+  { t:'📦 Catálogo de productos', c: [
+    'Cada producto muestra foto, nombre, categoría, precio, costo y stock.',
+    'Para crear/editar uno: marca, nombre, categoría, SKU, costo, precio, stock, mínimo, unidad, proveedor y foto.',
+    '"Duplicar": copia un producto existente (útil para variantes casi iguales) — el stock inicia en 0 y el SKU se limpia.',
+    '"Editar toda una marca": corrige o actualiza varios productos de la misma marca a la vez, sin repetir uno por uno. También puedes duplicar o eliminar productos desde ahí mismo.',
+    'Para la foto: toca el ícono de cámara → elige Tomar foto / Galería / Quitar foto → ajusta el recorte y confirma.'
+  ]},
+  { t:'🏭 Suplidores', c: [
+    'Lista de proveedores con nombre, teléfono y notas — se asignan a productos y se usan en el registro de compras.'
+  ]},
+  { t:'🚚 Compras', c: [
+    'Registra cada compra de inventario a un proveedor: productos, cantidades, costos, y si fue de contado o a crédito.'
+  ]},
+  { t:'💸 Gastos', c: [
+    'Registra gastos operativos (gasolina, mantenimiento, etc.) para que el Dashboard calcule la ganancia neta real.'
+  ]},
+  { t:'📊 Dashboard Financiero', c: [
+    'Resumen de ventas y ganancia de hoy y del mes, gastos, ganancia neta, total en CxC, meta semanal con progreso, alertas de stock, y productos más vendidos.'
+  ]},
+  { t:'📈 Reportes', c: [
+    'Reportes detallados de ventas por rango de fechas, por producto, o por cliente.'
+  ]},
+  { t:'🗺️ Ruta de Visitas', c: [
+    'Organiza qué barberías visitas cada día de la semana, para planear tu ruta de entregas.'
+  ]},
+  { t:'💾 Respaldo y Restauración de Datos', c: [
+    'IMPORTANTE: todos los datos viven únicamente en el navegador de cada dispositivo — no hay una nube central.',
+    'Si borras el navegador, cambias de teléfono, o algo falla, los datos sin respaldar se pierden para siempre.',
+    'Hacer backup: presiona "Hacer Backup Ahora" (recordatorio, o menú lateral → Exportar backup) → guarda el archivo en Google Drive o correo.',
+    'Restaurar: menú lateral → Importar backup → selecciona el archivo → confirma (esto reemplaza los datos actuales).',
+    'Recomendación: backup al menos una vez por semana, y siempre antes de cualquier cambio grande.'
+  ]},
+  { t:'🔒 Seguridad con PIN', c: [
+    'Puedes activar un PIN de administrador para proteger secciones sensibles (Catálogo, Gastos, Reportes, Suplidores, Compras, Facturas, exportar/importar, borrar datos). Se configura desde el menú lateral, sección Seguridad.'
+  ]},
+  { t:'🖨️ Configurar Impresora', c: [
+    'Desde el menú lateral puedes configurar tu impresora térmica Bluetooth para imprimir recibos directamente desde la app.'
+  ]},
+  { t:'❓ Preguntas frecuentes', c: [
+    '¿Por qué no veo mis datos si cambio de navegador? — Cada navegador guarda su propia copia. Usa backup/restaurar para pasar los datos.',
+    '¿Por qué la factura no muestra el apodo? — Es intencional, el apodo es solo para uso interno.',
+    'La app se ve rara tras un cambio — Cierra completamente la pestaña/app (no solo minimizar) y vuelve a abrirla.',
+    '¿Puedo usar la app sin internet? — Sí, una vez abierta con internet al menos una vez, sigue funcionando sin conexión.'
+  ]}
+];
+
+function renderManual(q){
+  var el = document.getElementById('manual-contenido');
+  var ql = (q||'').toLowerCase().trim();
+  var secciones = MANUAL_SECCIONES;
+  if(ql){
+    secciones = MANUAL_SECCIONES.filter(function(s){
+      return s.t.toLowerCase().indexOf(ql) > -1 || s.c.some(function(linea){ return linea.toLowerCase().indexOf(ql) > -1; });
+    });
+  }
+  if(!secciones.length){
+    el.innerHTML = '<p style="text-align:center;color:var(--nbs-muted);padding:20px">No se encontró nada con esa palabra.</p>';
+    return;
+  }
+  el.innerHTML = secciones.map(function(s, idx){
+    return '<div class="card" style="border:0.5px solid var(--nbs-line);box-shadow:var(--nbs-shadow-card);padding:0;overflow:hidden">'
+      +'<div onclick="toggleManualSeccion('+idx+')" style="padding:14px 16px;cursor:pointer;display:flex;justify-content:space-between;align-items:center">'
+      +'<span style="font-size:15px;font-weight:600;color:var(--nbs-ink)">'+s.t+'</span>'
+      +'<span id="manual-flecha-'+idx+'" style="font-size:12px;color:var(--nbs-muted)">▼</span>'
+      +'</div>'
+      +'<div id="manual-cuerpo-'+idx+'" style="display:none;padding:0 16px 16px">'
+      +s.c.map(function(linea){ return '<p style="font-size:13px;color:var(--nbs-ink);line-height:1.5;margin:0 0 8px">'+linea+'</p>'; }).join('')
+      +'</div>'
+      +'</div>';
+  }).join('');
+}
+
+function toggleManualSeccion(idx){
+  var cuerpo = document.getElementById('manual-cuerpo-'+idx);
+  var flecha = document.getElementById('manual-flecha-'+idx);
+  var abierto = cuerpo.style.display === 'block';
+  cuerpo.style.display = abierto ? 'none' : 'block';
+  flecha.textContent = abierto ? '▼' : '▲';
 }
 
 function ini(n,a){
@@ -2951,6 +3085,7 @@ function duplicarProducto(p){
 }
 
 function verProductoCatalogo(p){
+  window._volverAMarcaTrasEditar = false;
   productoEditandoId = p.id;
   document.getElementById('ep-titulo').textContent = 'Editar producto';
   document.getElementById('ep-btn-eliminar').style.display = 'block';
@@ -2991,6 +3126,7 @@ function verProductoCatalogo(p){
 }
 
 function nuevoProductoCatalogo(){
+  window._volverAMarcaTrasEditar = false;
   loadProds();
   productoEditandoId = null;
   document.getElementById('ep-titulo').textContent = 'Nuevo producto';
@@ -3132,8 +3268,14 @@ function onCategoriaInput(inputId){
 
 function cerrarEdicionProducto(){
   document.getElementById('cat-edit-wrap').style.display = 'none';
-  document.getElementById('cat-lista-wrap').style.display = 'block';
   productoEditandoId = null;
+  if(window._volverAMarcaTrasEditar && window._epmlMarcaActual){
+    window._volverAMarcaTrasEditar = false;
+    document.getElementById('epm-marca').value = window._epmlMarcaActual;
+    abrirEditarProductosDeMarca();
+  } else {
+    document.getElementById('cat-lista-wrap').style.display = 'block';
+  }
 }
 
 function guardarEdicionProducto(){
@@ -4715,6 +4857,7 @@ function duplicarProductoDesdeMarca(i){
   if(!p) return;
   document.getElementById('cat-marca-lista-wrap').style.display = 'none';
   duplicarProducto(p);
+  window._volverAMarcaTrasEditar = true; // despues de esta linea (duplicarProducto ya reseteo la bandera a false)
 }
 
 function marcarEliminarProductoMarca(i){
@@ -4743,6 +4886,7 @@ function abrirEditarProductosDeMarca(){
   var marcaSel = document.getElementById('epm-marca').value;
   if(!marcaSel){ alert('Selecciona una marca primero.'); return; }
 
+  window._epmlMarcaActual = marcaSel;
   loadProds();
   suplidores = LS('nsup', []);
   var afectados = productos.filter(function(p){ return marcaDe(p) === marcaSel; });
@@ -4880,8 +5024,15 @@ function guardarTodosLosProductosDeMarca(){
   SS('np_eliminados', eliminados);
   SS('np', productos);
   alert('✅ Listo. ' + (cantEditar>0 ? cantEditar+' producto(s) actualizado(s). ' : '') + (cantEliminar>0 ? cantEliminar+' producto(s) eliminado(s).' : ''));
-  cerrarEditarProductosDeMarca();
-  renderCatalogo('');
+  // Regresar a la MISMA marca (no al catalogo completo) para poder seguir trabajando ahi
+  var marcaParaVolver = window._epmlMarcaActual;
+  if(marcaParaVolver){
+    document.getElementById('epm-marca').value = marcaParaVolver;
+    abrirEditarProductosDeMarca();
+  } else {
+    cerrarEditarProductosDeMarca();
+    renderCatalogo('');
+  }
 }
 
 function verificarPIN(callback){
@@ -5470,11 +5621,13 @@ function renderCxC(q){
     return {cid:b.cid, cn:b.cn, total:b.total, saldo:Math.max(0,b.total-b.pagado), negocio: cl ? (cl.negocio||'') : ''};
   }).filter(function(b){ return b.saldo > 0; });
 
-  // Filtrar por búsqueda
+  // Filtrar por búsqueda (nombre, negocio, o apodo del cliente)
   if(q && q.trim()){
     var ql = q.toLowerCase();
     pendientes = pendientes.filter(function(p){
-      return p.cn.toLowerCase().indexOf(ql) >= 0 || p.negocio.toLowerCase().indexOf(ql) >= 0;
+      var cl = clientes.find(function(c){ return String(c.id)===String(p.cid); });
+      var apodo = (cl && cl.apodo) ? cl.apodo.toLowerCase() : '';
+      return p.cn.toLowerCase().indexOf(ql) >= 0 || p.negocio.toLowerCase().indexOf(ql) >= 0 || apodo.indexOf(ql) >= 0;
     });
   }
 
@@ -7491,6 +7644,7 @@ function verHistorialCliente(cid){
 
   <!-- PASO 1: Lista de pedidos pendientes -->
   <div id="ped-lista-wrap">
+    <button class="btn" style="background:var(--nbs-gold-bg);color:var(--nbs-gold-dark);font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px" onclick="ir('p-rutas')">🗺️ Ver Ruta de Visitas</button>
     <!-- Buscador de barberías/barberos -->
     <input class="inp" id="ped-inicio-buscar" type="text" placeholder="🔍 Buscar barbería o barbero..." oninput="renderBarberiasInicio(this.value)" autocomplete="off" style="margin-bottom:8px">
     <!-- Lista de barberías con sus barberos -->
@@ -7829,6 +7983,14 @@ function verHistorialCliente(cid){
   <div style="display:flex;gap:8px;margin-bottom:16px"><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="volverAtras()">← Atrás</button><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="ir('p-ped')">🏠 Inicio</button></div>
   <h2 style="font-size:24px;font-weight:800;color:#1a237e;margin-bottom:16px;text-align:center;padding-bottom:12px;border-bottom:2px solid #E8EAF6">🗺️ Ruta de Visitas</h2>
   <div id="rutas-contenido"></div>
+</div>
+
+<div id="p-manual" class="pg">
+  <div style="display:flex;gap:8px;margin-bottom:16px"><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="volverAtras()">← Atrás</button><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="ir('p-ped')">🏠 Inicio</button></div>
+  <h2 style="font-size:20px;font-weight:700;color:var(--nbs-ink);margin-bottom:4px;text-align:center">📖 Manual de Usuario</h2>
+  <p style="font-size:12px;color:var(--nbs-muted);text-align:center;margin-bottom:16px">Toca cada tema para abrirlo</p>
+  <input class="inp" id="manual-buscar" type="text" placeholder="Buscar en el manual..." oninput="renderManual(this.value)" style="margin-bottom:14px">
+  <div id="manual-contenido"></div>
 </div>
 </body>
 </html>

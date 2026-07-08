@@ -4460,6 +4460,51 @@ function toggleOtraCat(i){
   }
 }
 
+function abrirOpcionesFotoMarca(i){
+  var tieneFoto = !!(document.getElementById('epml-foto-data-'+i).value);
+  var overlay = document.getElementById('foto-acciones-overlay');
+  if(!overlay){
+    overlay = document.createElement('div');
+    overlay.id = 'foto-acciones-overlay';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:99998;display:flex;align-items:flex-end';
+    document.body.appendChild(overlay);
+  }
+  overlay.innerHTML = '';
+  overlay.onclick = function(e){ if(e.target === overlay) overlay.style.display = 'none'; };
+
+  var sheet = document.createElement('div');
+  sheet.style.cssText = 'background:white;width:100%;max-width:480px;margin:0 auto;border-radius:16px 16px 0 0;padding:16px;box-shadow:0 -4px 20px rgba(0,0,0,0.15)';
+
+  var titulo = document.createElement('div');
+  titulo.style.cssText = 'text-align:center;font-size:13px;color:#aaa;font-weight:700;text-transform:uppercase;margin-bottom:12px';
+  titulo.textContent = 'Foto del producto';
+  sheet.appendChild(titulo);
+
+  var opciones = [
+    ['📷 Tomar foto', 'var(--nbs-ink)', function(){ document.getElementById('epml-foto-camara-'+i).click(); }],
+    ['🖼️ Elegir de galería', 'var(--nbs-ink)', function(){ document.getElementById('epml-foto-galeria-'+i).click(); }]
+  ];
+  if(tieneFoto){
+    opciones.push(['🗑️ Quitar foto', 'var(--nbs-red-text)', function(){ quitarFotoProductoMarca(i); }]);
+  }
+  opciones.forEach(function(op){
+    var btn = document.createElement('button');
+    btn.textContent = op[0];
+    btn.style.cssText = 'display:block;width:100%;text-align:left;padding:14px 16px;background:#f5f5f5;color:'+op[1]+';border:none;border-radius:10px;margin-bottom:8px;font-size:15px;font-weight:700;cursor:pointer';
+    btn.onclick = function(){ overlay.style.display = 'none'; op[2](); };
+    sheet.appendChild(btn);
+  });
+
+  var btnCancelar = document.createElement('button');
+  btnCancelar.textContent = 'Cancelar';
+  btnCancelar.style.cssText = 'display:block;width:100%;text-align:center;padding:14px 16px;background:none;color:#999;border:none;font-size:15px;cursor:pointer';
+  btnCancelar.onclick = function(){ overlay.style.display = 'none'; };
+  sheet.appendChild(btnCancelar);
+
+  overlay.appendChild(sheet);
+  overlay.style.display = 'flex';
+}
+
 function cargarFotoProductoMarca(input, i){
   var file = input.files[0];
   if(!file) return;
@@ -4480,7 +4525,6 @@ function cargarFotoProductoMarca(input, i){
       prev.innerHTML = '<img src="'+data+'" style="width:100%;height:100%;object-fit:cover">';
       prev.style.background = '#f0f0f0';
       prev.style.border = 'none';
-      document.getElementById('epml-foto-quitar-'+i).style.display = 'flex';
     };
     img.src = e.target.result;
   };
@@ -4494,7 +4538,6 @@ function quitarFotoProductoMarca(i){
   prev.innerHTML = '📷';
   prev.style.background = 'var(--nbs-gold-bg)';
   prev.style.border = '2px dashed var(--nbs-gold)';
-  document.getElementById('epml-foto-quitar-'+i).style.display = 'none';
 }
 
 function duplicarProductoDesdeMarca(i){
@@ -4578,11 +4621,9 @@ function abrirEditarProductosDeMarca(){
       +'</div>'
       +'</div>'
       +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">'
-      +'<div style="position:relative">'
-      +'<div id="epml-foto-preview-'+i+'" onclick="document.getElementById(\'epml-foto-input-'+i+'\').click()" style="width:56px;height:56px;border-radius:10px;background:'+(p.foto?'#f0f0f0':'var(--nbs-gold-bg)')+';border:'+(p.foto?'none':'2px dashed var(--nbs-gold)')+';display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0;overflow:hidden;cursor:pointer">'+(p.foto?'<img src="'+p.foto+'" style="width:100%;height:100%;object-fit:cover">':'📷')+'</div>'
-      +'<button type="button" id="epml-foto-quitar-'+i+'" onclick="quitarFotoProductoMarca('+i+')" style="display:'+(p.foto?'flex':'none')+';position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;background:var(--nbs-red-dark);color:white;border:2px solid white;align-items:center;justify-content:center;cursor:pointer;font-size:11px;font-weight:700;padding:0">✕</button>'
-      +'</div>'
-      +'<input type="file" id="epml-foto-input-'+i+'" accept="image/*" style="display:none" onchange="cargarFotoProductoMarca(this,'+i+')">'
+      +'<div id="epml-foto-preview-'+i+'" onclick="abrirOpcionesFotoMarca('+i+')" style="width:56px;height:56px;border-radius:10px;background:'+(p.foto?'#f0f0f0':'var(--nbs-gold-bg)')+';border:'+(p.foto?'none':'2px dashed var(--nbs-gold)')+';display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0;overflow:hidden;cursor:pointer">'+(p.foto?'<img src="'+p.foto+'" style="width:100%;height:100%;object-fit:cover">':'📷')+'</div>'
+      +'<input type="file" id="epml-foto-camara-'+i+'" accept="image/*" capture="environment" style="display:none" onchange="cargarFotoProductoMarca(this,'+i+')">'
+      +'<input type="file" id="epml-foto-galeria-'+i+'" accept="image/*" style="display:none" onchange="cargarFotoProductoMarca(this,'+i+')">'
       +'<input type="hidden" id="epml-foto-data-'+i+'" value="'+(p.foto||'').replace(/"/g,"'")+'">'
       +'</div>'
       +'<label class="lbl">Nombre del producto</label>'

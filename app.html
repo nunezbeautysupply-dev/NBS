@@ -340,7 +340,7 @@ body{
 </div>
 
 <div id="p-mas" class="pg">
-  <button class="back" onclick="ir('p-ped')">← Inicio</button>
+  <div style="display:flex;gap:8px;margin-bottom:16px"><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="volverAtras()"><i class="ti ti-arrow-left" style="font-size:15px" aria-hidden="true"></i> Atrás</button><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="ir('p-ped')"><i class="ti ti-home" style="font-size:15px" aria-hidden="true"></i> Inicio</button></div>
   <h2 style="font-size:18px;font-weight:700;color:var(--nbs-ink);margin-bottom:16px">Más opciones</h2>
   <button class="mb2" id="btn-rpt" onclick="irProtegido('p-rpt')"><span class="mb2-icon"><span style="font-size:10px;font-weight:800;color:var(--nbs-gold-dark);letter-spacing:0.3px">RE</span></span>Reportes</button>
   <button class="mb2" id="btn-sup" onclick="irProtegido('p-sup')"><span class="mb2-icon"><span style="font-size:10px;font-weight:800;color:var(--nbs-gold-dark);letter-spacing:0.3px">SU</span></span>Suplidores</button>
@@ -390,7 +390,7 @@ body{
 </div>
 
 <div id="p-cat" class="pg">
-  <button class="back" onclick="ir('p-ped')">← Inicio</button>
+  <div style="display:flex;gap:8px;margin-bottom:16px"><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="volverAtras()"><i class="ti ti-arrow-left" style="font-size:15px" aria-hidden="true"></i> Atrás</button><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="ir('p-ped')"><i class="ti ti-home" style="font-size:15px" aria-hidden="true"></i> Inicio</button></div>
   <div id="cat-lista-wrap">
     <div style="background:#E0F7FA;border-radius:10px;padding:12px;margin-bottom:12px">
       <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer" onclick="toggleMarcasDetalle()">
@@ -491,7 +491,7 @@ body{
 </div>
 
 <div id="p-cl" class="pg">
-  <button class="back" onclick="ir('p-ped')">← Inicio</button>
+  <div style="display:flex;gap:8px;margin-bottom:16px"><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="volverAtras()"><i class="ti ti-arrow-left" style="font-size:15px" aria-hidden="true"></i> Atrás</button><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="ir('p-ped')"><i class="ti ti-home" style="font-size:15px" aria-hidden="true"></i> Inicio</button></div>
   <div id="cl-contador" style="display:flex;gap:8px;margin-bottom:12px">
     <div style="flex:1;background:#E3F2FD;border-radius:10px;padding:10px;text-align:center">
       <div style="font-size:11px;color:#1565C0;font-weight:700">CLIENTES</div>
@@ -1352,7 +1352,28 @@ function mostrarDirSugerencias(inputId, dropId, val){
 
 
 
-function ir(id){
+var historialPantallas = [];
+function pantallaActual(){
+  var all = ['menu','p-cl','p-v','p-rpt','p-cxc','p-cl-perfil','p-cl-factura','p-cat','p-sup','p-comp','p-ped','p-gastos','p-vip','p-mas','p-facturas','p-dashboard','p-rutas'];
+  for(var i=0;i<all.length;i++){
+    var el = document.getElementById(all[i]);
+    if(el && el.style.display === 'block') return all[i];
+  }
+  return null;
+}
+function volverAtras(){
+  if(historialPantallas.length){
+    var prev = historialPantallas.pop();
+    ir(prev, true);
+  } else {
+    ir('p-ped', true);
+  }
+}
+function ir(id, sinHistorial){
+  if(!sinHistorial){
+    var actual = pantallaActual();
+    if(actual && actual !== id) historialPantallas.push(actual);
+  }
   var all = ['menu','p-cl','p-v','p-rpt','p-cxc','p-cl-perfil','p-cl-factura','p-cat','p-sup','p-comp','p-ped','p-gastos','p-vip','p-mas','p-facturas','p-dashboard','p-rutas'];
   for(var i=0;i<all.length;i++) document.getElementById(all[i]).style.display='none';
   document.getElementById(id).style.display='block';
@@ -2569,7 +2590,7 @@ function renderCatalogo(q){
       +'<span style="font-size:11px;color:#aaa;font-weight:500">Costo: $'+fmtNum(p.costo||0)+'</span>'
       +'<span style="font-size:11px;padding:2px 8px;border-radius:8px;font-weight:600;background:'+stockBg+';color:'+stockColor+'">Stock: '+p.stock+'</span>'
       +'</div></div>'
-      +'<button type="button" class="btn-duplicar-prod" title="Duplicar producto" style="background:var(--nbs-gold-bg);color:var(--nbs-gold-dark);border:none;border-radius:8px;padding:8px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center"><i class="ti ti-copy" style="font-size:17px" aria-hidden="true"></i></button>';
+      +'<button type="button" class="btn-duplicar-prod" title="Duplicar producto" style="background:var(--nbs-gold);color:white;border:none;border-radius:8px;padding:10px 12px;cursor:pointer;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:10px;font-weight:700"><i class="ti ti-copy" style="font-size:18px" aria-hidden="true"></i>Duplicar</button>';
     card.onclick = (function(prod){ return function(){ verProductoCatalogo(prod); }; })(p);
     card.querySelector('.btn-duplicar-prod').onclick = (function(prod){ return function(e){ e.stopPropagation(); duplicarProducto(prod); }; })(p);
 
@@ -4440,6 +4461,17 @@ function toggleOtraCat(i){
   }
 }
 
+function duplicarProductoDesdeMarca(i){
+  var ids = window._epmlIds || [];
+  var pid = ids[i];
+  if(pid === undefined) return;
+  loadProds();
+  var p = productos.find(function(x){ return String(x.id) === String(pid); });
+  if(!p) return;
+  document.getElementById('cat-marca-lista-wrap').style.display = 'none';
+  duplicarProducto(p);
+}
+
 function marcarEliminarProductoMarca(i){
   window._epmlEliminar = window._epmlEliminar || {};
   var card = document.getElementById('epml-card-'+i);
@@ -4504,7 +4536,10 @@ function abrirEditarProductosDeMarca(){
     return '<div class="card" id="epml-card-'+i+'" style="border:0.5px solid var(--nbs-line);box-shadow:var(--nbs-shadow-card)" data-pid="'+p.id+'">'
       +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">'
       +'<span style="font-size:11px;color:var(--nbs-muted-2)">Producto '+(i+1)+'</span>'
+      +'<div style="display:flex;gap:6px">'
+      +'<button type="button" onclick="duplicarProductoDesdeMarca('+i+')" style="background:var(--nbs-gold);color:white;border:none;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer"><i class="ti ti-copy" style="font-size:13px;vertical-align:-2px" aria-hidden="true"></i> Duplicar</button>'
       +'<button type="button" onclick="marcarEliminarProductoMarca('+i+')" id="epml-btn-elim-'+i+'" style="background:var(--nbs-red-bg);color:var(--nbs-red-dark);border:none;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:600;cursor:pointer"><i class="ti ti-trash" style="font-size:13px;vertical-align:-2px" aria-hidden="true"></i> Eliminar</button>'
+      +'</div>'
       +'</div>'
       +'<label class="lbl">Nombre del producto</label>'
       +'<div style="display:flex;align-items:stretch;gap:6px;margin-bottom:10px">'
@@ -7127,7 +7162,7 @@ function verHistorialCliente(cid){
 </script>
 <input type="hidden" id="vsel">
 <div id="p-v" class="pg">
-  <button class="back" onclick="ir('p-ped')">← Inicio</button>
+  <div style="display:flex;gap:8px;margin-bottom:16px"><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="volverAtras()"><i class="ti ti-arrow-left" style="font-size:15px" aria-hidden="true"></i> Atrás</button><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="ir('p-ped')"><i class="ti ti-home" style="font-size:15px" aria-hidden="true"></i> Inicio</button></div>
   <div class="card">
     <p style="font-size:15px;font-weight:700;margin-bottom:12px">Nueva venta</p>
     <label class="lbl">Cliente</label>
@@ -7198,7 +7233,7 @@ function verHistorialCliente(cid){
   </div>
 </div>
 <div id="p-ped" class="pg">
-  <button class="back" onclick="ir('p-ped')">← Inicio</button>
+  <div style="display:flex;gap:8px;margin-bottom:16px"><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="volverAtras()"><i class="ti ti-arrow-left" style="font-size:15px" aria-hidden="true"></i> Atrás</button><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="ir('p-ped')"><i class="ti ti-home" style="font-size:15px" aria-hidden="true"></i> Inicio</button></div>
   <h2 style="font-size:24px;font-weight:800;color:#1a237e;margin-bottom:14px;text-align:center;padding-bottom:12px;border-bottom:2px solid #E8EAF6">⚡ Pedidos Rápidos</h2>
 
   <!-- PASO 1: Lista de pedidos pendientes -->
@@ -7355,14 +7390,14 @@ function verHistorialCliente(cid){
 </div>
 
 <div id="p-facturas" class="pg">
-  <button class="back" onclick="ir('p-ped')">← Inicio</button>
+  <div style="display:flex;gap:8px;margin-bottom:16px"><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="volverAtras()"><i class="ti ti-arrow-left" style="font-size:15px" aria-hidden="true"></i> Atrás</button><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="ir('p-ped')"><i class="ti ti-home" style="font-size:15px" aria-hidden="true"></i> Inicio</button></div>
   <h2 style="font-size:20px;font-weight:700;color:#1a237e;margin-bottom:10px">🧾 Facturas</h2>
   <input class="inp" id="fact-buscar" type="text" placeholder="Buscar por nombre del cliente..." oninput="renderFacturas(this.value)" autocomplete="off" style="margin-bottom:10px">
   <div id="fact-lista"></div>
 </div>
 
 <div id="p-gastos" class="pg">
-  <button class="back" onclick="ir('p-ped')">← Inicio</button>
+  <div style="display:flex;gap:8px;margin-bottom:16px"><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="volverAtras()"><i class="ti ti-arrow-left" style="font-size:15px" aria-hidden="true"></i> Atrás</button><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="ir('p-ped')"><i class="ti ti-home" style="font-size:15px" aria-hidden="true"></i> Inicio</button></div>
   <h2 style="font-size:20px;font-weight:700;color:#1a237e;margin-bottom:14px">💸 Gastos</h2>
   <div id="gastos-lista-wrap">
     <div style="display:flex;gap:8px;margin-bottom:12px">
@@ -7478,7 +7513,7 @@ function verHistorialCliente(cid){
   <div id="rptres"></div>
 </div>
 <div id="p-vip" class="pg">
-  <button class="back" onclick="ir('p-ped')">← Inicio</button>
+  <div style="display:flex;gap:8px;margin-bottom:16px"><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="volverAtras()"><i class="ti ti-arrow-left" style="font-size:15px" aria-hidden="true"></i> Atrás</button><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="ir('p-ped')"><i class="ti ti-home" style="font-size:15px" aria-hidden="true"></i> Inicio</button></div>
   <h2 style="font-size:20px;font-weight:700;color:#1a237e;margin-bottom:4px">⭐ Programa Lealtad VIP</h2>
   <p style="font-size:12px;color:#aaa;margin-bottom:14px">Compra 10 del mismo producto ($10.00) y gana 1 gratis · Válido desde 15 de junio 2026</p>
   <div style="background:linear-gradient(135deg,#880E4F,#AD1457);border-radius:12px;padding:14px;margin-bottom:14px;color:white">
@@ -7504,7 +7539,7 @@ function verHistorialCliente(cid){
 </div>
 
 <div id="p-cxc" class="pg">
-  <button class="back" onclick="ir('p-ped')">← Inicio</button>
+  <div style="display:flex;gap:8px;margin-bottom:16px"><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="volverAtras()"><i class="ti ti-arrow-left" style="font-size:15px" aria-hidden="true"></i> Atrás</button><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="ir('p-ped')"><i class="ti ti-home" style="font-size:15px" aria-hidden="true"></i> Inicio</button></div>
   <h2 style="font-size:20px;font-weight:700;color:#1a237e;margin-bottom:10px">💳 Cuentas por Cobrar</h2>
   <input class="inp" id="cxc-buscar" type="text" placeholder="Buscar por nombre o negocio..." oninput="renderCxC(this.value)" autocomplete="off" style="margin-bottom:10px">
   <div id="cxc-lista"></div>
@@ -7532,13 +7567,13 @@ function verHistorialCliente(cid){
 
 
 <div id="p-dashboard" class="pg">
-  <button class="back" onclick="ir('p-ped')">← Inicio</button>
+  <div style="display:flex;gap:8px;margin-bottom:16px"><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="volverAtras()"><i class="ti ti-arrow-left" style="font-size:15px" aria-hidden="true"></i> Atrás</button><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="ir('p-ped')"><i class="ti ti-home" style="font-size:15px" aria-hidden="true"></i> Inicio</button></div>
   <h2 style="font-size:24px;font-weight:800;color:#1a237e;margin-bottom:16px;text-align:center;padding-bottom:12px;border-bottom:2px solid #E8EAF6">📊 Dashboard Financiero</h2>
   <div id="dashboard-contenido"></div>
 </div>
 
 <div id="p-rutas" class="pg">
-  <button class="back" onclick="ir('p-ped')">← Inicio</button>
+  <div style="display:flex;gap:8px;margin-bottom:16px"><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="volverAtras()"><i class="ti ti-arrow-left" style="font-size:15px" aria-hidden="true"></i> Atrás</button><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="ir('p-ped')"><i class="ti ti-home" style="font-size:15px" aria-hidden="true"></i> Inicio</button></div>
   <h2 style="font-size:24px;font-weight:800;color:#1a237e;margin-bottom:16px;text-align:center;padding-bottom:12px;border-bottom:2px solid #E8EAF6">🗺️ Ruta de Visitas</h2>
   <div id="rutas-contenido"></div>
 </div>

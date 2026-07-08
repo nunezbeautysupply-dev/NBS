@@ -2026,6 +2026,14 @@ function llenarDataLists(){
   if(cl2){ cl2.innerHTML = ''; cities.forEach(function(c){ var o = document.createElement('option'); o.value = c; cl2.appendChild(o); }); }
 }
 
+// Muestra brevemente el mensaje de confirmación (ej. "Producto actualizado") y lo oculta despues
+function flash(id){
+  var el = document.getElementById(id);
+  if(!el) return;
+  el.style.display = 'block';
+  setTimeout(function(){ el.style.display = 'none'; }, 1800);
+}
+
 function ini(n,a){
   var n1 = (n && n.length) ? n[0] : '?';
   var n2 = (a && a.length) ? a[0] : '';
@@ -2560,8 +2568,10 @@ function renderCatalogo(q){
       +'<span style="font-size:13px;font-weight:700;color:#1565C0">$'+fmtNum(p.precio||0)+'</span>'
       +'<span style="font-size:11px;color:#aaa;font-weight:500">Costo: $'+fmtNum(p.costo||0)+'</span>'
       +'<span style="font-size:11px;padding:2px 8px;border-radius:8px;font-weight:600;background:'+stockBg+';color:'+stockColor+'">Stock: '+p.stock+'</span>'
-      +'</div></div>';
+      +'</div></div>'
+      +'<button type="button" class="btn-duplicar-prod" title="Duplicar producto" style="background:var(--nbs-gold-bg);color:var(--nbs-gold-dark);border:none;border-radius:8px;padding:8px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center"><i class="ti ti-copy" style="font-size:17px" aria-hidden="true"></i></button>';
     card.onclick = (function(prod){ return function(){ verProductoCatalogo(prod); }; })(p);
+    card.querySelector('.btn-duplicar-prod').onclick = (function(prod){ return function(e){ e.stopPropagation(); duplicarProducto(prod); }; })(p);
 
     // Long press para eliminar directamente
     var pressTimer;
@@ -2720,6 +2730,19 @@ function quitarFotoProducto(){
   document.getElementById('ep-foto-quitar').style.display = 'none';
 }
 
+function duplicarProducto(p){
+  verProductoCatalogo(p); // reutiliza toda la logica de llenar el formulario con los datos del producto original
+  productoEditandoId = null; // asi al guardar se crea un producto NUEVO, no se sobreescribe el original
+  document.getElementById('ep-titulo').textContent = 'Duplicar producto';
+  document.getElementById('ep-btn-eliminar').style.display = 'none';
+  document.getElementById('ep-stock').value = 0; // es un producto nuevo, no hereda el stock del original
+  document.getElementById('ep-sku').value = ''; // el SKU no debe repetirse entre productos
+  setTimeout(function(){
+    var campoNombre = document.getElementById('ep-nombre');
+    if(campoNombre){ campoNombre.focus(); campoNombre.select(); }
+  }, 50);
+}
+
 function verProductoCatalogo(p){
   productoEditandoId = p.id;
   document.getElementById('ep-titulo').textContent = 'Editar producto';
@@ -2789,7 +2812,7 @@ function llenarProveedoresPref(){
   if(!sel) return;
   var actual = sel.value;
   sel.innerHTML = '<option value="">Sin asignar</option>' + suplidores.map(function(s){
-    return '<option value="'+s.id+'">'+s.nombre+'</option>';
+    return '<option value="'+s.nombre.replace(/"/g,"'")+'">'+s.nombre+'</option>';
   }).join('');
   sel.value = actual;
 }

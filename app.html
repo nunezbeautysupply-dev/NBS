@@ -436,17 +436,12 @@ body{
 
       <!-- Foto del producto -->
       <label class="lbl">Foto del producto</label>
-      <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
-        <div id="ep-foto-preview" style="width:72px;height:72px;border-radius:10px;background:#f0f0f0;border:2px dashed #ddd;display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0;overflow:hidden">📦</div>
-        <div style="flex:1;display:flex;flex-direction:column;gap:6px">
-          <button type="button" onclick="document.getElementById('ep-foto-camara').click()" style="padding:10px;background:#00838F;color:white;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600">📷 Tomar foto</button>
-          <button type="button" onclick="abrirGaleriaProducto()" style="padding:10px;background:#546E7A;color:white;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600">🖼️ Elegir de galería</button>
-        </div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+        <div id="ep-foto-preview" onclick="abrirOpcionesFotoProducto()" style="width:56px;height:56px;border-radius:10px;background:var(--nbs-gold-bg);border:2px dashed var(--nbs-gold);display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0;overflow:hidden;cursor:pointer">📷</div>
       </div>
       <input type="file" id="ep-foto-camara" accept="image/*" capture="camera" style="display:none" onchange="cargarFotoProducto(this)">
       <input type="file" id="ep-foto-galeria" accept="image/jpeg,image/png,image/gif,image/webp" style="display:none" onchange="cargarFotoProducto(this)">
       <input type="hidden" id="ep-foto-data">
-      <button type="button" id="ep-foto-quitar" onclick="quitarFotoProducto()" style="display:none;width:100%;padding:6px;background:none;border:1px solid #ddd;border-radius:8px;color:#aaa;cursor:pointer;font-size:12px;margin-bottom:8px">✕ Quitar foto</button>
 
       <label class="lbl">Marca *</label>
       <input class="inp" id="ep-marca" type="text" placeholder="Ej: DORCO, IMMORTAL, NISHMAN" autocomplete="off" oninput="onMarcaInput('ep-marca')" onblur="ocultarDropdown('ep-marca')">
@@ -2866,17 +2861,80 @@ function cargarFotoProducto(input){
       document.getElementById('ep-foto-data').value = dataFinal;
       var prev = document.getElementById('ep-foto-preview');
       prev.innerHTML = '<img src="'+dataFinal+'" style="width:100%;height:100%;object-fit:cover">';
-      document.getElementById('ep-foto-quitar').style.display = 'block';
+      prev.style.background = '#f0f0f0';
+      prev.style.border = 'none';
     });
   };
   reader.readAsDataURL(file);
   input.value = '';
 }
 
+// Recrea un <input type=file> para forzar que el selector de archivos se abra
+// de forma confiable en Android cada vez (algunos navegadores no reabren el mismo input dos veces).
+function recrearInputFoto(id, handler){
+  var viejo = document.getElementById(id);
+  var nuevo = document.createElement('input');
+  nuevo.type = 'file';
+  nuevo.id = id;
+  nuevo.accept = viejo.accept;
+  if(viejo.capture) nuevo.capture = viejo.capture;
+  nuevo.style.display = 'none';
+  nuevo.onchange = function(){ handler(this); };
+  viejo.parentNode.replaceChild(nuevo, viejo);
+  return nuevo;
+}
+
 function quitarFotoProducto(){
   document.getElementById('ep-foto-data').value = '';
-  document.getElementById('ep-foto-preview').innerHTML = '📦';
-  document.getElementById('ep-foto-quitar').style.display = 'none';
+  var prev = document.getElementById('ep-foto-preview');
+  prev.innerHTML = '📷';
+  prev.style.background = 'var(--nbs-gold-bg)';
+  prev.style.border = '2px dashed var(--nbs-gold)';
+}
+
+function abrirOpcionesFotoProducto(){
+  var tieneFoto = !!(document.getElementById('ep-foto-data').value);
+  var overlay = document.getElementById('foto-acciones-overlay');
+  if(!overlay){
+    overlay = document.createElement('div');
+    overlay.id = 'foto-acciones-overlay';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:99998;display:flex;align-items:flex-end';
+    document.body.appendChild(overlay);
+  }
+  overlay.innerHTML = '';
+  overlay.onclick = function(e){ if(e.target === overlay) overlay.style.display = 'none'; };
+
+  var sheet = document.createElement('div');
+  sheet.style.cssText = 'background:white;width:100%;max-width:480px;margin:0 auto;border-radius:16px 16px 0 0;padding:16px;box-shadow:0 -4px 20px rgba(0,0,0,0.15)';
+
+  var titulo = document.createElement('div');
+  titulo.style.cssText = 'text-align:center;font-size:13px;color:#aaa;font-weight:700;text-transform:uppercase;margin-bottom:12px';
+  titulo.textContent = 'Foto del producto';
+  sheet.appendChild(titulo);
+
+  var opciones = [
+    ['📷 Tomar foto', 'var(--nbs-ink)', function(){ recrearInputFoto('ep-foto-camara', cargarFotoProducto).click(); }],
+    ['🖼️ Elegir de galería', 'var(--nbs-ink)', function(){ recrearInputFoto('ep-foto-galeria', cargarFotoProducto).click(); }]
+  ];
+  if(tieneFoto){
+    opciones.push(['🗑️ Quitar foto', 'var(--nbs-red-text)', function(){ quitarFotoProducto(); }]);
+  }
+  opciones.forEach(function(op){
+    var btn = document.createElement('button');
+    btn.textContent = op[0];
+    btn.style.cssText = 'display:block;width:100%;text-align:left;padding:14px 16px;background:#f5f5f5;color:'+op[1]+';border:none;border-radius:10px;margin-bottom:8px;font-size:15px;font-weight:700;cursor:pointer';
+    btn.onclick = function(){ overlay.style.display = 'none'; op[2](); };
+    sheet.appendChild(btn);
+  });
+
+  var btnCancelar = document.createElement('button');
+  btnCancelar.textContent = 'Cancelar';
+  btnCancelar.style.cssText = 'display:block;width:100%;text-align:center;padding:14px 16px;background:none;color:#999;border:none;font-size:15px;cursor:pointer';
+  btnCancelar.onclick = function(){ overlay.style.display = 'none'; };
+  sheet.appendChild(btnCancelar);
+
+  overlay.appendChild(sheet);
+  overlay.style.display = 'flex';
 }
 
 function duplicarProducto(p){
@@ -2919,15 +2977,16 @@ function verProductoCatalogo(p){
   document.getElementById('ep-desc').value = p.desc || '';
   // Cargar foto si existe
   var prev = document.getElementById('ep-foto-preview');
-  var quitarBtn = document.getElementById('ep-foto-quitar');
   if(p.foto){
     document.getElementById('ep-foto-data').value = p.foto;
     prev.innerHTML = '<img src="'+p.foto+'" style="width:100%;height:100%;object-fit:cover">';
-    quitarBtn.style.display = 'block';
+    prev.style.background = '#f0f0f0';
+    prev.style.border = 'none';
   } else {
     document.getElementById('ep-foto-data').value = '';
-    prev.innerHTML = '📦';
-    quitarBtn.style.display = 'none';
+    prev.innerHTML = '📷';
+    prev.style.background = 'var(--nbs-gold-bg)';
+    prev.style.border = '2px dashed var(--nbs-gold)';
   }
 }
 
@@ -2939,8 +2998,10 @@ function nuevoProductoCatalogo(){
   document.getElementById('cat-lista-wrap').style.display = 'none';
   document.getElementById('cat-edit-wrap').style.display = 'block';
   document.getElementById('ep-foto-data').value = '';
-  document.getElementById('ep-foto-preview').innerHTML = '📦';
-  document.getElementById('ep-foto-quitar').style.display = 'none';
+  var prevNuevo = document.getElementById('ep-foto-preview');
+  prevNuevo.innerHTML = '📷';
+  prevNuevo.style.background = 'var(--nbs-gold-bg)';
+  prevNuevo.style.border = '2px dashed var(--nbs-gold)';
   document.getElementById('ep-marca').value = '';
   document.getElementById('ep-nombre').value = '';
   document.getElementById('ep-cat').value = '';
@@ -4126,20 +4187,6 @@ function guardarNuevoProdVenta(){
   alert('✅ "'+nombreCompleto+'" agregado al catálogo y a la venta.');
 }
 
-function abrirGaleriaProducto(){
-  var inp = document.getElementById('ep-foto-galeria');
-  // Remover y recrear el input para forzar el file chooser en Android
-  var parent = inp.parentNode;
-  var newInp = document.createElement('input');
-  newInp.type = 'file';
-  newInp.id = 'ep-foto-galeria';
-  newInp.accept = 'image/jpeg,image/png,image/gif,image/webp';
-  newInp.style.display = 'none';
-  newInp.onchange = function(){ cargarFotoProducto(this); };
-  parent.replaceChild(newInp, inp);
-  newInp.click();
-}
-
 function toggleNuevoProdPed(){
   var w = document.getElementById('ped-nuevo-prod-wrap');
   var visible = w.style.display !== 'none';
@@ -4610,8 +4657,8 @@ function abrirOpcionesFotoMarca(i){
   sheet.appendChild(titulo);
 
   var opciones = [
-    ['📷 Tomar foto', 'var(--nbs-ink)', function(){ document.getElementById('epml-foto-camara-'+i).click(); }],
-    ['🖼️ Elegir de galería', 'var(--nbs-ink)', function(){ document.getElementById('epml-foto-galeria-'+i).click(); }]
+    ['📷 Tomar foto', 'var(--nbs-ink)', function(){ recrearInputFoto('epml-foto-camara-'+i, function(inp){ cargarFotoProductoMarca(inp, i); }).click(); }],
+    ['🖼️ Elegir de galería', 'var(--nbs-ink)', function(){ recrearInputFoto('epml-foto-galeria-'+i, function(inp){ cargarFotoProductoMarca(inp, i); }).click(); }]
   ];
   if(tieneFoto){
     opciones.push(['🗑️ Quitar foto', 'var(--nbs-red-text)', function(){ quitarFotoProductoMarca(i); }]);

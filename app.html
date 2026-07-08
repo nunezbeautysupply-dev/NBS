@@ -1547,7 +1547,7 @@ function filtrarVIPBusqueda(q){
   if(!q || !q.trim()){ el.style.display='none'; return; }
   var q2 = q.toLowerCase();
   var list = clientes.filter(function(c){
-    return ((c.nombre||'')+' '+(c.apellido||'')+' '+(c.negocio||'')).toLowerCase().indexOf(q2) >= 0;
+    return ((c.nombre||'')+' '+(c.apellido||'')+' '+(c.negocio||'')+' '+(c.apodo||'')+' '+(c.tel||'')).toLowerCase().indexOf(q2) >= 0;
   });
   if(!list.length){
     el.style.display='block';
@@ -2256,7 +2256,7 @@ function renderSup(q){
   compras = LS('nc', []);
   var el = document.getElementById('lsup');
   el.innerHTML = '';
-  var list = q ? suplidores.filter(function(s){ return (s.nombre+' '+(s.contacto||'')).toLowerCase().includes(q.toLowerCase()); }) : suplidores;
+  var list = q ? suplidores.filter(function(s){ return (s.nombre+' '+(s.contacto||'')+' '+(s.tel||'')+' '+(s.telContacto||'')).toLowerCase().includes(q.toLowerCase()); }) : suplidores;
   if(!list.length){ el.innerHTML = '<p style="color:#aaa;text-align:center;padding:20px">Sin suplidores</p>'; return; }
   list.forEach(function(s){
     var comprasS = compras.filter(function(c){ return String(c.sid)===String(s.id); });
@@ -2612,7 +2612,7 @@ function renderCl(q){
   if(elTotalBarb) elTotalBarb.textContent = totalBarberias;
 
   var el=document.getElementById('lcl');el.innerHTML='';
-  var list=q?clientes.filter(function(c){return(c.nombre+' '+c.apellido+' '+(c.negocio||'')+' '+(c.apodo||'')).toLowerCase().includes(q.toLowerCase());}):clientes;
+  var list=q?clientes.filter(function(c){return(c.nombre+' '+c.apellido+' '+(c.negocio||'')+' '+(c.apodo||'')+' '+(c.tel||'')).toLowerCase().includes(q.toLowerCase());}):clientes;
   if(!list.length){el.innerHTML='<p style="color:#aaa;font-size:13px;text-align:center;padding:20px">Sin clientes</p>';return;}
   ventas = LS('nv',[]);
   list.forEach(function(c){
@@ -3863,7 +3863,7 @@ function renderBarberias(q){
       if(k.toLowerCase().indexOf(qLower) >= 0) return true;
       // Coincide con nombre de algún barbero de esa barbería
       return barberias[k].some(function(c){
-        return (c.nombre+' '+c.apellido).toLowerCase().indexOf(qLower) >= 0;
+        return (c.nombre+' '+c.apellido+' '+(c.apodo||'')+' '+(c.tel||'')).toLowerCase().indexOf(qLower) >= 0;
       });
     });
   }
@@ -3876,7 +3876,7 @@ function renderBarberias(q){
   keys.forEach(function(neg){
     // Si hay búsqueda, mostrar barberos que coincidan destacados
     var barberosCoinc = q ? barberias[neg].filter(function(c){
-      return (c.nombre+' '+c.apellido).toLowerCase().indexOf(q.toLowerCase()) >= 0;
+      return (c.nombre+' '+c.apellido+' '+(c.apodo||'')+' '+(c.tel||'')).toLowerCase().indexOf(q.toLowerCase()) >= 0;
     }) : [];
 
     var d = document.createElement('div');
@@ -3982,7 +3982,7 @@ function renderBarberiasInicio(q){
     keys = keys.filter(function(k){
       if(k.toLowerCase().indexOf(ql) >= 0) return true;
       return barberias[k].some(function(c){
-        return (c.nombre+' '+c.apellido).toLowerCase().indexOf(ql) >= 0;
+        return (c.nombre+' '+c.apellido+' '+(c.apodo||'')+' '+(c.tel||'')).toLowerCase().indexOf(ql) >= 0;
       });
     });
     keys.forEach(function(k){ barberiasAbiertas[k] = true; });
@@ -5628,13 +5628,14 @@ function renderCxC(q){
     return {cid:b.cid, cn:b.cn, total:b.total, saldo:Math.max(0,b.total-b.pagado), negocio: cl ? (cl.negocio||'') : ''};
   }).filter(function(b){ return b.saldo > 0; });
 
-  // Filtrar por búsqueda (nombre, negocio, o apodo del cliente)
+  // Filtrar por búsqueda (nombre, negocio, apodo, o teléfono del cliente)
   if(q && q.trim()){
     var ql = q.toLowerCase();
     pendientes = pendientes.filter(function(p){
       var cl = clientes.find(function(c){ return String(c.id)===String(p.cid); });
       var apodo = (cl && cl.apodo) ? cl.apodo.toLowerCase() : '';
-      return p.cn.toLowerCase().indexOf(ql) >= 0 || p.negocio.toLowerCase().indexOf(ql) >= 0 || apodo.indexOf(ql) >= 0;
+      var tel = (cl && cl.tel) ? cl.tel.toLowerCase() : '';
+      return p.cn.toLowerCase().indexOf(ql) >= 0 || p.negocio.toLowerCase().indexOf(ql) >= 0 || apodo.indexOf(ql) >= 0 || tel.indexOf(ql) >= 0;
     });
   }
 
@@ -6020,7 +6021,11 @@ function renderFacturas(q){
   var lista = ventas.filter(function(v){ return !v.cancelada; });
   if(q && q.trim()){
     var ql = q.toLowerCase();
-    lista = lista.filter(function(v){ return (v.cn||'').toLowerCase().indexOf(ql) >= 0; });
+    lista = lista.filter(function(v){
+      var cl = clientes.find(function(c){ return String(c.id)===String(v.cid); });
+      var extra = cl ? ((cl.apodo||'')+' '+(cl.negocio||'')+' '+(cl.tel||'')) : '';
+      return ((v.cn||'')+' '+extra).toLowerCase().indexOf(ql) >= 0;
+    });
   }
   lista.sort(function(a,b){ return parsearFechaVenta(b.fecha) - parsearFechaVenta(a.fecha); });
 
@@ -7435,24 +7440,67 @@ function renderRutaDia(diaKey){
     addTitle.textContent = 'Agregar a '+diaLabel;
     el.appendChild(addTitle);
 
-    barberiasNoEnDia.forEach(function(neg){
-      var row = document.createElement('div');
-      row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:#f9f9f9;border-radius:8px;margin-bottom:4px';
+    var buscarAgregar = document.createElement('input');
+    buscarAgregar.className = 'inp';
+    buscarAgregar.id = 'ruta-buscar-agregar';
+    buscarAgregar.type = 'text';
+    buscarAgregar.placeholder = '🔍 Buscar barbería para agregar...';
+    buscarAgregar.autocomplete = 'off';
+    buscarAgregar.style.marginBottom = '8px';
+    buscarAgregar.oninput = (function(dk){ return function(){ renderRutaAgregarLista(dk, this.value); }; })(diaKey);
+    el.appendChild(buscarAgregar);
 
-      var nameSpan = document.createElement('span');
-      nameSpan.style.cssText = 'font-size:13px;color:#555';
-      nameSpan.textContent = '🏪 '+neg;
+    var listaAgregar = document.createElement('div');
+    listaAgregar.id = 'ruta-agregar-lista';
+    el.appendChild(listaAgregar);
 
-      var btnAdd = document.createElement('button');
-      btnAdd.textContent = '+ Agregar';
-      btnAdd.style.cssText = 'padding:6px 12px;background:#E8EAF6;color:#1a237e;border:none;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700';
-      btnAdd.onclick = (function(dk,n){ return function(){ agregarADia(dk,n); }; })(diaKey, neg);
-
-      row.appendChild(nameSpan);
-      row.appendChild(btnAdd);
-      el.appendChild(row);
-    });
+    renderRutaAgregarLista(diaKey, '');
   }
+}
+
+function renderRutaAgregarLista(diaKey, filtro){
+  var el = document.getElementById('ruta-agregar-lista');
+  if(!el) return;
+  var rutasPorDia = LS('rutas_por_dia', {});
+  var rutaHoy = rutasPorDia[diaKey] || [];
+  clientes = LS('ncl',[]);
+  var barberias = {};
+  clientes.forEach(function(c){
+    var neg = (c.negocio||'').trim();
+    if(neg) barberias[neg] = true;
+  });
+  var todasBarberias = Object.keys(barberias).sort();
+  var barberiasNoEnDia = todasBarberias.filter(function(b){ return rutaHoy.indexOf(b) < 0; });
+
+  var q = (filtro||'').toLowerCase().trim();
+  var lista = q ? barberiasNoEnDia.filter(function(b){ return b.toLowerCase().indexOf(q) >= 0; }) : barberiasNoEnDia;
+
+  el.innerHTML = '';
+  if(!lista.length){
+    var msg = document.createElement('div');
+    msg.style.cssText = 'text-align:center;color:#aaa;font-size:12px;padding:12px';
+    msg.textContent = q ? 'Sin resultados para "'+filtro+'"' : 'No hay más barberías para agregar.';
+    el.appendChild(msg);
+    return;
+  }
+
+  lista.forEach(function(neg){
+    var row = document.createElement('div');
+    row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:#f9f9f9;border-radius:8px;margin-bottom:4px';
+
+    var nameSpan = document.createElement('span');
+    nameSpan.style.cssText = 'font-size:13px;color:#555';
+    nameSpan.textContent = '🏪 '+neg;
+
+    var btnAdd = document.createElement('button');
+    btnAdd.textContent = '+ Agregar';
+    btnAdd.style.cssText = 'padding:6px 12px;background:#E8EAF6;color:#1a237e;border:none;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700';
+    btnAdd.onclick = (function(dk,n){ return function(){ agregarADia(dk,n); }; })(diaKey, neg);
+
+    row.appendChild(nameSpan);
+    row.appendChild(btnAdd);
+    el.appendChild(row);
+  });
 }
 
 

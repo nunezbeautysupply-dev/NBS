@@ -2718,27 +2718,156 @@ function cerrarEscanerSKU(){
   // ya no necesario con el nuevo método
 }
 
+// Recortador de fotos reutilizable: muestra un cuadro donde se puede arrastrar y hacer zoom
+// antes de confirmar. Al confirmar, llama a onConfirmar(dataUrlRecortado).
+function abrirRecortarFoto(dataUrlOriginal, onConfirmar){
+  var TAM = 280; // tamano del marco de recorte en pantalla
+  var SALIDA = 300; // resolucion final de la imagen recortada (cuadrada)
+
+  var overlay = document.getElementById('crop-foto-overlay');
+  if(!overlay){
+    overlay = document.createElement('div');
+    overlay.id = 'crop-foto-overlay';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;box-sizing:border-box';
+    document.body.appendChild(overlay);
+  }
+  overlay.innerHTML = '';
+
+  var titulo = document.createElement('div');
+  titulo.textContent = 'Ajusta la foto';
+  titulo.style.cssText = 'color:white;font-size:15px;font-weight:700;margin-bottom:14px';
+  overlay.appendChild(titulo);
+
+  var marco = document.createElement('div');
+  marco.style.cssText = 'width:'+TAM+'px;height:'+TAM+'px;border-radius:14px;overflow:hidden;position:relative;background:#111;touch-action:none;border:2px solid white';
+  overlay.appendChild(marco);
+
+  var img = new Image();
+  img.style.cssText = 'position:absolute;top:0;left:0;transform-origin:top left;user-select:none;-webkit-user-drag:none';
+  marco.appendChild(img);
+
+  var subtitulo = document.createElement('div');
+  subtitulo.textContent = 'Arrastra para mover · usa la barra para acercar';
+  subtitulo.style.cssText = 'color:#ccc;font-size:12px;margin-top:12px;text-align:center';
+  overlay.appendChild(subtitulo);
+
+  var slider = document.createElement('input');
+  slider.type = 'range';
+  slider.min = '100';
+  slider.max = '300';
+  slider.value = '100';
+  slider.style.cssText = 'width:'+TAM+'px;margin-top:10px';
+  overlay.appendChild(slider);
+
+  var botones = document.createElement('div');
+  botones.style.cssText = 'display:flex;gap:10px;margin-top:18px;width:'+TAM+'px';
+  var btnCancelar = document.createElement('button');
+  btnCancelar.textContent = 'Cancelar';
+  btnCancelar.style.cssText = 'flex:1;padding:12px;background:#444;color:white;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer';
+  var btnConfirmar = document.createElement('button');
+  btnConfirmar.textContent = '✓ Confirmar recorte';
+  btnConfirmar.style.cssText = 'flex:1;padding:12px;background:var(--nbs-gold);color:white;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer';
+  botones.appendChild(btnCancelar);
+  botones.appendChild(btnConfirmar);
+  overlay.appendChild(botones);
+
+  var iw, ih, scale0, scale, offX, offY, arrastrando = false, startX, startY, startOffX, startOffY;
+
+  function aplicarTransform(){
+    img.style.width = (iw*scale)+'px';
+    img.style.height = (ih*scale)+'px';
+    img.style.transform = 'translate('+offX+'px,'+offY+'px)';
+  }
+  function limitarOffsets(){
+    var dw = iw*scale, dh = ih*scale;
+    offX = Math.min(0, Math.max(TAM-dw, offX));
+    offY = Math.min(0, Math.max(TAM-dh, offY));
+  }
+
+  img.onload = function(){
+    iw = img.naturalWidth; ih = img.naturalHeight;
+    scale0 = TAM / Math.min(iw, ih);
+    scale = scale0;
+    offX = (TAM - iw*scale)/2;
+    offY = (TAM - ih*scale)/2;
+    limitarOffsets();
+    aplicarTransform();
+  };
+  img.src = dataUrlOriginal;
+
+  function posDe(e){
+    if(e.touches && e.touches.length) return {x:e.touches[0].clientX, y:e.touches[0].clientY};
+    return {x:e.clientX, y:e.clientY};
+  }
+  function empezarArrastre(e){
+    arrastrando = true;
+    var p = posDe(e);
+    startX = p.x; startY = p.y;
+    startOffX = offX; startOffY = offY;
+  }
+  function moverArrastre(e){
+    if(!arrastrando) return;
+    e.preventDefault();
+    var p = posDe(e);
+    offX = startOffX + (p.x - startX);
+    offY = startOffY + (p.y - startY);
+    limitarOffsets();
+    aplicarTransform();
+  }
+  function terminarArrastre(){ arrastrando = false; }
+
+  marco.addEventListener('mousedown', empezarArrastre);
+  marco.addEventListener('touchstart', empezarArrastre, {passive:true});
+  window.addEventListener('mousemove', moverArrastre);
+  window.addEventListener('touchmove', moverArrastre, {passive:false});
+  window.addEventListener('mouseup', terminarArrastre);
+  window.addEventListener('touchend', terminarArrastre);
+
+  slider.oninput = function(){
+    var centroXimg = (TAM/2 - offX) / scale;
+    var centroYimg = (TAM/2 - offY) / scale;
+    scale = scale0 * (slider.value/100);
+    offX = TAM/2 - centroXimg*scale;
+    offY = TAM/2 - centroYimg*scale;
+    limitarOffsets();
+    aplicarTransform();
+  };
+
+  function cerrar(){
+    overlay.style.display = 'none';
+    window.removeEventListener('mousemove', moverArrastre);
+    window.removeEventListener('touchmove', moverArrastre);
+    window.removeEventListener('mouseup', terminarArrastre);
+    window.removeEventListener('touchend', terminarArrastre);
+  }
+  btnCancelar.onclick = cerrar;
+  btnConfirmar.onclick = function(){
+    var canvas = document.createElement('canvas');
+    canvas.width = SALIDA; canvas.height = SALIDA;
+    var ctx = canvas.getContext('2d');
+    var sx = (0 - offX) / scale;
+    var sy = (0 - offY) / scale;
+    var sSize = TAM / scale;
+    ctx.drawImage(img, sx, sy, sSize, sSize, 0, 0, SALIDA, SALIDA);
+    var dataFinal = canvas.toDataURL('image/jpeg', 0.8);
+    cerrar();
+    onConfirmar(dataFinal);
+  };
+
+  overlay.style.display = 'flex';
+}
+
 function cargarFotoProducto(input){
   var file = input.files[0];
   if(!file) return;
   var reader = new FileReader();
   reader.onload = function(e){
-    var img = new Image();
-    img.onload = function(){
-      var canvas = document.createElement('canvas');
-      var max = 200;
-      var w = img.width, h = img.height;
-      if(w > h){ if(w > max){ h = Math.round(h*max/w); w = max; } }
-      else { if(h > max){ w = Math.round(w*max/h); h = max; } }
-      canvas.width = w; canvas.height = h;
-      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-      var data = canvas.toDataURL('image/jpeg', 0.7);
-      document.getElementById('ep-foto-data').value = data;
+    abrirRecortarFoto(e.target.result, function(dataFinal){
+      document.getElementById('ep-foto-data').value = dataFinal;
       var prev = document.getElementById('ep-foto-preview');
-      prev.innerHTML = '<img src="'+data+'" style="width:100%;height:100%;object-fit:cover">';
+      prev.innerHTML = '<img src="'+dataFinal+'" style="width:100%;height:100%;object-fit:cover">';
       document.getElementById('ep-foto-quitar').style.display = 'block';
-    };
-    img.src = e.target.result;
+    });
   };
   reader.readAsDataURL(file);
   input.value = '';
@@ -4510,23 +4639,13 @@ function cargarFotoProductoMarca(input, i){
   if(!file) return;
   var reader = new FileReader();
   reader.onload = function(e){
-    var img = new Image();
-    img.onload = function(){
-      var canvas = document.createElement('canvas');
-      var max = 200;
-      var w = img.width, h = img.height;
-      if(w > h){ if(w > max){ h = Math.round(h*max/w); w = max; } }
-      else { if(h > max){ w = Math.round(w*max/h); h = max; } }
-      canvas.width = w; canvas.height = h;
-      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-      var data = canvas.toDataURL('image/jpeg', 0.7);
-      document.getElementById('epml-foto-data-'+i).value = data;
+    abrirRecortarFoto(e.target.result, function(dataFinal){
+      document.getElementById('epml-foto-data-'+i).value = dataFinal;
       var prev = document.getElementById('epml-foto-preview-'+i);
-      prev.innerHTML = '<img src="'+data+'" style="width:100%;height:100%;object-fit:cover">';
+      prev.innerHTML = '<img src="'+dataFinal+'" style="width:100%;height:100%;object-fit:cover">';
       prev.style.background = '#f0f0f0';
       prev.style.border = 'none';
-    };
-    img.src = e.target.result;
+    });
   };
   reader.readAsDataURL(file);
   input.value = '';

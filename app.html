@@ -428,7 +428,7 @@ body{
       <p style="font-size:12px;color:var(--nbs-muted);margin-bottom:14px">Edita lo que necesites en cada producto. Los cambios se guardan todos juntos al final con el botón de abajo.</p>
     </div>
     <div id="epml-lista"></div>
-    <button class="btn" style="background:var(--nbs-gold);color:white;font-weight:700;position:sticky;bottom:10px" onclick="guardarTodosLosProductosDeMarca()">✓ Guardar todos los cambios</button>
+    <button class="btn" style="background:var(--nbs-gold);color:white;font-weight:700" onclick="guardarTodosLosProductosDeMarca()">✓ Guardar todos los cambios</button>
     <button class="btn" style="background:#F0F0F2;color:var(--nbs-ink)" onclick="cerrarEditarProductosDeMarca()">Cancelar</button>
   </div>
   <div id="cat-edit-wrap" style="display:none">
@@ -4461,6 +4461,43 @@ function toggleOtraCat(i){
   }
 }
 
+function cargarFotoProductoMarca(input, i){
+  var file = input.files[0];
+  if(!file) return;
+  var reader = new FileReader();
+  reader.onload = function(e){
+    var img = new Image();
+    img.onload = function(){
+      var canvas = document.createElement('canvas');
+      var max = 200;
+      var w = img.width, h = img.height;
+      if(w > h){ if(w > max){ h = Math.round(h*max/w); w = max; } }
+      else { if(h > max){ w = Math.round(w*max/h); h = max; } }
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      var data = canvas.toDataURL('image/jpeg', 0.7);
+      document.getElementById('epml-foto-data-'+i).value = data;
+      var prev = document.getElementById('epml-foto-preview-'+i);
+      prev.innerHTML = '<img src="'+data+'" style="width:100%;height:100%;object-fit:cover">';
+      prev.style.background = '#f0f0f0';
+      prev.style.border = 'none';
+      document.getElementById('epml-foto-quitar-'+i).style.display = 'flex';
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+  input.value = '';
+}
+
+function quitarFotoProductoMarca(i){
+  document.getElementById('epml-foto-data-'+i).value = '';
+  var prev = document.getElementById('epml-foto-preview-'+i);
+  prev.innerHTML = '📷';
+  prev.style.background = 'var(--nbs-gold-bg)';
+  prev.style.border = '2px dashed var(--nbs-gold)';
+  document.getElementById('epml-foto-quitar-'+i).style.display = 'none';
+}
+
 function duplicarProductoDesdeMarca(i){
   var ids = window._epmlIds || [];
   var pid = ids[i];
@@ -4541,6 +4578,14 @@ function abrirEditarProductosDeMarca(){
       +'<button type="button" onclick="marcarEliminarProductoMarca('+i+')" id="epml-btn-elim-'+i+'" style="background:var(--nbs-red-bg);color:var(--nbs-red-dark);border:none;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:600;cursor:pointer"><i class="ti ti-trash" style="font-size:13px;vertical-align:-2px" aria-hidden="true"></i> Eliminar</button>'
       +'</div>'
       +'</div>'
+      +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">'
+      +'<div style="position:relative">'
+      +'<div id="epml-foto-preview-'+i+'" onclick="document.getElementById(\'epml-foto-input-'+i+'\').click()" style="width:56px;height:56px;border-radius:10px;background:'+(p.foto?'#f0f0f0':'var(--nbs-gold-bg)')+';border:'+(p.foto?'none':'2px dashed var(--nbs-gold)')+';display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0;overflow:hidden;cursor:pointer">'+(p.foto?'<img src="'+p.foto+'" style="width:100%;height:100%;object-fit:cover">':'📷')+'</div>'
+      +'<button type="button" id="epml-foto-quitar-'+i+'" onclick="quitarFotoProductoMarca('+i+')" style="display:'+(p.foto?'flex':'none')+';position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;background:var(--nbs-red-dark);color:white;border:2px solid white;align-items:center;justify-content:center;cursor:pointer;font-size:11px;font-weight:700;padding:0">✕</button>'
+      +'</div>'
+      +'<input type="file" id="epml-foto-input-'+i+'" accept="image/*" style="display:none" onchange="cargarFotoProductoMarca(this,'+i+')">'
+      +'<input type="hidden" id="epml-foto-data-'+i+'" value="'+(p.foto||'').replace(/"/g,"'")+'">'
+      +'</div>'
       +'<label class="lbl">Nombre del producto</label>'
       +'<div style="display:flex;align-items:stretch;gap:6px;margin-bottom:10px">'
       +'<div id="epml-nombre-prefijo-'+i+'" style="background:var(--nbs-gold-bg);color:var(--nbs-gold-dark);border-radius:8px;padding:0 12px;display:flex;align-items:center;font-size:14px;font-weight:700;white-space:nowrap">'+marcaActual+'</div>'
@@ -4612,12 +4657,14 @@ function guardarTodosLosProductosDeMarca(){
     var costoInput = document.getElementById('epml-costo-'+i);
     var precioInput = document.getElementById('epml-precio-'+i);
     var supInput = document.getElementById('epml-suplidor-'+i);
+    var fotoInput = document.getElementById('epml-foto-data-'+i);
     if(!nombreInput) return;
     var marcaFinal = (marcaSelInput.value === '__otra__' ? marcaInput.value.trim() : marcaSelInput.value);
     var restoFinal = nombreInput.value.trim();
     p.nombre = (marcaFinal ? marcaFinal + ' ' : '') + restoFinal;
     p.nombreCorto = restoFinal;
     p.marca = marcaFinal;
+    p.foto = fotoInput ? fotoInput.value : (p.foto || '');
     p.cat = (catSelInput.value === '__otra__' ? catInput.value.trim() : catSelInput.value);
     p.costo = parseFloat(costoInput.value) || 0;
     p.precio = parseFloat(precioInput.value) || 0;

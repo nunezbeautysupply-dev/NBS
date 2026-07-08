@@ -253,6 +253,7 @@ body{
     <button onclick="irMenu('p-ped')" class="mlb2"><span class="mlb2-icon"><span style="font-size:10px;font-weight:800;color:var(--nbs-gold-dark);letter-spacing:0.3px">PR</span></span>Pedidos rápidos</button>
     <button onclick="irMenu('p-v')" class="mlb2"><span class="mlb2-icon"><span style="font-size:10px;font-weight:800;color:var(--nbs-gold-dark);letter-spacing:0.3px">VE</span></span>Vender</button>
     <button onclick="irMenu('p-cl')" class="mlb2"><span class="mlb2-icon"><span style="font-size:10px;font-weight:800;color:var(--nbs-gold-dark);letter-spacing:0.3px">CL</span></span>Clientes</button>
+    <button onclick="irMenu('p-vip')" class="mlb2"><span class="mlb2-icon"><span style="font-size:10px;font-weight:800;color:var(--nbs-gold-dark);letter-spacing:0.3px">VIP</span></span>Programa VIP</button>
     <button onclick="irMenu('p-cxc')" class="mlb2"><span class="mlb2-icon"><span style="font-size:10px;font-weight:800;color:var(--nbs-gold-dark);letter-spacing:0.3px">CC</span></span>Cuentas por Cobrar</button>
     <button onclick="irMenu('p-facturas')" class="mlb2"><span class="mlb2-icon"><span style="font-size:10px;font-weight:800;color:var(--nbs-gold-dark);letter-spacing:0.3px">FA</span></span>Facturas</button>
 
@@ -265,7 +266,6 @@ body{
     <button onclick="irMenu('p-dashboard')" class="mlb2"><span class="mlb2-icon"><span style="font-size:10px;font-weight:800;color:var(--nbs-gold-dark);letter-spacing:0.3px">RE</span></span>Dashboard Financiero</button>
     <button onclick="irMenuProtegido('p-gastos')" class="mlb2"><span class="mlb2-icon"><span style="font-size:10px;font-weight:800;color:var(--nbs-gold-dark);letter-spacing:0.3px">GA</span></span>Gastos</button>
     <button onclick="irMenuProtegido('p-rpt')" class="mlb2"><span class="mlb2-icon"><span style="font-size:10px;font-weight:800;color:var(--nbs-gold-dark);letter-spacing:0.3px">RE</span></span>Reportes</button>
-    <button onclick="irMenu('p-vip')" class="mlb2"><span class="mlb2-icon"><span style="font-size:10px;font-weight:800;color:var(--nbs-gold-dark);letter-spacing:0.3px">VIP</span></span>Programa VIP</button>
     <button onclick="irMenu('p-rutas')" class="mlb2"><span class="mlb2-icon"><span style="font-size:10px;font-weight:800;color:var(--nbs-gold-dark);letter-spacing:0.3px">RV</span></span>Ruta de Visitas</button>
 
     <div style="font-size:10px;color:var(--nbs-muted-2);font-weight:700;letter-spacing:1px;padding:12px 8px 4px">IMPRESIÓN</div>
@@ -305,11 +305,11 @@ body{
 
   <!-- Botones principales -->
   <button class="mb2" onclick="ir('p-cl')"><span class="mb2-icon" style="background:#EAF1FB"><span style="font-size:10px;font-weight:800;color:#2C5AA0;letter-spacing:0.3px">CL</span></span>Clientes<span class="mb2-chev">›</span></button>
+  <button class="mb2" onclick="ir('p-vip')"><span class="mb2-icon" style="background:#FBEAF2"><span style="font-size:10px;font-weight:800;color:#9D174D;letter-spacing:0.3px">VIP</span></span>Programa Lealtad VIP<span class="mb2-chev">›</span></button>
   <button class="mb2" id="btn-cat" onclick="irProtegido('p-cat')"><span class="mb2-icon" style="background:#E6F4F3"><span style="font-size:10px;font-weight:800;color:#0F766E;letter-spacing:0.3px">CA</span></span>Catálogo<span class="mb2-chev">›</span></button>
   <button class="mb2" onclick="ir('p-ped')"><span class="mb2-icon"><span style="font-size:10px;font-weight:800;color:var(--nbs-gold-dark);letter-spacing:0.3px">PR</span></span>Pedidos rápidos<span class="mb2-chev">›</span></button>
   <button class="mb2" onclick="ir('p-v')"><span class="mb2-icon" style="background:#EAF3E2"><span style="font-size:10px;font-weight:800;color:#3B6D11;letter-spacing:0.3px">VE</span></span>Vender<span class="mb2-chev">›</span></button>
   <button class="mb2" onclick="ir('p-cxc')"><span class="mb2-icon" style="background:#FBECEC"><span style="font-size:10px;font-weight:800;color:#993C1D;letter-spacing:0.3px">CC</span></span>Cuentas por Cobrar<span class="mb2-chev">›</span></button>
-  <button class="mb2" onclick="ir('p-vip')"><span class="mb2-icon" style="background:#FBEAF2"><span style="font-size:10px;font-weight:800;color:#9D174D;letter-spacing:0.3px">VIP</span></span>Programa Lealtad VIP<span class="mb2-chev">›</span></button>
   <button class="mb2" id="btn-gastos" onclick="irProtegido('p-gastos')"><span class="mb2-icon" style="background:#FDEEE3"><span style="font-size:10px;font-weight:800;color:#C2540C;letter-spacing:0.3px">GA</span></span>Gastos<span class="mb2-chev">›</span></button>
   <button class="mb2" id="btn-facturas" onclick="irProtegido('p-facturas')"><span class="mb2-icon" style="background:#F1EAFB"><span style="font-size:10px;font-weight:800;color:#6D28A6;letter-spacing:0.3px">FA</span></span>Facturas<span class="mb2-chev">›</span></button>
 
@@ -1566,22 +1566,29 @@ function filtrarVIPBusqueda(q){
       var i2=-1;
       for(var j=0;j<todos2.length;j++){ if(String(todos2[j].id)===String(cid)){i2=j;break;} }
       if(i2===-1) return;
-      var nom=nombreClConNegocio(todos2[i2]);
-      if(todos2[i2].vipActivo){
-        if(!confirm('¿Retirar a '+nom+' del programa VIP?')) return;
-        todos2[i2].vipActivo=false; SS('ncl',todos2); clientes=todos2;
-        alert('✅ '+nom+' retirado del programa VIP.');
-      } else {
-        if(!confirm('¿Inscribir a '+nom+' en el programa VIP?')) return;
-        todos2[i2].vipActivo=true; SS('ncl',todos2); clientes=todos2;
-        alert('⭐ ¡'+nom+' inscrito en el programa VIP!');
-      }
-      document.getElementById('vip-buscar-cl').value='';
+      var cliente = todos2[i2];
       document.getElementById('vip-buscar-lista').style.display='none';
-      renderVIP('');
+      if(cliente.vipActivo){
+        // Ya esta inscrito: solo mostrar su estatus/progreso, no preguntar si se retira
+        renderVIPLista([cliente]);
+        mostrarBotonVerTodosVIP(true);
+      } else {
+        var nom = nombreClConNegocio(cliente);
+        if(!confirm('¿Inscribir a '+nom+' en el programa VIP?')) return;
+        cliente.vipActivo=true; SS('ncl',todos2); clientes=todos2;
+        alert('⭐ ¡'+nom+' inscrito en el programa VIP!');
+        document.getElementById('vip-buscar-cl').value='';
+        mostrarBotonVerTodosVIP(false);
+        renderVIP('');
+      }
     };})(c.id);
     el.appendChild(d);
   });
+}
+
+function mostrarBotonVerTodosVIP(mostrar){
+  var btn = document.getElementById('vip-ver-todos-btn');
+  if(btn) btn.style.display = mostrar ? 'block' : 'none';
 }
 
 function renderVIP(q){
@@ -7935,9 +7942,10 @@ function verHistorialCliente(cid){
   </div>
 
   <div class="card" style="margin-bottom:12px">
-    <p style="font-size:13px;font-weight:700;margin-bottom:8px">➕ Inscribir cliente al programa</p>
+    <p style="font-size:13px;font-weight:700;margin-bottom:8px">🔍 Buscar cliente (ver estatus o inscribir)</p>
     <input class="inp" id="vip-buscar-cl" type="text" placeholder="Escribe el nombre del cliente..." oninput="filtrarVIPBusqueda(this.value)" autocomplete="off">
     <div id="vip-buscar-lista" style="background:white;border:1px solid #ddd;border-radius:8px;max-height:200px;overflow-y:auto;display:none"></div>
+    <button id="vip-ver-todos-btn" style="display:none;width:100%;padding:10px;background:var(--nbs-gold-bg);color:var(--nbs-gold-dark);border:none;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;margin-top:8px" onclick="document.getElementById('vip-buscar-cl').value='';renderVIP('');mostrarBotonVerTodosVIP(false);">← Ver todos los inscritos</button>
     <button class="btn" style="background:#546E7A;color:white;font-size:12px" onclick="diagnosticoVIP()">🔍 Diagnóstico VIP</button>
   </div>
 

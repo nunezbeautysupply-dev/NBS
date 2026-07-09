@@ -1375,7 +1375,15 @@ function ir(id, sinHistorial){
   for(var i=0;i<all.length;i++) document.getElementById(all[i]).style.display='none';
   document.getElementById(id).style.display='block';
   if(id==='p-cl'){ renderCl(''); llenarDataLists(); }
-  if(id==='p-v'){ syncVcl(); var vf=document.getElementById('vfecha'); if(vf) vf.value=fechaHoyISO(); }
+  if(id==='p-v'){
+    syncVcl();
+    var vf=document.getElementById('vfecha');
+    if(vf) vf.value=fechaHoyISO();
+    window._pagoMetodos = window._pagoMetodos || {};
+    window._pagoMetodos['vini'] = [{tipo:'efectivo', monto:0}];
+    renderMetodosPago('vini');
+    actualizarLabelPagoVenta();
+  }
   if(id==='p-rpt') document.getElementById('rto').value=fechaHoyISO();
   if(id==='p-cxc'){ var bc=document.getElementById('cxc-buscar'); if(bc) bc.value=''; renderCxC(); }
   if(id==='p-cat'){ loadProds(); renderCatalogo(''); }
@@ -1387,7 +1395,14 @@ function ir(id, sinHistorial){
     renderSup('');
     llenarDataLists();
   }
-  if(id==='p-comp'){ loadProds(); syncCCsup(); }
+  if(id==='p-comp'){
+    loadProds();
+    syncCCsup();
+    window._pagoMetodos = window._pagoMetodos || {};
+    window._pagoMetodos['ccini'] = [{tipo:'efectivo', monto:0}];
+    renderMetodosPago('ccini');
+    actualizarLabelPagoCompra();
+  }
   if(id==='p-ped'){
     document.getElementById('ped-lista-wrap').style.display='block';
     document.getElementById('ped-form-wrap').style.display='none';
@@ -3546,7 +3561,8 @@ function saveV(){
   var cl = cid ? clientes.find(function(c){ return c.id===cid; }) : null;
   var cn = cl ? cl.nombre+' '+cl.apellido : 'Cliente general';
   var tipo = document.getElementById('vtipo').value;
-  var ini = parseFloat(document.getElementById('vini') ? document.getElementById('vini').value : 0)||0;
+  var metodosPagoV = (window._pagoMetodos && window._pagoMetodos['vini']) ? window._pagoMetodos['vini'].filter(function(m){ return m.monto>0; }) : [];
+  var ini = metodosPagoV.reduce(function(s,m){ return s+m.monto; }, 0);
 
   // Calcular descuento
   var descTipo = document.getElementById('vdesc-tipo') ? document.getElementById('vdesc-tipo').value : 'ninguno';
@@ -3559,6 +3575,9 @@ function saveV(){
   var totalFinal = Math.max(0, subtot - descMonto);
 
   var resumen = cn + '\n' + iV.length + ' producto(s)\nTotal: $'+fmtNum(totalFinal)+'\nPago: ' + (tipo==='credito'?'A crédito':'Contado');
+  if(tipo==='contado' && ini < totalFinal){
+    if(!confirm('Marcaste "Contado" pero el pago que registraste ($'+fmtNum(ini)+') no cubre el total ($'+fmtNum(totalFinal)+'). ¿Continuar de todas formas?')) return;
+  }
   if(!confirm('¿Registrar esta venta?\n\n' + resumen)) return;
 
   var subtot=0, gan=0;
@@ -3591,7 +3610,7 @@ function saveV(){
     var fparts = vfechaEl.value.split('-');
     if(fparts.length === 3) fechaVenta = fparts[1]+'/'+fparts[2]+'/'+fparts[0];
   }
-  if(ini > 0) pagosIniciales.push({monto:ini, fecha:fechaVenta, nota:'Pago inicial'});
+  if(ini > 0) pagosIniciales.push({monto:ini, fecha:fechaVenta, nota:'Pago inicial', metodos: metodosPagoV});
   ventas = LS('nv',[]);
   var clienteData = cl ? {negocio:cl.negocio||'',tel:cl.tel||'',email:cl.email||'',dir:cl.dir||'',ciudad:cl.ciudad||'',estado:cl.estado||'',zip:cl.zip||''} : null;
   var descInfo = descMonto > 0 ? {tipo:descTipo, valor:descVal, monto:descMonto} : null;
@@ -3600,8 +3619,10 @@ function saveV(){
   renderIV();
   document.getElementById('vcl').value='';
   document.getElementById('vtipo').value='credito';
-  document.getElementById('vini-g').style.display='block';
-  if(document.getElementById('vini')) document.getElementById('vini').value='0';
+  window._pagoMetodos = window._pagoMetodos || {};
+  window._pagoMetodos['vini'] = [{tipo:'efectivo', monto:0}];
+  renderMetodosPago('vini');
+  actualizarLabelPagoVenta();
   if(document.getElementById('vdesc-tipo')) document.getElementById('vdesc-tipo').value='ninguno';
   if(document.getElementById('vdesc-val')) document.getElementById('vdesc-val').value='0';
   if(document.getElementById('vdesc-linea')) document.getElementById('vdesc-linea').style.display='none';
@@ -3676,38 +3697,12 @@ function clearCC(){
 function mostrarNuevoProductoCompra(){
   clearCC();
   document.getElementById('cc-nuevo-prod').style.display = 'block';
-  document.getElementById('ccnombre').value = '';
-  document.getElementById('cccat').value = '';
+  document.getElementById('ccnp-marca').value = '';
+  document.getElementById('ccnp-nombre').value = '';
+  document.getElementById('ccnp-cat').value = '';
   document.getElementById('cccosto').value = '0.00';
   document.getElementById('ccprecio').value = '0.00';
   document.getElementById('ccnombre-aviso').style.display = 'none';
-
-  loadProds();
-  // Poblar el datalist con los nombres de productos existentes, para detectar duplicados
-  var datalist = document.getElementById('ccnombre-datalist');
-  datalist.innerHTML = productos.map(function(p){ return '<option value="'+p.nombre.replace(/"/g,"'")+'">'; }).join('');
-
-  // Poblar el selector de marcas existentes
-  var marcasSet = {};
-  productos.forEach(function(p){ marcasSet[p.marca || marcaDe(p)] = true; });
-  var marcasList = Object.keys(marcasSet).sort();
-  var selMarca = document.getElementById('ccmarca-sel');
-  selMarca.innerHTML = marcasList.map(function(m){ return '<option value="'+m.replace(/"/g,"'")+'">'+m+'</option>'; }).join('') + '<option value="__otra__">✏️ Otra (escribir nueva)</option>';
-  document.getElementById('ccmarca').style.display = 'none';
-  document.getElementById('ccmarca').value = '';
-}
-
-function toggleOtraMarcaCompra(){
-  var sel = document.getElementById('ccmarca-sel');
-  var input = document.getElementById('ccmarca');
-  if(sel.value === '__otra__'){
-    input.style.display = 'block';
-    input.value = '';
-    input.focus();
-  } else {
-    input.style.display = 'none';
-    input.value = sel.value;
-  }
 }
 
 function avisarSiProductoExiste(valor){
@@ -3735,11 +3730,10 @@ function addCC(){
     }
     if(!encontrado) iCC.push({pid: prod.id, nombre: prod.nombre, cant: cant, costo: costo, esNuevo: false, precioVenta: prod.precio});
   } else {
-    var nombreNuevo = document.getElementById('ccnombre').value.trim();
+    var marcaNueva = document.getElementById('ccnp-marca').value.trim();
+    var nombreNuevo = document.getElementById('ccnp-nombre').value.trim();
     if(!nombreNuevo){ alert('Escribe el nombre del producto o selecciona uno existente'); return; }
-    var catNuevo = document.getElementById('cccat').value.trim();
-    var marcaSelEl = document.getElementById('ccmarca-sel');
-    var marcaNueva = (marcaSelEl.value === '__otra__') ? document.getElementById('ccmarca').value.trim() : marcaSelEl.value;
+    var catNuevo = document.getElementById('ccnp-cat').value.trim();
     iCC.push({pid: null, nombre: nombreNuevo, cat: catNuevo, marca: marcaNueva, cant: cant, costo: costo, esNuevo: true, precioVenta: precio});
   }
   document.getElementById('cccant').value = 1;
@@ -3775,8 +3769,12 @@ function saveCC(){
   var sup = suplidores.find(function(s){ return s.id===sid; });
   var sn = sup ? sup.nombre : 'Suplidor';
   var tipo = document.getElementById('cctipo').value;
-  var ini = parseFloat(document.getElementById('ccini') ? document.getElementById('ccini').value : 0) || 0;
+  var metodosPago = (window._pagoMetodos && window._pagoMetodos['ccini']) ? window._pagoMetodos['ccini'].filter(function(m){ return m.monto>0; }) : [];
+  var ini = metodosPago.reduce(function(s,m){ return s+m.monto; }, 0);
   var tot = iCC.reduce(function(s,it){ return s + it.cant*it.costo; }, 0);
+  if(tipo==='contado' && ini < tot){
+    if(!confirm('Marcaste "Contado" pero el pago que registraste ($'+fmtNum(ini)+') no cubre el total ($'+fmtNum(tot)+'). ¿Continuar de todas formas?')) return;
+  }
   if(!confirm('¿Registrar esta compra?\n\nSuplidor: '+sn+'\n'+iCC.length+' producto(s)\nTotal: $'+fmtNum(tot)+'\nPago: '+(tipo==='credito'?'A crédito':'Contado'))) return;
 
   loadProds();
@@ -3795,7 +3793,7 @@ function saveCC(){
   });
 
   var pagosIniciales = [];
-  if(ini > 0) pagosIniciales.push({ monto: ini, fecha: fechaHoy(), nota: 'Pago inicial' });
+  if(ini > 0) pagosIniciales.push({ monto: ini, fecha: fechaHoy(), nota: 'Pago inicial', metodos: metodosPago });
 
   compras = LS('nc', []);
   compras.push({
@@ -3810,12 +3808,26 @@ function saveCC(){
   renderICC();
   document.getElementById('ccsup').value = '';
   document.getElementById('cctipo').value = 'credito';
-  document.getElementById('ccini-g').style.display = 'block';
-  if(document.getElementById('ccini')) document.getElementById('ccini').value = '0';
+  window._pagoMetodos = window._pagoMetodos || {};
+  window._pagoMetodos['ccini'] = [{tipo:'efectivo', monto:0}];
+  renderMetodosPago('ccini');
+  actualizarLabelPagoCompra();
   SS('nc', compras);
   SS('np', productos);
   flash('mk-cc');
   alert('Compra registrada por $'+fmtNum(tot)+(tipo==='credito'?' - Saldo pendiente: $'+fmtNum((tot-ini)):''));
+}
+
+function actualizarLabelPagoCompra(){
+  var tipo = document.getElementById('cctipo').value;
+  var label = document.getElementById('cc-pago-label');
+  if(label) label.textContent = tipo==='contado' ? '💰 ¿Cómo pagaste el total?' : '💰 Pago inicial (opcional, puede ser $0)';
+}
+
+function actualizarLabelPagoVenta(){
+  var tipo = document.getElementById('vtipo').value;
+  var label = document.getElementById('v-pago-label');
+  if(label) label.textContent = tipo==='contado' ? '💰 ¿Cómo pagó el cliente el total?' : '💰 Pago inicial (opcional, puede ser $0)';
 }
 
 var pedidos = LS('npedidos', []);
@@ -6256,19 +6268,6 @@ function renderFacturas(q){
     });
   }
 
-  // Orden elegido por el usuario
-  var elOrden = document.getElementById('fact-orden');
-  var orden = elOrden ? elOrden.value : 'fecha-desc';
-  if(orden === 'fecha-asc'){
-    lista.sort(function(a,b){ return parsearFechaVenta(a.fecha) - parsearFechaVenta(b.fecha); });
-  } else if(orden === 'monto-desc'){
-    lista.sort(function(a,b){ return b.total - a.total; });
-  } else if(orden === 'monto-asc'){
-    lista.sort(function(a,b){ return a.total - b.total; });
-  } else {
-    lista.sort(function(a,b){ return parsearFechaVenta(b.fecha) - parsearFechaVenta(a.fecha); });
-  }
-
   if(!lista.length){
     el.innerHTML = '<p style="color:#aaa;text-align:center;padding:20px">Sin facturas encontradas</p>';
     return;
@@ -6298,7 +6297,57 @@ function renderFacturas(q){
     +'</div>';
   el.appendChild(resumenTotales);
 
-  lista.forEach(function(v){
+  var elOrden = document.getElementById('fact-orden');
+  var orden = elOrden ? elOrden.value : 'fecha-desc';
+
+  if(orden === 'monto-desc' || orden === 'monto-asc'){
+    // Agrupar por CLIENTE, sumar su total, y ordenar los clientes de mayor a menor (o al reves)
+    var porCliente = {};
+    lista.forEach(function(v){
+      var key = v.cid || ('sin-cliente-'+v.cn);
+      if(!porCliente[key]) porCliente[key] = { nombre: v.cn, cid: v.cid, facturas: [], total: 0 };
+      porCliente[key].facturas.push(v);
+      porCliente[key].total += v.total;
+    });
+    var gruposCliente = Object.keys(porCliente).map(function(k){ return porCliente[k]; });
+    gruposCliente.sort(function(a,b){ return orden==='monto-desc' ? b.total-a.total : a.total-b.total; });
+
+    gruposCliente.forEach(function(grupo, gi){
+      var clForGrupo = clientes.find(function(x){return String(x.id)===String(grupo.cid);});
+      var negForGrupo = clForGrupo && clForGrupo.negocio ? clForGrupo.negocio.trim() : '';
+      var rankHeader = document.createElement('div');
+      rankHeader.style.cssText = 'display:flex;align-items:center;gap:10px;margin:'+(gi===0?'0':'18px')+' 0 8px';
+      rankHeader.innerHTML = '<div style="width:28px;height:28px;border-radius:50%;background:var(--nbs-ink);color:white;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;flex-shrink:0">#'+(gi+1)+'</div>'
+        +'<div style="flex:1"><div style="font-size:14px;font-weight:700;color:var(--nbs-ink)">'+grupo.nombre+(negForGrupo?' <span style="font-weight:400;color:var(--nbs-muted);font-size:12px">· 🏪'+negForGrupo+'</span>':'')+'</div></div>'
+        +'<div style="text-align:right"><div style="font-size:16px;font-weight:800;color:var(--nbs-gold-dark)">$'+fmtNum(grupo.total)+'</div><div style="font-size:10px;color:var(--nbs-muted)">'+grupo.facturas.length+' factura(s)</div></div>';
+      el.appendChild(rankHeader);
+
+      grupo.facturas.sort(function(a,b){ return parsearFechaVenta(b.fecha) - parsearFechaVenta(a.fecha); });
+      grupo.facturas.forEach(function(v){ el.appendChild(crearTarjetaFactura(v)); });
+    });
+  } else {
+    // Agrupar por DIA
+    lista.sort(function(a,b){ return orden==='fecha-asc' ? parsearFechaVenta(a.fecha)-parsearFechaVenta(b.fecha) : parsearFechaVenta(b.fecha)-parsearFechaVenta(a.fecha); });
+    var porDia = {};
+    var ordenDias = [];
+    lista.forEach(function(v){
+      if(!porDia[v.fecha]){ porDia[v.fecha] = []; ordenDias.push(v.fecha); }
+      porDia[v.fecha].push(v);
+    });
+
+    ordenDias.forEach(function(dia, di){
+      var totalDia = porDia[dia].reduce(function(s,v){ return s+v.total; }, 0);
+      var diaHeader = document.createElement('div');
+      diaHeader.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin:'+(di===0?'0':'18px')+' 0 8px;padding-bottom:6px;border-bottom:1.5px solid var(--nbs-ink)';
+      diaHeader.innerHTML = '<span style="font-size:13px;font-weight:800;color:var(--nbs-ink)">📅 '+dia+'</span>'
+        +'<span style="font-size:12px;font-weight:700;color:var(--nbs-gold-dark)">$'+fmtNum(totalDia)+' · '+porDia[dia].length+' factura(s)</span>';
+      el.appendChild(diaHeader);
+      porDia[dia].forEach(function(v){ el.appendChild(crearTarjetaFactura(v)); });
+    });
+  }
+}
+
+function crearTarjetaFactura(v){
     var pagado = v.tipo==='credito' ? (v.pagosFactura ? v.pagosFactura.filter(function(p){return typeof p.monto==='number';}).reduce(function(s,p){return s+p.monto;},0) : 0) : v.total;
     var saldo = Math.max(0, v.total - pagado);
     var numFact = String(v.id).slice(-6);
@@ -6331,13 +6380,12 @@ function renderFacturas(q){
       +v.items.map(function(it){ return '<span style="display:inline-block;background:#F7F7F8;color:var(--nbs-muted);border-radius:6px;padding:3px 8px;margin:2px 4px 2px 0;font-size:11px">'+it.nombre+' x'+it.cant+'</span>'; }).join('')
       +'</div>';
 
-
     // Botones de acción
     var btnsDiv = document.createElement('div');
     btnsDiv.style.cssText = 'display:flex;gap:8px';
-    [['ti-eye','Ver',true,verFacturaProfesional],['ti-share','Compartir',false,abrirMenuAccionesFactura]].forEach(function(b){
+    [['👁️','Ver',true,verFacturaProfesional],['📤','Compartir',false,abrirMenuAccionesFactura]].forEach(function(b){
       var btn = document.createElement('button');
-      btn.innerHTML = '<i class="ti '+b[0]+'" style="font-size:16px" aria-hidden="true"></i>'+b[1];
+      btn.innerHTML = '<span style="font-size:15px">'+b[0]+'</span>'+b[1];
       var esPrincipal = b[2];
       btn.style.cssText = 'flex:1;padding:9px;background:'+(esPrincipal?'var(--nbs-gold-bg)':'#F0F0F2')+';color:'+(esPrincipal?'var(--nbs-gold-dark)':'var(--nbs-ink)')+';border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px';
       btn.onclick = (function(fn,id){ return function(){ fn(id); }; })(b[3], v.id);
@@ -6345,11 +6393,7 @@ function renderFacturas(q){
     });
     card.innerHTML = header + items;
     card.appendChild(btnsDiv);
-    el.appendChild(card);
-    return;
-
-    // card handled above
-  });
+    return card;
 }
 
 function verFacturaProfesional(vid){
@@ -7968,15 +8012,19 @@ function verHistorialCliente(cid, modo){
     <input class="inp" id="vfecha" type="date">
     <div style="background:#FFF3E0;border-radius:10px;padding:12px;margin-bottom:8px">
       <label style="font-size:15px;font-weight:800;color:#E65100;display:block;margin-bottom:8px">💳 TIPO DE PAGO</label>
-      <select class="inp" id="vtipo" onchange="document.getElementById('vini-g').style.display=this.value==='credito'?'block':'none'" style="font-size:16px;font-weight:700;border:3px solid #E65100;color:#E65100;background:#FFF8F0;padding:12px">
+      <select class="inp" id="vtipo" onchange="actualizarLabelPagoVenta()" style="font-size:16px;font-weight:700;border:3px solid #E65100;color:#E65100;background:#FFF8F0;padding:12px">
         <option value="credito">✅ A crédito - pago parcial</option>
         <option value="contado">💵 Contado - pago completo</option>
       </select>
     </div>
-    <div id="vini-g" style="display:block;background:#E8F5E9;border-radius:10px;padding:12px;margin-bottom:8px">
-      <label style="font-size:14px;font-weight:700;color:#2E7D32;display:block;margin-bottom:6px">💰 Pago inicial recibido ($)</label>
-      <input class="inp" id="vini" type="text" inputmode="numeric" value="0.00" oninput="formatoMoneda(this)" style="font-size:18px;font-weight:700;text-align:center;border:2px solid #2E7D32">
-      <div style="font-size:11px;color:#aaa;margin-top:4px;text-align:center">Deja en 0.00 si no pagó nada ahora</div>
+    <div id="vini-g" style="background:#E8F5E9;border-radius:10px;padding:12px;margin-bottom:8px">
+      <label id="v-pago-label" style="font-size:14px;font-weight:700;color:#2E7D32;display:block;margin-bottom:6px">💰 Pago inicial (opcional, puede ser $0)</label>
+      <div id="pago-metodos-vini"></div>
+      <button type="button" onclick="agregarMetodoPago('vini')" style="background:none;border:1px dashed #2E7D32;border-radius:8px;padding:6px 10px;font-size:11px;color:#2E7D32;cursor:pointer;margin:4px 0 8px;width:100%">+ Agregar otra forma de pago</button>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:12px;color:#555;font-weight:600">Total de este pago:</span>
+        <span id="pago-total-vini" style="font-size:16px;font-weight:800;color:#2E7D32">$0.00</span>
+      </div>
     </div>
     <button class="btn" style="background:#2E7D32;color:white" onclick="saveV()">✓ Registrar venta</button>
     <div class="snk" id="mk-v">Venta registrada</div>
@@ -8089,15 +8137,13 @@ function verHistorialCliente(cid, modo){
     </div>
     <button class="btn" style="background:#795548;color:white" onclick="mostrarNuevoProductoCompra()">+ Producto nuevo (no esta en catalogo)</button>
     <div id="cc-nuevo-prod" style="display:none">
-      <label class="lbl">Nombre del producto nuevo</label>
-      <input class="inp" id="ccnombre" type="text" list="ccnombre-datalist" placeholder="Nombre del producto" oninput="avisarSiProductoExiste(this.value)">
-      <datalist id="ccnombre-datalist"></datalist>
+      <label class="lbl">Marca *</label>
+      <input class="inp" id="ccnp-marca" type="text" placeholder="Ej: DORCO, IMMORTAL" autocomplete="off" oninput="onMarcaInput('ccnp-marca')" onblur="ocultarDropdown('ccnp-marca')">
+      <label class="lbl">Nombre del producto *</label>
+      <input class="inp" id="ccnp-nombre" type="text" placeholder="Ej: Roja Cortada, Colonia Venom" autocomplete="off" oninput="onNombreProductoInput('ccnp-nombre');avisarSiProductoExiste(this.value)" onblur="ocultarDropdown('ccnp-nombre')">
       <p id="ccnombre-aviso" style="display:none;font-size:11px;color:var(--nbs-red-text);margin:-6px 0 8px">⚠️ Ya existe un producto con un nombre parecido — revisa "Buscar producto existente" arriba antes de crear uno nuevo.</p>
-      <label class="lbl">Marca</label>
-      <select class="inp" id="ccmarca-sel" onchange="toggleOtraMarcaCompra()"></select>
-      <input class="inp" id="ccmarca" type="text" placeholder="Escribe la marca nueva" style="display:none">
-      <label class="lbl">Categoria</label>
-      <input class="inp" id="cccat" type="text" placeholder="Categoria">
+      <label class="lbl">Categoría</label>
+      <input class="inp" id="ccnp-cat" type="text" placeholder="Ej: Pomadas, Navajas..." autocomplete="off" oninput="onCategoriaInput('ccnp-cat')" onblur="ocultarDropdown('ccnp-cat')">
     </div>
     <div style="display:grid;grid-template-columns:0.7fr 1fr 1fr;gap:8px">
       <div><label class="lbl">Cant.</label><input class="inp" id="cccant" type="number" value="1" min="1" style="text-align:center;padding:10px 4px"></div>
@@ -8113,18 +8159,19 @@ function verHistorialCliente(cid, modo){
     <label class="lbl">Tipo de pago</label>
     <div style="background:#FFF3E0;border-radius:10px;padding:12px;margin-bottom:8px">
       <label style="font-size:15px;font-weight:800;color:#E65100;display:block;margin-bottom:8px">💳 TIPO DE PAGO</label>
-      <select class="inp" id="cctipo" onchange="document.getElementById('ccini-g').style.display=this.value==='credito'?'block':'none'" style="font-size:16px;font-weight:700;border:3px solid #E65100;color:#E65100;background:#FFF8F0;padding:12px">
+      <select class="inp" id="cctipo" onchange="actualizarLabelPagoCompra()" style="font-size:16px;font-weight:700;border:3px solid #E65100;color:#E65100;background:#FFF8F0;padding:12px">
         <option value="credito">✅ A crédito - pago parcial</option>
         <option value="contado">💵 Contado - pago completo</option>
       </select>
     </div>
-    <div id="ccini-g" style="display:block;background:#E8F5E9;border-radius:10px;padding:12px;margin-bottom:8px">
-      <label style="font-size:14px;font-weight:700;color:#2E7D32;display:block;margin-bottom:6px">💰 Pago inicial recibido ($)</label>
-      <input class="inp" id="ccini" type="text" inputmode="numeric" value="0.00" oninput="formatoMoneda(this)" style="font-size:18px;font-weight:700;text-align:center;border:2px solid #2E7D32">
-      <div style="font-size:11px;color:#aaa;margin-top:4px;text-align:center">Deja en 0.00 si no pagó nada ahora</div>
-    </div>
-      <label class="lbl">Pago inicial ($) - dejar en 0 si no pagas nada ahora</label>
-      <input class="inp" id="ccini" type="text" inputmode="numeric" value="0.00" oninput="formatoMoneda(this)">
+    <div id="ccini-g" style="background:#E8F5E9;border-radius:10px;padding:12px;margin-bottom:8px">
+      <label id="cc-pago-label" style="font-size:14px;font-weight:700;color:#2E7D32;display:block;margin-bottom:6px">💰 Pago inicial (opcional, puede ser $0)</label>
+      <div id="pago-metodos-ccini"></div>
+      <button type="button" onclick="agregarMetodoPago('ccini')" style="background:none;border:1px dashed #2E7D32;border-radius:8px;padding:6px 10px;font-size:11px;color:#2E7D32;cursor:pointer;margin:4px 0 8px;width:100%">+ Agregar otra forma de pago</button>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:12px;color:#555;font-weight:600">Total de este pago:</span>
+        <span id="pago-total-ccini" style="font-size:16px;font-weight:800;color:#2E7D32">$0.00</span>
+      </div>
     </div>
     <button class="btn" style="background:#2E7D32;color:white" onclick="saveCC()">✓ Registrar compra</button>
     <div class="snk" id="mk-cc">Compra registrada</div>

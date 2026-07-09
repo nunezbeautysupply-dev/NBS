@@ -2626,6 +2626,72 @@ function renderSup(q){
   });
 }
 
+function agregarBalanceInicialSuplidor(id){
+  suplidores = LS('nsup', []);
+  var s = suplidores.find(function(x){ return x.id===id; });
+  if(!s) return;
+
+  var el = document.getElementById('sup-perfil-contenido');
+  el.innerHTML = '';
+
+  var back = document.createElement('button');
+  back.className = 'back';
+  back.textContent = '← Volver al perfil';
+  back.onclick = function(){ verSup(id); };
+  el.appendChild(back);
+
+  var form = document.createElement('div');
+  form.className = 'card';
+  form.innerHTML = '<p style="font-size:15px;font-weight:700;margin-bottom:4px">💰 Balance inicial</p>'
+    +'<p style="font-size:12px;color:#aaa;margin-bottom:14px">Se creará una compra a crédito con este balance. Aparecerá en Cuentas por Pagar.</p>'
+    +'<div style="background:#EDE7F6;border-radius:8px;padding:10px;margin-bottom:12px">'
+    +'<div style="font-size:13px;font-weight:600;color:#6A1B9A">Suplidor: '+s.nombre+'</div>'
+    +'</div>'
+    +'<label class="lbl">Monto del balance pendiente ($) *</label>'
+    +'<input class="inp" id="bis-monto" type="text" inputmode="numeric" value="0.00" oninput="formatoMoneda(this)">'
+    +'<label class="lbl">Descripción</label>'
+    +'<input class="inp" id="bis-nota" type="text" value="Balance inicial traído de sistema anterior" placeholder="Descripción del balance">'
+    +'<label class="lbl">Fecha</label>'
+    +'<input class="inp" id="bis-fecha" type="date" lang="en-US">'
+    +'<button class="btn" style="background:#6A1B9A;color:white" onclick="guardarBalanceInicialSuplidor('+id+')">✓ Registrar balance inicial</button>';
+  el.appendChild(form);
+
+  document.getElementById('bis-fecha').value = fechaHoyISO();
+}
+
+function guardarBalanceInicialSuplidor(id){
+  suplidores = LS('nsup', []);
+  var s = suplidores.find(function(x){ return x.id===id; });
+  if(!s) return;
+
+  var monto = parseFloat(document.getElementById('bis-monto').value) || 0;
+  if(monto <= 0){ alert('Ingresa un monto válido mayor a $0.00'); return; }
+
+  var nota = document.getElementById('bis-nota').value.trim() || 'Balance inicial traído de sistema anterior';
+  var fecha = document.getElementById('bis-fecha').value || fechaHoyISO();
+  var fechaFmt = fechaFormat(new Date(fecha+'T12:00:00'));
+
+  if(!confirm('¿Registrar balance inicial de $'+fmtNum(monto)+' para '+s.nombre+'?')) return;
+
+  compras = LS('nc', []);
+  compras.push({
+    id: Date.now(),
+    sid: s.id,
+    sn: s.nombre,
+    tipo: 'credito',
+    items: [{ pid: null, nombre: nota, cant: 1, costo: monto }],
+    total: monto,
+    fecha: fechaFmt,
+    hora: '12:00 p.m.',
+    pagosFactura: [],
+    esBalanceInicial: true
+  });
+  SS('nc', compras);
+
+  alert('✅ Balance inicial de $'+fmtNum(monto)+' registrado correctamente.\nAparece en Cuentas por Pagar.');
+  verSup(id);
+}
+
 function editarSuplidor(id){
   suplidores = LS('nsup', []);
   var s = suplidores.find(function(x){ return String(x.id)===String(id); });
@@ -2764,7 +2830,8 @@ function verSup(id, modo){
     +'<div style="display:flex;gap:8px;margin-top:8px">'
     +'<button class="btn" style="background:#1565C0;color:white;flex:1;margin:0" onclick="editarSuplidor('+id+')">✏️ Editar suplidor</button>'
     +'<button class="btn" style="background:#D32F2F;color:white;flex:1;margin:0" onclick="eliminarSup('+id+')">🗑️ Eliminar</button>'
-    +'</div>';
+    +'</div>'
+    +'<button class="btn" style="background:#6A1B9A;color:white;margin-top:8px" onclick="agregarBalanceInicialSuplidor('+id+')">💰 Agregar balance inicial</button>';
   el.appendChild(header);
 
   var tabs = document.createElement('div');

@@ -2375,19 +2375,24 @@ function editarSuplidor(id){
   overlay.style.display='block';
 }
 
-function verSup(id){
+function verSup(id, modo){
+  modo = modo || 'abiertas';
   suplidores = LS('nsup', []);
   compras = LS('nc', []);
   var s = suplidores.find(function(x){ return String(x.id)===String(id); });
   if(!s) return;
 
-  var comprasS = compras.filter(function(c){ return String(c.sid)===String(id); });
-  var totalComprado = comprasS.reduce(function(sum,c){ return sum+c.total; },0);
-  var totalPagado = comprasS.filter(function(c){ return c.tipo==='credito'; }).reduce(function(sum,c){
-    var pf = c.pagosFactura ? c.pagosFactura.filter(function(p){return typeof p.monto==='number';}).reduce(function(sp,p){return sp+p.monto;},0) : 0;
-    return sum+pf;
-  },0);
-  var totalCredito = comprasS.filter(function(c){ return c.tipo==='credito'; }).reduce(function(sum,c){ return sum+c.total; },0);
+  var todasComprasS = compras.filter(function(c){ return String(c.sid)===String(id); });
+  todasComprasS.forEach(function(c){
+    var pagado = c.pagosFactura ? c.pagosFactura.filter(function(p){return typeof p.monto==='number';}).reduce(function(s2,p){return s2+p.monto;},0) : 0;
+    c._pagado = pagado;
+    c._saldo = Math.max(0, c.total - pagado);
+  });
+  var comprasS = modo==='abiertas' ? todasComprasS.filter(function(c){ return c.tipo==='credito' && c._saldo > 0; }) : todasComprasS;
+
+  var totalComprado = todasComprasS.reduce(function(sum,c){ return sum+c.total; },0);
+  var totalPagado = todasComprasS.filter(function(c){ return c.tipo==='credito'; }).reduce(function(sum,c){ return sum+c._pagado; },0);
+  var totalCredito = todasComprasS.filter(function(c){ return c.tipo==='credito'; }).reduce(function(sum,c){ return sum+c.total; },0);
   var debo = Math.max(0, totalCredito-totalPagado);
 
   var el = document.getElementById('sup-perfil-contenido');
@@ -2414,30 +2419,50 @@ function verSup(id){
     +'</div>';
   el.appendChild(header);
 
-  if(comprasS.length){
-    var tit = document.createElement('div');
-    tit.style.cssText = 'font-size:13px;font-weight:700;color:#5D4037;text-transform:uppercase;margin-bottom:10px';
-    tit.textContent = 'Historial de compras (' + comprasS.length + ')';
-    el.appendChild(tit);
+  var tabs = document.createElement('div');
+  tabs.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px';
+  tabs.innerHTML = '<button onclick="verSup('+id+',\'abiertas\')" style="padding:12px;background:'+(modo==='abiertas'?'var(--nbs-gold)':'#F0F0F2')+';color:'+(modo==='abiertas'?'white':'var(--nbs-ink)')+';border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer">📂 Compras abiertas</button>'
+    +'<button onclick="verSup('+id+',\'completo\')" style="padding:12px;background:'+(modo==='completo'?'var(--nbs-gold)':'#F0F0F2')+';color:'+(modo==='completo'?'white':'var(--nbs-ink)')+';border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer">📋 Historial completo</button>';
+  el.appendChild(tabs);
 
-    comprasS.slice().reverse().forEach(function(c){
-      var pagado = c.pagosFactura ? c.pagosFactura.filter(function(p){return typeof p.monto==='number';}).reduce(function(s2,p){return s2+p.monto;},0) : 0;
-      var saldo = Math.max(0, c.total-pagado);
+  var tit = document.createElement('div');
+  tit.style.cssText = 'font-size:13px;font-weight:700;color:#5D4037;text-transform:uppercase;margin-bottom:10px';
+  tit.textContent = (modo==='abiertas' ? 'Compras con saldo pendiente' : 'Historial completo') + ' (' + comprasS.length + ')';
+  el.appendChild(tit);
+
+  if(!comprasS.length){
+    var vacio = document.createElement('p');
+    vacio.style.cssText = 'color:#aaa;text-align:center;padding:20px;font-size:13px';
+    vacio.textContent = modo==='abiertas' ? 'No hay compras abiertas — todo está al día.' : 'Sin compras registradas.';
+    el.appendChild(vacio);
+  }
+
+  comprasS.slice().reverse().forEach(function(c){
+      var saldo = c._saldo;
       var card = document.createElement('div');
       card.className = 'card';
       card.style.cursor = 'pointer';
       card.style.borderLeft = '4px solid ' + (c.tipo==='credito' ? (saldo>0?'#C62828':'#2E7D32') : '#1565C0');
+      var pagosHtml = '';
+      if(modo==='completo' && c.tipo==='credito' && c.pagosFactura && c.pagosFactura.length){
+        pagosHtml = '<div style="margin-top:6px;padding-top:6px;border-top:0.5px dashed #ddd">'
+          +c.pagosFactura.filter(function(p){return p.monto>0;}).map(function(p){
+            var detalle = (p.metodos && p.metodos.length) ? p.metodos.map(function(m){ return METODOS_PAGO_LABELS[m.tipo]+' $'+fmtNum(m.monto); }).join(' + ') : '';
+            return '<div style="font-size:11px;color:#2E7D32;padding:2px 0">✓ '+p.fecha+' — Pagué $'+fmtNum(p.monto)+(detalle?' ('+detalle+')':'')+'</div>';
+          }).join('')
+          +'</div>';
+      }
       card.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center">'
         +'<div><div style="font-size:14px;font-weight:700">'+c.fecha+' - '+c.hora+'</div>'
         +'<div style="font-size:12px;color:#aaa;margin-top:2px">'+c.items.length+' producto(s)</div>'
         +'<div style="margin-top:4px"><span style="font-size:13px;padding:3px 9px;border-radius:10px;font-weight:500;'+(c.tipo==='credito'?'background:#FFF8E1;color:#E65100':'background:#E8F5E9;color:#2E7D32')+'">'+(c.tipo==='credito'?'a credito':'contado')+'</span></div></div>'
         +'<div style="text-align:right"><div style="font-size:18px;font-weight:700;color:#1565C0">$'+fmtNum(c.total)+'</div>'
         +(c.tipo==='credito'?'<div style="font-size:12px;color:'+(saldo>0?'#C62828':'#2E7D32')+'">'+(saldo>0?'Debo: $'+fmtNum(saldo):'Pagado')+'</div>':'')
-        +'</div></div>';
+        +'</div></div>'
+        +pagosHtml;
       card.onclick = (function(compra){ return function(){ verFacturaCompra(compra, id); }; })(c);
       el.appendChild(card);
-    });
-  }
+  });
 
   document.getElementById('sup-lista-wrap').style.display = 'none';
   document.getElementById('sup-perfil-wrap').style.display = 'block';
@@ -3645,6 +3670,43 @@ function mostrarNuevoProductoCompra(){
   document.getElementById('cccat').value = '';
   document.getElementById('cccosto').value = '0.00';
   document.getElementById('ccprecio').value = '0.00';
+  document.getElementById('ccnombre-aviso').style.display = 'none';
+
+  loadProds();
+  // Poblar el datalist con los nombres de productos existentes, para detectar duplicados
+  var datalist = document.getElementById('ccnombre-datalist');
+  datalist.innerHTML = productos.map(function(p){ return '<option value="'+p.nombre.replace(/"/g,"'")+'">'; }).join('');
+
+  // Poblar el selector de marcas existentes
+  var marcasSet = {};
+  productos.forEach(function(p){ marcasSet[p.marca || marcaDe(p)] = true; });
+  var marcasList = Object.keys(marcasSet).sort();
+  var selMarca = document.getElementById('ccmarca-sel');
+  selMarca.innerHTML = marcasList.map(function(m){ return '<option value="'+m.replace(/"/g,"'")+'">'+m+'</option>'; }).join('') + '<option value="__otra__">✏️ Otra (escribir nueva)</option>';
+  document.getElementById('ccmarca').style.display = 'none';
+  document.getElementById('ccmarca').value = '';
+}
+
+function toggleOtraMarcaCompra(){
+  var sel = document.getElementById('ccmarca-sel');
+  var input = document.getElementById('ccmarca');
+  if(sel.value === '__otra__'){
+    input.style.display = 'block';
+    input.value = '';
+    input.focus();
+  } else {
+    input.style.display = 'none';
+    input.value = sel.value;
+  }
+}
+
+function avisarSiProductoExiste(valor){
+  var aviso = document.getElementById('ccnombre-aviso');
+  if(!valor || valor.trim().length < 3){ aviso.style.display = 'none'; return; }
+  loadProds();
+  var vl = valor.trim().toLowerCase();
+  var existe = productos.some(function(p){ return p.nombre.toLowerCase().indexOf(vl) >= 0 || vl.indexOf(p.nombre.toLowerCase()) >= 0; });
+  aviso.style.display = existe ? 'block' : 'none';
 }
 
 function addCC(){
@@ -3666,7 +3728,9 @@ function addCC(){
     var nombreNuevo = document.getElementById('ccnombre').value.trim();
     if(!nombreNuevo){ alert('Escribe el nombre del producto o selecciona uno existente'); return; }
     var catNuevo = document.getElementById('cccat').value.trim();
-    iCC.push({pid: null, nombre: nombreNuevo, cat: catNuevo, cant: cant, costo: costo, esNuevo: true, precioVenta: precio});
+    var marcaSelEl = document.getElementById('ccmarca-sel');
+    var marcaNueva = (marcaSelEl.value === '__otra__') ? document.getElementById('ccmarca').value.trim() : marcaSelEl.value;
+    iCC.push({pid: null, nombre: nombreNuevo, cat: catNuevo, marca: marcaNueva, cant: cant, costo: costo, esNuevo: true, precioVenta: precio});
   }
   document.getElementById('cccant').value = 1;
   document.getElementById('cccosto').value = '0.00';
@@ -3711,7 +3775,9 @@ function saveCC(){
     tot += it.cant * it.costo;
     if(it.esNuevo){
       var nuevoId = 'custom_' + Date.now() + '_' + Math.floor(Math.random()*1000);
-      productos.push({ id: nuevoId, nombre: it.nombre, cat: it.cat||'', sku: '', costo: it.costo, precio: it.precioVenta||0, stock: it.cant, min: 5 });
+      var marcaFinal = it.marca || '';
+      var nombreFinal = marcaFinal ? (it.nombre.toLowerCase().indexOf(marcaFinal.toLowerCase())===0 ? it.nombre : marcaFinal+' '+it.nombre) : it.nombre;
+      productos.push({ id: nuevoId, marca: marcaFinal, nombreCorto: it.nombre, nombre: nombreFinal, cat: it.cat||'', sku: '', costo: it.costo, precio: it.precioVenta||0, stock: it.cant, min: 5 });
     } else {
       var p = productos.find(function(x){ return String(x.id)===String(it.pid); });
       if(p){ p.stock += it.cant; p.costo = it.costo; }
@@ -4241,28 +4307,57 @@ function addPedItem(){
 function renderPedItems(){
   var el = document.getElementById('pedItems');
   el.innerHTML = '';
-  var totalGeneral = 0;
   pedItemsTemp.forEach(function(it, i){
     var subtotal = (it.cant * it.precio);
-    totalGeneral += subtotal;
     var row = document.createElement('div');
-    row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f0f0f0';
-    row.innerHTML = '<div style="flex:1;font-size:13px;font-weight:600;color:#1a237e;line-height:1.3">'+it.nombre+'<div style="font-size:11px;color:#aaa;font-weight:400">$'+fmtNum(it.precio)+' c/u</div></div>'
-      +'<div style="display:flex;align-items:center;gap:4px;flex-shrink:0">'
-      +'<button onclick="if(pedItemsTemp['+i+'].cant>1){pedItemsTemp['+i+'].cant--;renderPedItems();}else{pedItemsTemp.splice('+i+',1);renderPedItems();}" style="width:28px;height:28px;background:#EF5350;color:white;border:none;border-radius:6px;cursor:pointer;font-size:16px;font-weight:700;line-height:1">−</button>'
-      +'<span style="font-size:15px;font-weight:800;min-width:24px;text-align:center">'+it.cant+'</span>'
-      +'<button onclick="pedItemsTemp['+i+'].cant++;renderPedItems();" style="width:28px;height:28px;background:#43A047;color:white;border:none;border-radius:6px;cursor:pointer;font-size:16px;font-weight:700;line-height:1">+</button>'
+    row.style.cssText = 'padding:10px;margin-bottom:8px;border:0.5px solid var(--nbs-line);border-radius:10px;background:white';
+    row.innerHTML = '<div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">'
+      +'<input type="text" value="'+it.nombre.replace(/"/g,"'")+'" oninput="actualizarPedItem('+i+',\'nombre\',this.value)" style="flex:1;border:0.5px solid #ddd;border-radius:6px;padding:7px 8px;font-size:13px;font-weight:600;color:var(--nbs-ink)">'
+      +'<button onclick="pedItemsTemp.splice('+i+',1);renderPedItems();" style="background:var(--nbs-red-bg);color:var(--nbs-red-dark);border:none;border-radius:6px;width:30px;height:30px;cursor:pointer;font-size:14px;flex-shrink:0">✕</button>'
       +'</div>'
-      +'<div style="font-size:13px;font-weight:700;color:#2E7D32;min-width:52px;text-align:right">$'+fmtNum(subtotal)+'</div>';
+      +'<div style="display:flex;align-items:center;gap:8px">'
+      +'<div>'
+      +'<label style="font-size:9px;color:#999;display:block;margin-bottom:2px">CANT</label>'
+      +'<input type="number" min="1" value="'+it.cant+'" oninput="actualizarPedItem('+i+',\'cant\',parseInt(this.value)||1);actualizarSubtotalPed('+i+')" style="width:50px;padding:6px 4px;border:0.5px solid #ddd;border-radius:6px;font-size:13px;text-align:center">'
+      +'</div>'
+      +'<div>'
+      +'<label style="font-size:9px;color:#999;display:block;margin-bottom:2px">PRECIO $</label>'
+      +'<input type="text" inputmode="decimal" value="'+it.precio.toFixed(2)+'" oninput="formatoMoneda(this);actualizarPedItem('+i+',\'precio\',parseFloat(this.value)||0);actualizarSubtotalPed('+i+')" style="width:68px;padding:6px 4px;border:0.5px solid #ddd;border-radius:6px;font-size:13px;text-align:center">'
+      +'</div>'
+      +'<span id="ped-subtotal-'+i+'" style="flex:1;text-align:right;font-size:14px;font-weight:700;color:var(--nbs-green-text)">$'+fmtNum(subtotal)+'</span>'
+      +'</div>';
     el.appendChild(row);
   });
-  if(pedItemsTemp.length > 0){
-    var totalRow = document.createElement('div');
-    totalRow.style.cssText = 'padding:10px 0;display:flex;justify-content:space-between;align-items:center;border-top:2px solid #1a237e;margin-top:4px';
-    totalRow.innerHTML = '<span style="font-size:14px;font-weight:800;color:#1a237e">TOTAL ('+pedItemsTemp.length+')</span>'
-      +'<span style="font-size:18px;font-weight:800;color:#1565C0">$'+fmtNum(totalGeneral)+'</span>';
-    el.appendChild(totalRow);
-  }
+  actualizarTotalPedGeneral();
+}
+
+function actualizarPedItem(i, campo, valor){
+  if(!pedItemsTemp[i]) return;
+  pedItemsTemp[i][campo] = valor;
+}
+
+function actualizarSubtotalPed(i){
+  var it = pedItemsTemp[i];
+  if(!it) return;
+  var subtotal = it.cant * it.precio;
+  var span = document.getElementById('ped-subtotal-'+i);
+  if(span) span.textContent = '$'+fmtNum(subtotal);
+  actualizarTotalPedGeneral();
+}
+
+function actualizarTotalPedGeneral(){
+  var el = document.getElementById('pedItems');
+  if(!el) return;
+  var viejo = document.getElementById('ped-total-row');
+  if(viejo) viejo.remove();
+  if(!pedItemsTemp.length) return;
+  var totalGeneral = pedItemsTemp.reduce(function(s,it){ return s+(it.cant*it.precio); }, 0);
+  var totalRow = document.createElement('div');
+  totalRow.id = 'ped-total-row';
+  totalRow.style.cssText = 'padding:10px 0;display:flex;justify-content:space-between;align-items:center;border-top:2px solid #1a237e;margin-top:4px';
+  totalRow.innerHTML = '<span style="font-size:14px;font-weight:800;color:#1a237e">TOTAL ('+pedItemsTemp.length+')</span>'
+    +'<span style="font-size:18px;font-weight:800;color:#1565C0">$'+fmtNum(totalGeneral)+'</span>';
+  el.appendChild(totalRow);
 }
 
 function irAVenderCliente(id){
@@ -5791,7 +5886,8 @@ function abrirAbono(cid){
           
           var infoSpan = document.createElement('span');
           infoSpan.style.cssText = 'color:#555;flex:1';
-          infoSpan.textContent = (p.fecha||'') + (p.nota?' · '+p.nota:'');
+          var detalleMetodos = (p.metodos && p.metodos.length) ? p.metodos.map(function(m){ return METODOS_PAGO_LABELS[m.tipo]+' $'+fmtNum(m.monto); }).join(' + ') : '';
+          infoSpan.innerHTML = (p.fecha||'') + (p.nota?' · '+p.nota:'') + (detalleMetodos ? '<div style="font-size:10px;color:#6A1B9A;margin-top:2px">'+detalleMetodos+'</div>' : '');
           
           var montoSpan = document.createElement('span');
           montoSpan.style.cssText = 'color:#2E7D32;font-weight:700;margin:0 8px';
@@ -5836,36 +5932,87 @@ function abrirAbono(cid){
         });
       }
 
-      // Button to apply payment to THIS invoice
+      // Button to apply payment to THIS invoice (con soporte para varias formas de pago a la vez)
       if(saldoFactura > 0){
+        if(!window._pagoMetodos) window._pagoMetodos = {};
+        window._pagoMetodos[v.id] = [{tipo:'efectivo', monto:0}];
+
         var pagoDiv = document.createElement('div');
         pagoDiv.style.cssText = 'margin-top:8px;border-top:1px solid #f0f0f0;padding-top:8px';
         pagoDiv.innerHTML = '<div style="font-size:11px;color:#6A1B9A;font-weight:700;margin-bottom:4px;letter-spacing:0.5px">💰 APLICAR PAGO</div>'
-          +'<div style="font-size:12px;color:#aaa;margin-bottom:6px">Saldo pendiente: $'+fmtNum(saldoFactura)+'</div>'
-          +'<div style="display:flex;gap:8px;align-items:center">'
-          +'<input type="text" inputmode="numeric" placeholder="0.00" id="pago-'+v.id+'" value="0.00" style="flex:1;padding:6px 10px;font-size:13px;border:1px solid #ddd;border-radius:6px;outline:none;font-family:sans-serif" oninput="formatoMoneda(this)">'
-          +'<button id="btn-'+v.id+'" style="padding:10px 14px;background:#6A1B9A;color:white;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600;white-space:nowrap">✓ Pagar</button>'
-          +'</div>';
+          +'<div style="font-size:12px;color:#aaa;margin-bottom:8px">Saldo pendiente: $'+fmtNum(saldoFactura)+'</div>'
+          +'<div id="pago-metodos-'+v.id+'"></div>'
+          +'<button type="button" onclick="agregarMetodoPago(\''+v.id+'\')" style="background:none;border:1px dashed #ccc;border-radius:8px;padding:6px 10px;font-size:11px;color:#6A1B9A;cursor:pointer;margin:4px 0 8px;width:100%">+ Agregar otra forma de pago</button>'
+          +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'
+          +'<span style="font-size:12px;color:#555;font-weight:600">Total a registrar:</span>'
+          +'<span id="pago-total-'+v.id+'" style="font-size:16px;font-weight:800;color:#2E7D32">$0.00</span>'
+          +'</div>'
+          +'<button id="btn-'+v.id+'" style="width:100%;padding:12px;background:#6A1B9A;color:white;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:700">✓ Registrar pago</button>';
+
         var aplicarBtn = pagoDiv.querySelector('#btn-'+v.id);
-        aplicarBtn.onclick = (function(vid, saldo){ return function(){
-          var inp = document.getElementById('pago-'+vid);
-          var monto = parseFloat(inp.value)||0;
-          if(monto <= 0){ alert('Ingresa un monto valido'); return; }
-          if(monto > saldo){ if(!confirm('El monto ($'+fmtNum(monto)+') es mayor al saldo ($'+fmtNum(saldo)+'). ¿Continuar?')) return; monto=saldo; }
-          ventas = LS('nv',[]);
-          var venta = ventas.find(function(x){ return x.id===vid; });
-          if(!venta) return;
-          if(!venta.pagosFactura) venta.pagosFactura = [];
-          venta.pagosFactura.push({monto:monto, fecha:fechaHoy()});
-          SS('nv', ventas);
-          alert('Pago de $'+fmtNum(monto)+' aplicado correctamente');
-          abrirAbono(cxcClienteId);
-        }; })(v.id, saldoFactura);
+        aplicarBtn.onclick = (function(vid, saldo){ return function(){ confirmarPagoMultiple(vid, saldo); }; })(v.id, saldoFactura);
         card.appendChild(pagoDiv);
+        renderMetodosPago(v.id);
       }
       el.appendChild(card);
     });
   }
+}
+
+var METODOS_PAGO_LABELS = { efectivo:'💵 Efectivo', tarjeta:'💳 Tarjeta de Crédito', cashapp:'📱 CashApp / Zelle' };
+
+function renderMetodosPago(vid){
+  var cont = document.getElementById('pago-metodos-'+vid);
+  if(!cont) return;
+  var filas = window._pagoMetodos[vid] || [];
+  cont.innerHTML = filas.map(function(m, i){
+    return '<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">'
+      +'<select onchange="actualizarMetodoPago(\''+vid+'\','+i+',\'tipo\',this.value)" style="flex:1.2;padding:8px 6px;border:1px solid #ddd;border-radius:6px;font-size:12px">'
+      +Object.keys(METODOS_PAGO_LABELS).map(function(k){ return '<option value="'+k+'"'+(m.tipo===k?' selected':'')+'>'+METODOS_PAGO_LABELS[k]+'</option>'; }).join('')
+      +'</select>'
+      +'<input type="text" inputmode="numeric" value="'+m.monto.toFixed(2)+'" oninput="formatoMoneda(this);actualizarMetodoPago(\''+vid+'\','+i+',\'monto\',parseFloat(this.value)||0)" style="width:80px;padding:8px 6px;border:1px solid #ddd;border-radius:6px;font-size:12px;text-align:center">'
+      +(filas.length>1 ? '<button type="button" onclick="quitarMetodoPago(\''+vid+'\','+i+')" style="background:var(--nbs-red-bg);color:var(--nbs-red-dark);border:none;border-radius:6px;width:28px;height:32px;cursor:pointer;font-size:12px">✕</button>' : '')
+      +'</div>';
+  }).join('');
+  actualizarTotalPago(vid);
+}
+
+function agregarMetodoPago(vid){
+  window._pagoMetodos[vid].push({tipo:'efectivo', monto:0});
+  renderMetodosPago(vid);
+}
+
+function quitarMetodoPago(vid, idx){
+  window._pagoMetodos[vid].splice(idx, 1);
+  renderMetodosPago(vid);
+}
+
+function actualizarMetodoPago(vid, idx, campo, valor){
+  window._pagoMetodos[vid][idx][campo] = valor;
+  actualizarTotalPago(vid);
+}
+
+function actualizarTotalPago(vid){
+  var filas = window._pagoMetodos[vid] || [];
+  var total = filas.reduce(function(s,m){ return s+(m.monto||0); }, 0);
+  var el = document.getElementById('pago-total-'+vid);
+  if(el) el.textContent = '$'+fmtNum(total);
+}
+
+function confirmarPagoMultiple(vid, saldo){
+  var filas = (window._pagoMetodos[vid] || []).filter(function(m){ return m.monto > 0; });
+  var total = filas.reduce(function(s,m){ return s+m.monto; }, 0);
+  if(total <= 0){ alert('Ingresa un monto válido en al menos una forma de pago.'); return; }
+  if(total > saldo){ if(!confirm('El monto ($'+fmtNum(total)+') es mayor al saldo ($'+fmtNum(saldo)+'). ¿Continuar?')) return; }
+  ventas = LS('nv',[]);
+  var venta = ventas.find(function(x){ return x.id===vid; });
+  if(!venta) return;
+  if(!venta.pagosFactura) venta.pagosFactura = [];
+  venta.pagosFactura.push({ monto: total, fecha: fechaHoy(), metodos: filas });
+  SS('nv', ventas);
+  var detalle = filas.map(function(m){ return METODOS_PAGO_LABELS[m.tipo]+': $'+fmtNum(m.monto); }).join('\n');
+  alert('✅ Pago de $'+fmtNum(total)+' aplicado correctamente.\n\n'+detalle);
+  abrirAbono(cxcClienteId);
 }
 
 
@@ -6028,7 +6175,33 @@ function renderFacturas(q){
       return ((v.cn||'')+' '+extra).toLowerCase().indexOf(ql) >= 0;
     });
   }
-  lista.sort(function(a,b){ return parsearFechaVenta(b.fecha) - parsearFechaVenta(a.fecha); });
+
+  // Filtro por rango de fechas
+  var elDesde = document.getElementById('fact-desde');
+  var elHasta = document.getElementById('fact-hasta');
+  var desde = elDesde && elDesde.value ? new Date(elDesde.value+'T00:00:00') : null;
+  var hasta = elHasta && elHasta.value ? new Date(elHasta.value+'T23:59:59') : null;
+  if(desde || hasta){
+    lista = lista.filter(function(v){
+      var f = parsearFechaVenta(v.fecha);
+      if(desde && f < desde) return false;
+      if(hasta && f > hasta) return false;
+      return true;
+    });
+  }
+
+  // Orden elegido por el usuario
+  var elOrden = document.getElementById('fact-orden');
+  var orden = elOrden ? elOrden.value : 'fecha-desc';
+  if(orden === 'fecha-asc'){
+    lista.sort(function(a,b){ return parsearFechaVenta(a.fecha) - parsearFechaVenta(b.fecha); });
+  } else if(orden === 'monto-desc'){
+    lista.sort(function(a,b){ return b.total - a.total; });
+  } else if(orden === 'monto-asc'){
+    lista.sort(function(a,b){ return a.total - b.total; });
+  } else {
+    lista.sort(function(a,b){ return parsearFechaVenta(b.fecha) - parsearFechaVenta(a.fecha); });
+  }
 
   if(!lista.length){
     el.innerHTML = '<p style="color:#aaa;text-align:center;padding:20px">Sin facturas encontradas</p>';
@@ -7567,20 +7740,30 @@ function cerrarFacturaEdit(){ var o=document.getElementById("fact-edit-overlay")
 function cerrarFacturaView(){ var o=document.getElementById("factura-view-overlay"); if(o) o.style.display="none"; }
 function cerrarHistorial(){ var o=document.getElementById("historial-overlay"); if(o) o.style.display="none"; }
 
-function verHistorialCliente(cid){
+function verHistorialCliente(cid, modo){
+  modo = modo || 'abiertas';
   ventas = LS('nv',[]);
   clientes = LS('ncl',[]);
   var cl = clientes.find(function(c){ return String(c.id)===String(cid); });
   if(!cl) return;
-  var ventasCl = ventas.filter(function(v){ return String(v.cid)===String(cid) && !v.cancelada; });
-  ventasCl.sort(function(a,b){ return parsearFechaVenta(b.fecha)-parsearFechaVenta(a.fecha); });
+  var todasVentasCl = ventas.filter(function(v){ return String(v.cid)===String(cid) && !v.cancelada; });
+  todasVentasCl.sort(function(a,b){ return parsearFechaVenta(b.fecha)-parsearFechaVenta(a.fecha); });
 
-  var totalGastado = ventasCl.reduce(function(s,v){ return s+v.total; },0);
-  var frecuencia = ventasCl.length;
+  // Calcular saldo de cada venta a credito
+  todasVentasCl.forEach(function(v){
+    var pagado = (v.tipo==='credito' && v.pagosFactura) ? v.pagosFactura.filter(function(p){return typeof p.monto==='number';}).reduce(function(s,p){return s+p.monto;},0) : v.total;
+    v._pagado = pagado;
+    v._saldo = Math.max(0, v.total - pagado);
+  });
 
-  // Productos favoritos
+  var ventasCl = modo==='abiertas' ? todasVentasCl.filter(function(v){ return v.tipo==='credito' && v._saldo > 0; }) : todasVentasCl;
+
+  var totalGastado = todasVentasCl.reduce(function(s,v){ return s+v.total; },0);
+  var frecuencia = todasVentasCl.length;
+
+  // Productos favoritos (siempre sobre el historial completo, no solo abiertas)
   var prodCount = {};
-  ventasCl.forEach(function(v){
+  todasVentasCl.forEach(function(v){
     (v.items||[]).forEach(function(it){
       if(!prodCount[it.nombre]) prodCount[it.nombre] = 0;
       prodCount[it.nombre] += it.cant;
@@ -7601,6 +7784,10 @@ function verHistorialCliente(cid){
     +'<div style="font-size:18px;font-weight:800">'+nombreCl(cl)+'</div>'
     +'<div style="font-size:13px;opacity:0.8;margin-top:4px">🏪 '+(cl.negocio||'Sin barbería')+'</div>'
     +'</div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">'
+    +'<button onclick="verHistorialCliente(\''+cid+'\',\'abiertas\')" style="padding:12px;background:'+(modo==='abiertas'?'var(--nbs-gold)':'#F0F0F2')+';color:'+(modo==='abiertas'?'white':'var(--nbs-ink)')+';border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer">📂 Facturas abiertas</button>'
+    +'<button onclick="verHistorialCliente(\''+cid+'\',\'completo\')" style="padding:12px;background:'+(modo==='completo'?'var(--nbs-gold)':'#F0F0F2')+';color:'+(modo==='completo'?'white':'var(--nbs-ink)')+';border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer">📋 Historial completo</button>'
+    +'</div>'
     +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px">'
     +'<div style="background:white;border-radius:10px;padding:12px;border:0.5px solid #e5e7eb;text-align:center">'
     +'<div style="font-size:10px;color:#aaa;font-weight:600">TOTAL GASTADO</div>'
@@ -7619,14 +7806,26 @@ function verHistorialCliente(cid){
     +'<div style="font-size:12px;color:#E65100;font-weight:700;margin-bottom:8px">⭐ PRODUCTOS FAVORITOS</div>'
     +topProds.map(function(p){ return '<div style="font-size:13px;color:#333;padding:4px 0">• '+p+' ('+prodCount[p]+' unidades)</div>'; }).join('')
     +'</div>':'')
-    +'<div style="font-size:13px;font-weight:700;color:#1a237e;margin-bottom:8px">Historial de compras</div>'
+    +'<div style="font-size:13px;font-weight:700;color:#1a237e;margin-bottom:8px">'+(modo==='abiertas'?'Facturas con saldo pendiente':'Historial completo de compras y pagos')+'</div>'
+    +(!ventasCl.length ? '<p style="color:#aaa;text-align:center;padding:20px;font-size:13px">'+(modo==='abiertas'?'No hay facturas abiertas — todo está al día.':'Sin compras registradas.')+'</p>' : '')
     +ventasCl.map(function(v){
-      return '<div style="background:white;border-radius:10px;padding:12px;margin-bottom:6px;border:0.5px solid #e5e7eb">'
+      var pagosHtml = '';
+      if(modo==='completo' && v.tipo==='credito' && v.pagosFactura && v.pagosFactura.length){
+        pagosHtml = '<div style="margin-top:6px;padding-top:6px;border-top:0.5px dashed #ddd">'
+          +v.pagosFactura.filter(function(p){return p.monto>0;}).map(function(p){
+            var detalle = (p.metodos && p.metodos.length) ? p.metodos.map(function(m){ return METODOS_PAGO_LABELS[m.tipo]+' $'+fmtNum(m.monto); }).join(' + ') : '';
+            return '<div style="font-size:11px;color:#2E7D32;padding:2px 0">✓ '+p.fecha+' — Pagó $'+fmtNum(p.monto)+(detalle?' ('+detalle+')':'')+'</div>';
+          }).join('')
+          +'</div>';
+      }
+      return '<div style="background:white;border-radius:10px;padding:12px;margin-bottom:6px;border:0.5px solid #e5e7eb;border-left:3px solid '+(v.tipo==='credito'&&v._saldo>0?'#C62828':'#2E7D32')+'">'
         +'<div style="display:flex;justify-content:space-between">'
-        +'<span style="font-size:13px;font-weight:700;color:#1a237e">'+v.fecha+'</span>'
+        +'<span style="font-size:13px;font-weight:700;color:#1a237e">'+v.fecha+' <span style="font-size:10px;color:#aaa;font-weight:400">('+(v.tipo==='credito'?'crédito':'contado')+')</span></span>'
         +'<span style="font-size:14px;font-weight:800;color:#1565C0">$'+fmtNum(v.total)+'</span>'
         +'</div>'
         +'<div style="font-size:11px;color:#aaa;margin-top:4px">'+v.items.map(function(it){ return it.nombre+' x'+it.cant; }).join(', ')+'</div>'
+        +(v.tipo==='credito' ? '<div style="font-size:11px;font-weight:700;margin-top:4px;color:'+(v._saldo>0?'#C62828':'#2E7D32')+'">'+(v._saldo>0?'Saldo pendiente: $'+fmtNum(v._saldo):'✓ Pagada completa')+'</div>' : '')
+        +pagosHtml
         +'</div>';
     }).join('');
   overlay.style.display = 'block';
@@ -7711,12 +7910,12 @@ function verHistorialCliente(cid){
   <!-- PASO 1: Lista de pedidos pendientes -->
   <div id="ped-lista-wrap">
     <button class="btn" style="background:var(--nbs-gold-bg);color:var(--nbs-gold-dark);font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px" onclick="ir('p-rutas')">🗺️ Ver Ruta de Visitas</button>
+    <!-- Pedidos pendientes primero, para no tener que bajar a buscarlos -->
+    <div id="ped-pendientes-wrap" style="margin-bottom:8px"></div>
     <!-- Buscador de barberías/barberos -->
     <input class="inp" id="ped-inicio-buscar" type="text" placeholder="🔍 Buscar barbería o barbero..." oninput="renderBarberiasInicio(this.value)" autocomplete="off" style="margin-bottom:8px">
     <!-- Lista de barberías con sus barberos -->
     <div id="ped-inicio-lista"></div>
-    <!-- Pedidos pendientes si hay -->
-    <div id="ped-pendientes-wrap" style="margin-top:8px"></div>
   </div>
 
   <!-- PASO 2: Seleccionar barbería -->
@@ -7812,16 +8011,21 @@ function verHistorialCliente(cid){
     <button class="btn" style="background:#795548;color:white" onclick="mostrarNuevoProductoCompra()">+ Producto nuevo (no esta en catalogo)</button>
     <div id="cc-nuevo-prod" style="display:none">
       <label class="lbl">Nombre del producto nuevo</label>
-      <input class="inp" id="ccnombre" type="text" placeholder="Nombre del producto">
+      <input class="inp" id="ccnombre" type="text" list="ccnombre-datalist" placeholder="Nombre del producto" oninput="avisarSiProductoExiste(this.value)">
+      <datalist id="ccnombre-datalist"></datalist>
+      <p id="ccnombre-aviso" style="display:none;font-size:11px;color:var(--nbs-red-text);margin:-6px 0 8px">⚠️ Ya existe un producto con un nombre parecido — revisa "Buscar producto existente" arriba antes de crear uno nuevo.</p>
+      <label class="lbl">Marca</label>
+      <select class="inp" id="ccmarca-sel" onchange="toggleOtraMarcaCompra()"></select>
+      <input class="inp" id="ccmarca" type="text" placeholder="Escribe la marca nueva" style="display:none">
       <label class="lbl">Categoria</label>
       <input class="inp" id="cccat" type="text" placeholder="Categoria">
     </div>
-    <div class="r2">
-      <div><label class="lbl">Cantidad</label><input class="inp" id="cccant" type="number" value="1" min="1"></div>
-      <div><label class="lbl">Costo unitario ($)</label><input class="inp" id="cccosto" type="text" inputmode="numeric" value="0.00" oninput="formatoMoneda(this)"></div>
+    <div style="display:grid;grid-template-columns:0.7fr 1fr 1fr;gap:8px">
+      <div><label class="lbl">Cant.</label><input class="inp" id="cccant" type="number" value="1" min="1" style="text-align:center;padding:10px 4px"></div>
+      <div><label class="lbl">Costo ($)</label><input class="inp" id="cccosto" type="text" inputmode="numeric" value="0.00" oninput="formatoMoneda(this)" style="text-align:center;padding:10px 4px"></div>
+      <div><label class="lbl">Precio venta ($)</label><input class="inp" id="ccprecio" type="text" inputmode="numeric" value="0.00" oninput="formatoMoneda(this)" style="text-align:center;padding:10px 4px"></div>
     </div>
-    <label class="lbl">Precio de venta ($) <span style="color:#aaa;font-weight:400">(solo si es producto nuevo)</span></label>
-    <input class="inp" id="ccprecio" type="text" inputmode="numeric" value="0.00" oninput="formatoMoneda(this)">
+    <p style="font-size:11px;color:#aaa;margin:-4px 0 8px">El precio de venta solo aplica si es producto nuevo.</p>
     <button class="btn" style="background:#546E7A;color:white" onclick="addCC()">+ Agregar producto a la compra</button>
     <div id="iccp" style="margin:8px 0"></div>
     <div style="background:#EFEBE9;border-radius:8px;padding:12px;margin:8px 0">
@@ -7865,7 +8069,25 @@ function verHistorialCliente(cid){
 <div id="p-facturas" class="pg">
   <div style="display:flex;gap:8px;margin-bottom:16px"><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="volverAtras()">← Atrás</button><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="ir('p-ped')">🏠 Inicio</button></div>
   <h2 style="font-size:20px;font-weight:700;color:#1a237e;margin-bottom:10px">🧾 Facturas</h2>
-  <input class="inp" id="fact-buscar" type="text" placeholder="Buscar por nombre del cliente..." oninput="renderFacturas(this.value)" autocomplete="off" style="margin-bottom:10px">
+  <input class="inp" id="fact-buscar" type="text" placeholder="Buscar por nombre, apodo, negocio, teléfono..." oninput="renderFacturas(this.value)" autocomplete="off" style="margin-bottom:8px">
+
+  <div class="card" style="padding:12px;margin-bottom:10px">
+    <p style="font-size:11px;font-weight:700;color:var(--nbs-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Ordenar y filtrar</p>
+    <label class="lbl">Ordenar por</label>
+    <select class="inp" id="fact-orden" onchange="renderFacturas(document.getElementById('fact-buscar').value)" style="margin-bottom:10px">
+      <option value="fecha-desc">📅 Fecha (más reciente primero)</option>
+      <option value="fecha-asc">📅 Fecha (más antigua primero)</option>
+      <option value="monto-desc">💲 Monto (mayor a menor)</option>
+      <option value="monto-asc">💲 Monto (menor a mayor)</option>
+    </select>
+    <label class="lbl">Rango de fechas (opcional)</label>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+      <div><label style="font-size:10px;color:#aaa">Desde</label><input class="inp" id="fact-desde" type="date" onchange="renderFacturas(document.getElementById('fact-buscar').value)" style="margin-bottom:0"></div>
+      <div><label style="font-size:10px;color:#aaa">Hasta</label><input class="inp" id="fact-hasta" type="date" onchange="renderFacturas(document.getElementById('fact-buscar').value)" style="margin-bottom:0"></div>
+    </div>
+    <button type="button" onclick="document.getElementById('fact-desde').value='';document.getElementById('fact-hasta').value='';document.getElementById('fact-orden').value='fecha-desc';renderFacturas(document.getElementById('fact-buscar').value)" style="width:100%;padding:8px;background:#F0F0F2;color:var(--nbs-ink);border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">Limpiar filtros</button>
+  </div>
+
   <div id="fact-lista"></div>
 </div>
 

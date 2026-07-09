@@ -1866,11 +1866,11 @@ function renderGastos(){
 
   var filt = gastos.filter(function(g){
     if(!desde && !hasta) return true;
-    try {
-      var gd = new Date(g.fecha);
-      if(desde && gd < new Date(desde)) return false;
-      if(hasta && gd > new Date(hasta+' 23:59:59')) return false;
-    } catch(e){ return true; }
+    var gd = parsearFechaVenta(g.fecha);
+    var desdeD = desde ? new Date(desde+'T00:00:00') : null;
+    var hastaD = hasta ? new Date(hasta+'T23:59:59') : null;
+    if(desdeD && gd < desdeD) return false;
+    if(hastaD && gd > hastaD) return false;
     return true;
   });
 
@@ -6301,7 +6301,11 @@ function renderFacturas(q){
   var orden = elOrden ? elOrden.value : 'fecha-desc';
 
   if(orden === 'monto-desc' || orden === 'monto-asc'){
-    // Agrupar por CLIENTE, sumar su total, y ordenar los clientes de mayor a menor (o al reves)
+    // Lista simple, factura por factura, ordenada estrictamente por su propio monto (sin agrupar)
+    lista.sort(function(a,b){ return orden==='monto-desc' ? b.total-a.total : a.total-b.total; });
+    lista.forEach(function(v){ el.appendChild(crearTarjetaFactura(v)); });
+  } else if(orden === 'ranking-clientes'){
+    // Agrupar por CLIENTE, sumar su total, y ordenar los clientes de mayor a menor gasto acumulado
     var porCliente = {};
     lista.forEach(function(v){
       var key = v.cid || ('sin-cliente-'+v.cn);
@@ -6310,7 +6314,7 @@ function renderFacturas(q){
       porCliente[key].total += v.total;
     });
     var gruposCliente = Object.keys(porCliente).map(function(k){ return porCliente[k]; });
-    gruposCliente.sort(function(a,b){ return orden==='monto-desc' ? b.total-a.total : a.total-b.total; });
+    gruposCliente.sort(function(a,b){ return b.total-a.total; });
 
     gruposCliente.forEach(function(grupo, gi){
       var clForGrupo = clientes.find(function(x){return String(x.id)===String(grupo.cid);});
@@ -8205,6 +8209,7 @@ function verHistorialCliente(cid, modo){
       <option value="fecha-asc">📅 Fecha (más antigua primero)</option>
       <option value="monto-desc">💲 Monto (mayor a menor)</option>
       <option value="monto-asc">💲 Monto (menor a mayor)</option>
+      <option value="ranking-clientes">🏆 Ranking de clientes (total gastado)</option>
     </select>
     <label class="lbl">Rango de fechas (opcional)</label>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">

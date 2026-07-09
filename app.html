@@ -255,6 +255,7 @@ body{
     <button onclick="irMenu('p-cl')" class="mlb2"><span class="mlb2-icon"><span style="font-size:10px;font-weight:800;color:var(--nbs-gold-dark);letter-spacing:0.3px">CL</span></span>Clientes</button>
     <button onclick="irMenu('p-vip')" class="mlb2"><span class="mlb2-icon"><span style="font-size:10px;font-weight:800;color:var(--nbs-gold-dark);letter-spacing:0.3px">VIP</span></span>Programa VIP</button>
     <button onclick="irMenu('p-cxc')" class="mlb2"><span class="mlb2-icon"><span style="font-size:10px;font-weight:800;color:var(--nbs-gold-dark);letter-spacing:0.3px">CC</span></span>Cuentas por Cobrar</button>
+    <button onclick="irMenu('p-cxp')" class="mlb2"><span class="mlb2-icon"><span style="font-size:10px;font-weight:800;color:var(--nbs-gold-dark);letter-spacing:0.3px">CP</span></span>Cuentas por Pagar</button>
     <button onclick="irMenu('p-facturas')" class="mlb2"><span class="mlb2-icon"><span style="font-size:10px;font-weight:800;color:var(--nbs-gold-dark);letter-spacing:0.3px">FA</span></span>Facturas</button>
 
     <div style="font-size:10px;color:var(--nbs-muted-2);font-weight:700;letter-spacing:1px;padding:12px 8px 4px">INVENTARIO</div>
@@ -1351,7 +1352,7 @@ function mostrarDirSugerencias(inputId, dropId, val){
 
 var historialPantallas = [];
 function pantallaActual(){
-  var all = ['menu','p-cl','p-v','p-rpt','p-cxc','p-cl-perfil','p-cl-factura','p-cat','p-sup','p-comp','p-ped','p-gastos','p-vip','p-mas','p-facturas','p-dashboard','p-rutas','p-manual'];
+  var all = ['menu','p-cl','p-v','p-rpt','p-cxc','p-cl-perfil','p-cl-factura','p-cat','p-sup','p-comp','p-ped','p-gastos','p-vip','p-mas','p-facturas','p-dashboard','p-rutas','p-manual','p-cxp'];
   for(var i=0;i<all.length;i++){
     var el = document.getElementById(all[i]);
     if(el && el.style.display === 'block') return all[i];
@@ -1371,7 +1372,7 @@ function ir(id, sinHistorial){
     var actual = pantallaActual();
     if(actual && actual !== id) historialPantallas.push(actual);
   }
-  var all = ['menu','p-cl','p-v','p-rpt','p-cxc','p-cl-perfil','p-cl-factura','p-cat','p-sup','p-comp','p-ped','p-gastos','p-vip','p-mas','p-facturas','p-dashboard','p-rutas','p-manual'];
+  var all = ['menu','p-cl','p-v','p-rpt','p-cxc','p-cl-perfil','p-cl-factura','p-cat','p-sup','p-comp','p-ped','p-gastos','p-vip','p-mas','p-facturas','p-dashboard','p-rutas','p-manual','p-cxp'];
   for(var i=0;i<all.length;i++) document.getElementById(all[i]).style.display='none';
   document.getElementById(id).style.display='block';
   if(id==='p-cl'){ renderCl(''); llenarDataLists(); }
@@ -1431,6 +1432,7 @@ function ir(id, sinHistorial){
     document.getElementById('manual-buscar').value = '';
     renderManual('');
   }
+  if(id==='p-cxp'){ renderCXP(); }
 }
 
 function irProtegido(dest){
@@ -2261,6 +2263,279 @@ function toggleManualSeccion(idx){
   var abierto = cuerpo.style.display === 'block';
   cuerpo.style.display = abierto ? 'none' : 'block';
   flecha.textContent = abierto ? '▼' : '▲';
+}
+
+// ===== CUENTAS POR PAGAR (suplidores + tarjetas de credito + otras deudas del negocio) =====
+function renderCXP(){
+  compras = LS('nc', []);
+  suplidores = LS('nsup', []);
+  var tarjetas = LS('ntarjetas', []);
+  var otrasDeudas = LS('notrasdeudas', []);
+
+  // ---- Calcular deuda con suplidores (reutiliza los mismos datos de Compras) ----
+  var totalSuplidores = 0;
+  var suplidoresConDeuda = [];
+  suplidores.forEach(function(s){
+    var comprasS = compras.filter(function(c){ return String(c.sid)===String(s.id) && c.tipo==='credito'; });
+    var totalS = 0;
+    comprasS.forEach(function(c){
+      var pagado = c.pagosFactura ? c.pagosFactura.filter(function(p){return typeof p.monto==='number';}).reduce(function(s2,p){return s2+p.monto;},0) : 0;
+      totalS += Math.max(0, c.total - pagado);
+    });
+    if(totalS > 0.001){ totalSuplidores += totalS; suplidoresConDeuda.push({ nombre: s.nombre, id: s.id, total: totalS }); }
+  });
+
+  var totalTarjetas = tarjetas.reduce(function(s,t){ return s+(t.balance||0); }, 0);
+  var totalOtras = otrasDeudas.reduce(function(s,d){ return s+(d.balance||0); }, 0);
+  var totalGeneral = totalSuplidores + totalTarjetas + totalOtras;
+
+  var el = document.getElementById('cxp-contenido');
+  el.innerHTML = '';
+
+  // ---- Resumen general ----
+  var resumen = document.createElement('div');
+  resumen.style.cssText = 'background:linear-gradient(135deg,#7B1E3A,#5A1529);color:white;border-radius:14px;padding:18px;margin-bottom:16px';
+  resumen.innerHTML = '<div style="font-size:11px;font-weight:700;letter-spacing:1px;opacity:0.85;margin-bottom:6px">TOTAL QUE DEBE EL NEGOCIO</div>'
+    +'<div style="font-size:30px;font-weight:800;margin-bottom:12px">$'+fmtNum(totalGeneral)+'</div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;font-size:11px">'
+    +'<div style="background:rgba(255,255,255,0.15);border-radius:8px;padding:8px;text-align:center"><div style="opacity:0.8">Suplidores</div><div style="font-size:14px;font-weight:700;margin-top:2px">$'+fmtNum(totalSuplidores)+'</div></div>'
+    +'<div style="background:rgba(255,255,255,0.15);border-radius:8px;padding:8px;text-align:center"><div style="opacity:0.8">Tarjetas</div><div style="font-size:14px;font-weight:700;margin-top:2px">$'+fmtNum(totalTarjetas)+'</div></div>'
+    +'<div style="background:rgba(255,255,255,0.15);border-radius:8px;padding:8px;text-align:center"><div style="opacity:0.8">Otras deudas</div><div style="font-size:14px;font-weight:700;margin-top:2px">$'+fmtNum(totalOtras)+'</div></div>'
+    +'</div>';
+  el.appendChild(resumen);
+
+  // ---- Seccion Suplidores ----
+  var tituloSup = document.createElement('div');
+  tituloSup.style.cssText = 'font-size:12px;font-weight:700;color:var(--nbs-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center';
+  tituloSup.innerHTML = '<span>🏭 Suplidores</span><span style="color:var(--nbs-gold-dark)">$'+fmtNum(totalSuplidores)+'</span>';
+  el.appendChild(tituloSup);
+  if(!suplidoresConDeuda.length){
+    var vacSup = document.createElement('p');
+    vacSup.style.cssText = 'color:var(--nbs-muted);font-size:12px;padding:8px 0 16px';
+    vacSup.textContent = 'No debes nada a ningún suplidor ahora mismo.';
+    el.appendChild(vacSup);
+  } else {
+    suplidoresConDeuda.sort(function(a,b){ return b.total-a.total; });
+    suplidoresConDeuda.forEach(function(s){
+      var card = document.createElement('div');
+      card.style.cssText = 'background:white;border:0.5px solid var(--nbs-line);border-radius:10px;padding:12px 14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;box-shadow:var(--nbs-shadow-card)';
+      card.innerHTML = '<span style="font-size:14px;font-weight:600;color:var(--nbs-ink)">'+s.nombre+'</span><span style="font-size:15px;font-weight:700;color:var(--nbs-red-text)">$'+fmtNum(s.total)+'</span>';
+      card.onclick = (function(sid){ return function(){ ir('p-sup'); verSup(sid, 'abiertas'); }; })(s.id);
+      el.appendChild(card);
+    });
+    var espacio = document.createElement('div'); espacio.style.height='8px'; el.appendChild(espacio);
+  }
+
+  // ---- Seccion Tarjetas de Credito ----
+  var tituloTarj = document.createElement('div');
+  tituloTarj.style.cssText = 'font-size:12px;font-weight:700;color:var(--nbs-muted);text-transform:uppercase;letter-spacing:0.5px;margin:12px 0 8px;display:flex;justify-content:space-between;align-items:center';
+  tituloTarj.innerHTML = '<span>💳 Tarjetas de Crédito</span><span style="color:var(--nbs-gold-dark)">$'+fmtNum(totalTarjetas)+'</span>';
+  el.appendChild(tituloTarj);
+  if(!tarjetas.length){
+    var vacT = document.createElement('p');
+    vacT.style.cssText = 'color:var(--nbs-muted);font-size:12px;padding:4px 0 12px';
+    vacT.textContent = 'No has agregado ninguna tarjeta todavía.';
+    el.appendChild(vacT);
+  }
+  tarjetas.forEach(function(t){
+    var pctUso = t.limite > 0 ? Math.min(100, Math.round((t.balance/t.limite)*100)) : 0;
+    var card = document.createElement('div');
+    card.style.cssText = 'background:white;border:0.5px solid var(--nbs-line);border-radius:12px;padding:14px;margin-bottom:8px;box-shadow:var(--nbs-shadow-card)';
+    card.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:'+(t.limite>0?'8px':'10px')+'">'
+      +'<div><div style="font-size:14px;font-weight:700;color:var(--nbs-ink)">'+t.nombre+'</div>'+(t.banco?'<div style="font-size:11px;color:var(--nbs-muted)">'+t.banco+'</div>':'')+'</div>'
+      +'<div style="text-align:right"><div style="font-size:17px;font-weight:800;color:var(--nbs-red-text)">$'+fmtNum(t.balance)+'</div>'+(t.limite>0?'<div style="font-size:10px;color:var(--nbs-muted)">de $'+fmtNum(t.limite)+' límite</div>':'')+'</div>'
+      +'</div>'
+      +(t.limite>0?'<div style="height:6px;background:#F0F0F2;border-radius:3px;overflow:hidden;margin-bottom:10px"><div style="height:100%;width:'+pctUso+'%;background:'+(pctUso>85?'var(--nbs-red-dark)':'var(--nbs-gold)')+'"></div></div>':'')
+      +'<div style="display:flex;gap:6px">'
+      +'<button onclick="registrarMovimientoTarjeta('+t.id+',\'pago\')" style="flex:1;padding:9px;background:var(--nbs-green-bg);color:var(--nbs-green-text);border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">💰 Pago</button>'
+      +'<button onclick="registrarMovimientoTarjeta('+t.id+',\'cargo\')" style="flex:1;padding:9px;background:var(--nbs-red-bg);color:var(--nbs-red-dark);border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">+ Cargo</button>'
+      +'<button onclick="editarTarjeta('+t.id+')" style="padding:9px 12px;background:#F0F0F2;color:var(--nbs-ink);border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">✏️</button>'
+      +'<button onclick="eliminarTarjeta('+t.id+')" style="padding:9px 12px;background:#F0F0F2;color:var(--nbs-red-dark);border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">🗑️</button>'
+      +'</div>';
+    el.appendChild(card);
+  });
+  var btnAddTarj = document.createElement('button');
+  btnAddTarj.textContent = '+ Agregar tarjeta de crédito';
+  btnAddTarj.style.cssText = 'width:100%;padding:12px;background:var(--nbs-gold-bg);color:var(--nbs-gold-dark);border:1px dashed var(--nbs-gold);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:8px';
+  btnAddTarj.onclick = function(){ abrirFormTarjeta(null); };
+  el.appendChild(btnAddTarj);
+
+  // ---- Seccion Otras Deudas ----
+  var tituloOtras = document.createElement('div');
+  tituloOtras.style.cssText = 'font-size:12px;font-weight:700;color:var(--nbs-muted);text-transform:uppercase;letter-spacing:0.5px;margin:12px 0 8px;display:flex;justify-content:space-between;align-items:center';
+  tituloOtras.innerHTML = '<span>📋 Otras Deudas del Negocio</span><span style="color:var(--nbs-gold-dark)">$'+fmtNum(totalOtras)+'</span>';
+  el.appendChild(tituloOtras);
+  if(!otrasDeudas.length){
+    var vacO = document.createElement('p');
+    vacO.style.cssText = 'color:var(--nbs-muted);font-size:12px;padding:4px 0 12px';
+    vacO.textContent = 'Préstamos, renta, equipos financiados, etc. — aquí no tienes ninguna registrada.';
+    el.appendChild(vacO);
+  }
+  otrasDeudas.forEach(function(d){
+    var card = document.createElement('div');
+    card.style.cssText = 'background:white;border:0.5px solid var(--nbs-line);border-radius:12px;padding:14px;margin-bottom:8px;box-shadow:var(--nbs-shadow-card)';
+    card.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">'
+      +'<div><div style="font-size:14px;font-weight:700;color:var(--nbs-ink)">'+d.nombre+'</div><div style="font-size:11px;color:var(--nbs-muted)">'+(d.tipo||'Otro')+(d.notas?' · '+d.notas:'')+'</div></div>'
+      +'<div style="font-size:17px;font-weight:800;color:var(--nbs-red-text)">$'+fmtNum(d.balance)+'</div>'
+      +'</div>'
+      +'<div style="display:flex;gap:6px">'
+      +'<button onclick="registrarMovimientoOtraDeuda('+d.id+',\'pago\')" style="flex:1;padding:9px;background:var(--nbs-green-bg);color:var(--nbs-green-text);border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">💰 Pago</button>'
+      +'<button onclick="registrarMovimientoOtraDeuda('+d.id+',\'aumento\')" style="flex:1;padding:9px;background:var(--nbs-red-bg);color:var(--nbs-red-dark);border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">+ Aumentar</button>'
+      +'<button onclick="editarOtraDeuda('+d.id+')" style="padding:9px 12px;background:#F0F0F2;color:var(--nbs-ink);border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">✏️</button>'
+      +'<button onclick="eliminarOtraDeuda('+d.id+')" style="padding:9px 12px;background:#F0F0F2;color:var(--nbs-red-dark);border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">🗑️</button>'
+      +'</div>';
+    el.appendChild(card);
+  });
+  var btnAddOtra = document.createElement('button');
+  btnAddOtra.textContent = '+ Agregar otra deuda';
+  btnAddOtra.style.cssText = 'width:100%;padding:12px;background:var(--nbs-gold-bg);color:var(--nbs-gold-dark);border:1px dashed var(--nbs-gold);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer';
+  btnAddOtra.onclick = function(){ abrirFormOtraDeuda(null); };
+  el.appendChild(btnAddOtra);
+}
+
+// ---- Formulario para agregar/editar una tarjeta de credito ----
+function abrirFormTarjeta(id){
+  var tarjetas = LS('ntarjetas', []);
+  var t = id ? tarjetas.find(function(x){ return x.id===id; }) : null;
+
+  var overlay = document.getElementById('cxp-form-overlay');
+  if(!overlay){
+    overlay = document.createElement('div');
+    overlay.id = 'cxp-form-overlay';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:99999;display:flex;align-items:flex-end';
+    document.body.appendChild(overlay);
+  }
+  overlay.innerHTML = '<div style="background:white;width:100%;max-width:480px;margin:0 auto;border-radius:16px 16px 0 0;padding:20px;max-height:90vh;overflow-y:auto">'
+    +'<div style="font-size:16px;font-weight:700;color:var(--nbs-ink);margin-bottom:14px">'+(t?'✏️ Editar tarjeta':'💳 Nueva tarjeta de crédito')+'</div>'
+    +'<label class="lbl">Nombre de la tarjeta *</label>'
+    +'<input class="inp" id="cxpt-nombre" type="text" placeholder="Ej: Visa Chase Negocio" value="'+(t?t.nombre.replace(/"/g,"'"):'')+'">'
+    +'<label class="lbl">Banco (opcional)</label>'
+    +'<input class="inp" id="cxpt-banco" type="text" placeholder="Ej: Chase, Bank of America" value="'+(t&&t.banco?t.banco.replace(/"/g,"'"):'')+'">'
+    +'<div class="r2">'
+    +'<div><label class="lbl">Balance actual ($)</label><input class="inp" id="cxpt-balance" type="text" inputmode="numeric" oninput="formatoMoneda(this)" value="'+(t?t.balance.toFixed(2):'0.00')+'"></div>'
+    +'<div><label class="lbl">Límite (opcional)</label><input class="inp" id="cxpt-limite" type="text" inputmode="numeric" oninput="formatoMoneda(this)" value="'+(t&&t.limite?t.limite.toFixed(2):'0.00')+'"></div>'
+    +'</div>'
+    +'<button class="btn" style="background:var(--nbs-gold);color:white" onclick="guardarTarjeta('+(t?t.id:'null')+')">✓ '+(t?'Guardar cambios':'Agregar tarjeta')+'</button>'
+    +'<button class="btn" style="background:#F0F0F2;color:var(--nbs-ink)" onclick="document.getElementById(\'cxp-form-overlay\').style.display=\'none\'">Cancelar</button>'
+    +'</div>';
+  overlay.style.display = 'flex';
+}
+
+function guardarTarjeta(id){
+  var nombre = document.getElementById('cxpt-nombre').value.trim();
+  if(!nombre){ alert('Escribe el nombre de la tarjeta'); return; }
+  var banco = document.getElementById('cxpt-banco').value.trim();
+  var balance = parseFloat(document.getElementById('cxpt-balance').value) || 0;
+  var limite = parseFloat(document.getElementById('cxpt-limite').value) || 0;
+
+  var tarjetas = LS('ntarjetas', []);
+  if(id){
+    var t = tarjetas.find(function(x){ return x.id===id; });
+    if(t){ t.nombre=nombre; t.banco=banco; t.balance=balance; t.limite=limite; }
+  } else {
+    tarjetas.push({ id: Date.now(), nombre: nombre, banco: banco, balance: balance, limite: limite, historial: [] });
+  }
+  SS('ntarjetas', tarjetas);
+  document.getElementById('cxp-form-overlay').style.display = 'none';
+  renderCXP();
+}
+
+function editarTarjeta(id){ abrirFormTarjeta(id); }
+
+function eliminarTarjeta(id){
+  if(!confirm('¿Eliminar esta tarjeta de tu registro? Esto no cancela la deuda real, solo la quita de la app.')) return;
+  var tarjetas = LS('ntarjetas', []).filter(function(t){ return t.id!==id; });
+  SS('ntarjetas', tarjetas);
+  renderCXP();
+}
+
+function registrarMovimientoTarjeta(id, tipo){
+  var tarjetas = LS('ntarjetas', []);
+  var t = tarjetas.find(function(x){ return x.id===id; });
+  if(!t) return;
+  var texto = tipo==='pago' ? '¿Cuánto vas a pagar a esta tarjeta?' : '¿Cuánto fue el cargo/compra a esta tarjeta?';
+  var monto = prompt(texto, '0');
+  if(monto === null) return;
+  var montoNum = parseFloat(monto);
+  if(isNaN(montoNum) || montoNum <= 0){ alert('Monto inválido'); return; }
+  if(!t.historial) t.historial = [];
+  t.historial.push({ tipo: tipo, monto: montoNum, fecha: fechaHoy() });
+  t.balance = tipo==='pago' ? Math.max(0, t.balance - montoNum) : t.balance + montoNum;
+  SS('ntarjetas', tarjetas);
+  renderCXP();
+}
+
+// ---- Formulario para agregar/editar otra deuda ----
+function abrirFormOtraDeuda(id){
+  var deudas = LS('notrasdeudas', []);
+  var d = id ? deudas.find(function(x){ return x.id===id; }) : null;
+
+  var overlay = document.getElementById('cxp-form-overlay');
+  if(!overlay){
+    overlay = document.createElement('div');
+    overlay.id = 'cxp-form-overlay';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:99999;display:flex;align-items:flex-end';
+    document.body.appendChild(overlay);
+  }
+  var tipos = ['Préstamo', 'Renta', 'Equipo financiado', 'Servicio/Utilidad', 'Otro'];
+  overlay.innerHTML = '<div style="background:white;width:100%;max-width:480px;margin:0 auto;border-radius:16px 16px 0 0;padding:20px;max-height:90vh;overflow-y:auto">'
+    +'<div style="font-size:16px;font-weight:700;color:var(--nbs-ink);margin-bottom:14px">'+(d?'✏️ Editar deuda':'📋 Nueva deuda del negocio')+'</div>'
+    +'<label class="lbl">Nombre / descripción *</label>'
+    +'<input class="inp" id="cxpd-nombre" type="text" placeholder="Ej: Préstamo del carro, Renta del local" value="'+(d?d.nombre.replace(/"/g,"'"):'')+'">'
+    +'<label class="lbl">Tipo</label>'
+    +'<select class="inp" id="cxpd-tipo">'+tipos.map(function(tp){ return '<option value="'+tp+'"'+(d&&d.tipo===tp?' selected':'')+'>'+tp+'</option>'; }).join('')+'</select>'
+    +'<label class="lbl">Balance pendiente ($)</label>'
+    +'<input class="inp" id="cxpd-balance" type="text" inputmode="numeric" oninput="formatoMoneda(this)" value="'+(d?d.balance.toFixed(2):'0.00')+'">'
+    +'<label class="lbl">Notas (opcional)</label>'
+    +'<input class="inp" id="cxpd-notas" type="text" placeholder="Ej: pago mensual $250" value="'+(d&&d.notas?d.notas.replace(/"/g,"'"):'')+'">'
+    +'<button class="btn" style="background:var(--nbs-gold);color:white" onclick="guardarOtraDeuda('+(d?d.id:'null')+')">✓ '+(d?'Guardar cambios':'Agregar deuda')+'</button>'
+    +'<button class="btn" style="background:#F0F0F2;color:var(--nbs-ink)" onclick="document.getElementById(\'cxp-form-overlay\').style.display=\'none\'">Cancelar</button>'
+    +'</div>';
+  overlay.style.display = 'flex';
+}
+
+function guardarOtraDeuda(id){
+  var nombre = document.getElementById('cxpd-nombre').value.trim();
+  if(!nombre){ alert('Escribe el nombre o descripción de la deuda'); return; }
+  var tipo = document.getElementById('cxpd-tipo').value;
+  var balance = parseFloat(document.getElementById('cxpd-balance').value) || 0;
+  var notas = document.getElementById('cxpd-notas').value.trim();
+
+  var deudas = LS('notrasdeudas', []);
+  if(id){
+    var d = deudas.find(function(x){ return x.id===id; });
+    if(d){ d.nombre=nombre; d.tipo=tipo; d.balance=balance; d.notas=notas; }
+  } else {
+    deudas.push({ id: Date.now(), nombre: nombre, tipo: tipo, balance: balance, notas: notas, historial: [] });
+  }
+  SS('notrasdeudas', deudas);
+  document.getElementById('cxp-form-overlay').style.display = 'none';
+  renderCXP();
+}
+
+function editarOtraDeuda(id){ abrirFormOtraDeuda(id); }
+
+function eliminarOtraDeuda(id){
+  if(!confirm('¿Eliminar esta deuda de tu registro?')) return;
+  var deudas = LS('notrasdeudas', []).filter(function(d){ return d.id!==id; });
+  SS('notrasdeudas', deudas);
+  renderCXP();
+}
+
+function registrarMovimientoOtraDeuda(id, tipo){
+  var deudas = LS('notrasdeudas', []);
+  var d = deudas.find(function(x){ return x.id===id; });
+  if(!d) return;
+  var texto = tipo==='pago' ? '¿Cuánto vas a pagar de esta deuda?' : '¿Cuánto aumentó esta deuda?';
+  var monto = prompt(texto, '0');
+  if(monto === null) return;
+  var montoNum = parseFloat(monto);
+  if(isNaN(montoNum) || montoNum <= 0){ alert('Monto inválido'); return; }
+  if(!d.historial) d.historial = [];
+  d.historial.push({ tipo: tipo, monto: montoNum, fecha: fechaHoy() });
+  d.balance = tipo==='pago' ? Math.max(0, d.balance - montoNum) : d.balance + montoNum;
+  SS('notrasdeudas', deudas);
+  renderCXP();
 }
 
 function ini(n,a){
@@ -8556,6 +8831,12 @@ function verHistorialCliente(cid, modo){
   <p style="font-size:12px;color:var(--nbs-muted);text-align:center;margin-bottom:16px">Toca cada tema para abrirlo</p>
   <input class="inp" id="manual-buscar" type="text" placeholder="Buscar en el manual..." oninput="renderManual(this.value)" style="margin-bottom:14px">
   <div id="manual-contenido"></div>
+</div>
+
+<div id="p-cxp" class="pg">
+  <div style="display:flex;gap:8px;margin-bottom:16px"><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="volverAtras()">← Atrás</button><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="ir('p-ped')">🏠 Inicio</button></div>
+  <h2 style="font-size:20px;font-weight:700;color:var(--nbs-ink);margin-bottom:14px">📤 Cuentas por Pagar</h2>
+  <div id="cxp-contenido"></div>
 </div>
 </body>
 </html>

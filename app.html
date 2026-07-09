@@ -1500,12 +1500,22 @@ function parsearFechaVenta(fechaStr){
     var p0 = parseInt(partes[0]);
     var p1 = parseInt(partes[1]);
     var p2 = parseInt(partes[2]);
+    var resultado;
     // Si primer número > 12, es DD/MM/YYYY (formato viejo Samsung en español)
     if(p0 > 12){
-      return new Date(p2, p1-1, p0);
+      resultado = new Date(p2, p1-1, p0);
+    } else {
+      // En todos los demás casos, asumir MM/DD/YYYY (formato USA que usamos)
+      resultado = new Date(p2, p0-1, p1);
     }
-    // En todos los demás casos, asumir MM/DD/YYYY (formato USA que usamos)
-    return new Date(p2, p0-1, p1);
+    // Salvaguarda: una fecha de venta casi nunca deberia caer mas de 2 dias en el futuro.
+    // Si la interpretacion cae en el futuro y la lectura contraria (dia/mes invertidos) es valida y no lo hace, usar esa.
+    var manana = new Date(); manana.setDate(manana.getDate()+2);
+    if(resultado > manana && p1 <= 12 && p0 <= 31){
+      var alterna = (p0 > 12) ? new Date(p2, p0-1, p1) : new Date(p2, p1-1, p0);
+      if(alterna <= manana) resultado = alterna;
+    }
+    return resultado;
   } catch(e){ return new Date(0); }
 }
 
@@ -4541,6 +4551,45 @@ function convertirPedidoAVenta(idx){
   SS('npedidos', pedidos);
 }
 
+// ===== PROGRAMA DE FIDELIDAD GENERAL (independiente de VIP) =====
+// Suma todas las compras de productos menores a $30, desde el ultimo regalo dado.
+// Meta: $400. Al llegar, se puede registrar un regalo y el ciclo empieza de nuevo desde 0.
+function calcularFidelidad(c, ventasActivas){
+  var regalos = c.fidelidadRegalos || [];
+  var ultimoRegaloFecha = regalos.length ? parsearFechaVenta(regalos[regalos.length-1].fecha) : null;
+  var total = 0;
+  ventasActivas.forEach(function(v){
+    if(ultimoRegaloFecha && parsearFechaVenta(v.fecha) <= ultimoRegaloFecha) return;
+    (v.items||[]).forEach(function(it){
+      if(it.precio < 30){ total += it.cant * it.precio; }
+    });
+  });
+  return { total: total, meta: 400, regalosDados: regalos.length };
+}
+
+function darRegaloFidelidad(cid){
+  clientes = LS('ncl', []);
+  var c = clientes.find(function(x){ return String(x.id)===String(cid); });
+  if(!c) return;
+  ventas = LS('nv', []);
+  var ventasActivas = ventas.filter(function(v){ return String(v.cid)===String(cid) && !v.cancelada; });
+  var fidelidad = calcularFidelidad(c, ventasActivas);
+  if(fidelidad.total < fidelidad.meta){
+    alert('Este cliente todavía no llega a los $'+fmtNum(fidelidad.meta)+' — lleva $'+fmtNum(fidelidad.total)+'.');
+    return;
+  }
+  var monto = prompt('¿Cuánto vale el regalo que le vas a dar? (sugerido entre $10 y $20)', '15');
+  if(monto === null) return;
+  var montoNum = parseFloat(monto);
+  if(isNaN(montoNum) || montoNum <= 0){ alert('Monto inválido'); return; }
+  if(!confirm('¿Confirmar regalo de $'+fmtNum(montoNum)+' para '+nombreCl(c)+'?\n\nEl contador de fidelidad vuelve a $0 y empieza un nuevo ciclo hacia $'+fmtNum(fidelidad.meta)+'.')) return;
+  if(!c.fidelidadRegalos) c.fidelidadRegalos = [];
+  c.fidelidadRegalos.push({ monto: montoNum, fecha: fechaHoy() });
+  SS('ncl', clientes);
+  alert('🎁 ¡Regalo registrado! El ciclo de fidelidad de '+nombreCl(c)+' vuelve a empezar.');
+  verCl(cid);
+}
+
 function verCl(id){
   clientes=LS('ncl',[]);
   var c=clientes.find(function(x){return String(x.id)===String(id);});if(!c)return;
@@ -4584,6 +4633,23 @@ function verCl(id){
     +'<button class="btn" style="background:#6A1B9A;color:white" onclick="agregarBalanceInicial('+id+')">💰 Agregar balance inicial</button>'
     +'<button class="btn" id="btn-vip-cl" style="background:'+(c.vipActivo?'#AD1457':'#546E7A')+';color:white" data-clid="'+id+'" onclick="toggleVIPBtn(this)">'+(c.vipActivo?'⭐ Inscrito en VIP — Toca para retirar':'☆ Inscribir en programa VIP')+'</button>';
   el.appendChild(header);
+
+  // Programa de Fidelidad (compras generales de productos menores a $30)
+  var fidelidad = calcularFidelidad(c, ventasActivas);
+  var fidCard = document.createElement('div');
+  fidCard.className = 'card';
+  fidCard.style.cssText = 'border-left:4px solid var(--nbs-gold)';
+  var pctFid = Math.min(100, Math.round((fidelidad.total/fidelidad.meta)*100));
+  var listo = fidelidad.total >= fidelidad.meta;
+  fidCard.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">'
+    +'<span style="font-size:13px;font-weight:700;color:var(--nbs-ink)">🎁 Programa de Fidelidad</span>'
+    +'<span style="font-size:12px;font-weight:700;color:var(--nbs-gold-dark)">$'+fmtNum(fidelidad.total)+' / $'+fmtNum(fidelidad.meta)+'</span>'
+    +'</div>'
+    +'<div style="height:8px;background:#F0F0F2;border-radius:4px;overflow:hidden;margin-bottom:6px">'
+    +'<div style="height:100%;width:'+pctFid+'%;background:'+(listo?'var(--nbs-green-text)':'var(--nbs-gold)')+';border-radius:4px"></div></div>'
+    +'<div style="font-size:11px;color:var(--nbs-muted);margin-bottom:10px">Suma compras de productos menores a $30. Al llegar a $'+fmtNum(fidelidad.meta)+', dale un regalo entre $10 y $20 para agradecer su preferencia.'+(fidelidad.regalosDados>0?' · '+fidelidad.regalosDados+' regalo(s) dado(s) antes.':'')+'</div>'
+    +'<button onclick="darRegaloFidelidad(\''+id+'\')" style="width:100%;padding:10px;background:'+(listo?'var(--nbs-gold)':'#F0F0F2')+';color:'+(listo?'white':'var(--nbs-muted)')+';border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">🎁 Ya le di el regalo'+(listo?'':' (aún no llega a la meta)')+'</button>';
+  el.appendChild(fidCard);
 
   // Invoices
   if(todasVentas.length){
@@ -6780,8 +6846,16 @@ function editarFactura(vid){
 
   // Info del cliente (parte del "cuerpo" de la factura, sin redondear arriba para que se vea unido al encabezado)
   var info = document.createElement('div');
-  info.style.cssText = 'background:white;border:0.5px solid var(--nbs-line);border-top:none;padding:12px 16px;margin-bottom:14px;font-size:13px;color:var(--nbs-ink);display:flex;justify-content:space-between;align-items:center';
-  info.innerHTML = '<span style="font-weight:500">'+nombreVentaClienteConNegocio(v)+'</span><span style="color:var(--nbs-muted);font-size:12px">'+v.fecha+'</span>';
+  info.style.cssText = 'background:white;border:0.5px solid var(--nbs-line);border-top:none;padding:12px 16px;margin-bottom:14px;font-size:13px;color:var(--nbs-ink)';
+  var fechaISO = (function(){
+    var d = parsearFechaVenta(v.fecha);
+    var mm = String(d.getMonth()+1).padStart(2,'0');
+    var dd = String(d.getDate()).padStart(2,'0');
+    return d.getFullYear()+'-'+mm+'-'+dd;
+  })();
+  info.innerHTML = '<div style="margin-bottom:8px"><span style="font-weight:500">'+nombreVentaClienteConNegocio(v)+'</span></div>'
+    +'<label style="font-size:10px;color:var(--nbs-muted);font-weight:600;display:block;margin-bottom:4px">FECHA DE LA FACTURA (toca para corregir si está mal)</label>'
+    +'<input type="date" id="fact-edit-fecha" value="'+fechaISO+'" style="width:100%;padding:8px;border:0.5px solid #d8d8dc;border-radius:8px;font-size:13px;color:var(--nbs-ink)">';
   wrap.appendChild(info);
 
   var tituloEdicion = document.createElement('div');
@@ -6842,6 +6916,11 @@ function guardarEdicionFactura(vid, numItems){
     if(nEl) ventas[idx].items[i].nombre = nEl.value.trim();
     if(cEl) ventas[idx].items[i].cant = parseInt(cEl.value)||1;
     if(pEl) ventas[idx].items[i].precio = parseFloat(pEl.value)||0;
+  }
+  var fechaEl = document.getElementById('fact-edit-fecha');
+  if(fechaEl && fechaEl.value){
+    var fparts = fechaEl.value.split('-'); // YYYY-MM-DD del input
+    if(fparts.length === 3) ventas[idx].fecha = fparts[1]+'/'+fparts[2]+'/'+fparts[0]; // guardar como MM/DD/YYYY
   }
   ventas[idx].total = ventas[idx].items.reduce(function(s,it){ return s+(it.cant*it.precio); },0);
   SS('nv', ventas);

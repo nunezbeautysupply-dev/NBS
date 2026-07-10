@@ -7346,7 +7346,7 @@ function dibujarContenidoFactura(ctx, W, pad, v, cl, pagado, saldo, numFact, abo
   // sin tocar la version a color que se ve en el telefono.
   var fs = colorMode
     ? { dir:12, lbl:11, cliente:17, negocio:13, dirCl:11, prodLbl:11, item:15, itemQty:13, pago:14, total:21 }
-    : { dir:16, lbl:16, cliente:26, negocio:20, dirCl:16, prodLbl:16, item:22, itemQty:19, pago:21, total:32 };
+    : { dir:16, lbl:16, cliente:26, negocio:20, dirCl:16, prodLbl:16, item:19, itemQty:17, pago:21, total:32 };
   var maxCliente = colorMode ? 24 : 17;
   var maxNegocio = colorMode ? 24 : 15;
   var maxDir = colorMode ? 34 : 22;
@@ -7446,7 +7446,8 @@ function dibujarContenidoFactura(ctx, W, pad, v, cl, pagado, saldo, numFact, abo
         y += 26;
       }
       if(precioEnLineaAparte){
-        ctx.textAlign='right'; ctx.fillText(precioTxt, W-pad, y-26);
+        ctx.textAlign='right'; ctx.fillText(precioTxt, W-pad, y);
+        y += 26;
       }
     }
     ctx.font='bold '+fs.itemQty+'px sans-serif';

@@ -7576,39 +7576,30 @@ function dibujarContenidoFactura(ctx, W, pad, v, cl, pagado, saldo, numFact, abo
   (v.items||[]).forEach(function(it){
     ctx.font = 'bold '+fs.item+'px sans-serif';
     ctx.fillStyle = colorMode ? '#1a1a2e' : '#000';
+    var precioTxt = '$'+fmtNum(it.cant*it.precio);
     if(colorMode){
       ctx.textAlign='left';
       ctx.fillText((it.nombre||'').substring(0,26), pad, y);
       ctx.textAlign='right';
-      ctx.fillText('$'+fmtNum(it.cant*it.precio), W-pad, y);
+      ctx.fillText(precioTxt, W-pad, y);
       y += 18;
     } else {
-      // Version termica: el nombre del producto se puede partir en hasta 2 lineas para no cortarlo
-      var precioTxt = '$'+fmtNum(it.cant*it.precio);
-      var anchoPrecio = ctx.measureText(precioTxt).width;
-      var anchoDisponibleLinea1 = (W-2*pad) - anchoPrecio - 10;
+      // Version termica: el nombre del producto va solo, en su(s) propia(s) linea(s) sin cortarse.
+      // El precio total se alinea con la fila de "cantidad x precio unitario" de abajo.
       var lineas = envolverTexto(ctx, it.nombre||'', W-2*pad, 3);
-      // Si la primera linea es mas larga de lo que cabe junto al precio, forzar que el precio quede en su propia fila
-      var precioEnLineaAparte = ctx.measureText(lineas[0]||'').width > anchoDisponibleLinea1;
       ctx.textAlign='left';
-      ctx.fillText(lineas[0]||'', pad, y);
-      if(!precioEnLineaAparte){
-        ctx.textAlign='right'; ctx.fillText(precioTxt, W-pad, y);
-      }
-      y += 26;
-      for(var li=1; li<lineas.length; li++){
-        ctx.textAlign='left'; ctx.fillText(lineas[li], pad, y);
+      lineas.forEach(function(linea){
+        ctx.fillText(linea, pad, y);
         y += 26;
-      }
-      if(precioEnLineaAparte){
-        ctx.textAlign='right'; ctx.fillText(precioTxt, W-pad, y);
-        y += 26;
-      }
+      });
     }
     ctx.font='bold '+fs.itemQty+'px sans-serif';
     ctx.fillStyle = colorMode ? '#777' : '#000';
     ctx.textAlign='left';
     ctx.fillText(it.cant+' x $'+fmtNum(it.precio), pad, y);
+    if(!colorMode){
+      ctx.textAlign='right'; ctx.fillText(precioTxt, W-pad, y);
+    }
     y += colorMode?22:30;
   });
 

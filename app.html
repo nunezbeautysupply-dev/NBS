@@ -506,7 +506,8 @@ body{
     <button class="btn" style="background:#6A1B9A;color:white" onclick="eliminarDuplicadosClientes()">🔍 Eliminar clientes duplicados</button>
   </div>
   <div id="cl-l">
-    <input class="inp" type="text" placeholder="Buscar cliente..." oninput="renderCl(this.value)">
+    <input class="inp" id="cl-buscar-input" type="text" placeholder="Buscar cliente..." oninput="renderCl(this.value)">
+    <div id="cl-filtro-tipos" style="display:flex;overflow-x:auto;gap:6px;margin-bottom:12px;padding-bottom:2px"></div>
     <div id="lcl"><p style="color:#aaa;font-size:13px;text-align:center;padding:20px">Sin clientes</p></div>
   </div>
   <div id="cl-n" style="display:none">
@@ -517,11 +518,18 @@ body{
       <label class="lbl">Apodo / Como lo conoces 🔒 (uso interno)</label><input class="inp" id="capodo" type="text" placeholder="Ej: El Flaco, Cano, Rubio..." onblur="capitalizarFinal(this)">
       </div>
       <label class="lbl">Tipo de negocio</label>
-      <select class="inp" id="ctipo">
+      <select class="inp" id="ctipo" onchange="toggleTipoNegocioOtro('ctipo','ctipo-otro');toggleIntervaloVisita('ctipo','cintervalo-wrap')">
         <option value="Barberia">✂️ Barbería</option>
-        <option value="Bodega">🏪 Bodega / Tienda</option>
-        <option value="Otro">🏬 Otro negocio</option>
+        <option value="Tienda">🏪 Tienda / Grocery Store</option>
+        <option value="MeatMarket">🥩 Meat Market</option>
+        <option value="Otro">🏬 Otro (escribir)</option>
       </select>
+      <input class="inp" id="ctipo-otro" type="text" placeholder="Escribe el tipo de negocio" style="display:none">
+      <div id="cintervalo-wrap" style="display:none;background:#E3F2FD;border-radius:10px;padding:10px;margin-bottom:8px">
+        <div style="font-size:11px;font-weight:700;color:#1565C0;margin-bottom:6px">🔔 RECORDATORIO DE VISITA</div>
+        <label class="lbl" style="margin-bottom:2px">Recordarme visitar cada cuántos días</label>
+        <input class="inp" id="cintervalo" type="number" min="1" placeholder="Ej: 15" style="margin-bottom:0">
+      </div>
       <label class="lbl">Negocio</label><input class="inp" id="cne" type="text" placeholder="Barberia El Estilo" autocomplete="off" oninput="onNegocioInput('cne')" onblur="capitalizarFinal(this);ocultarDropdown('cne')">
       <label class="lbl">Telefono</label><input class="inp" id="ct" type="tel" placeholder="+1 (401) 000-0000" oninput="fmtTel(this)" maxlength="17">
       <div style="background:#F5F5F5;border-radius:10px;padding:10px;margin-bottom:8px">
@@ -2999,6 +3007,88 @@ function toggleNuevoClienteVIP(){
   knob.style.left = activo ? '22px' : '3px';
 }
 
+function etiquetaTipoNegocio(c){
+  if(!c.tipoNegocio || c.tipoNegocio === 'Barberia') return '✂️ Barbería';
+  if(c.tipoNegocio === 'Tienda' || c.tipoNegocio === 'Bodega') return '🏪 Tienda/Grocery Store';
+  if(c.tipoNegocio === 'MeatMarket') return '🥩 Meat Market';
+  if(c.tipoNegocio === 'Otro') return '🏬 ' + (c.tipoNegocioOtro || 'Otro negocio');
+  return '✂️ Barbería';
+}
+
+function marcarVisitaNegocio(id){
+  clientes = LS('ncl', []);
+  var c = clientes.find(function(x){ return x.id===id; });
+  if(!c) return;
+  c.ultimaVisitaNegocio = fechaHoy();
+  SS('ncl', clientes);
+  alert('✅ Visita registrada. El próximo recordatorio será en '+c.intervaloVisitaDias+' días.');
+  verCl(id);
+}
+
+function negociosParaVisitar(){
+  clientes = LS('ncl', []);
+  var lista = [];
+  clientes.forEach(function(c){
+    if(!c.tipoNegocio || c.tipoNegocio === 'Barberia') return;
+    if(!c.intervaloVisitaDias) return;
+    var diasDesde = c.ultimaVisitaNegocio ? Math.floor((new Date() - parsearFechaVenta(c.ultimaVisitaNegocio)) / 86400000) : null;
+    var diasFaltan = diasDesde === null ? -999 : (c.intervaloVisitaDias - diasDesde); // sin visita previa = siempre "toca"
+    if(diasFaltan <= 0){
+      lista.push({ id: c.id, nombre: nombreClConNegocio(c), diasAtraso: diasDesde===null ? null : (diasDesde - c.intervaloVisitaDias) });
+    }
+  });
+  return lista;
+}
+
+function verificarVisitasNegocios(){
+  var ultimaVezMostrado = parseInt(localStorage.getItem('ultimoAvisoVisitas') || '0');
+  var horasDesde = (new Date().getTime() - ultimaVezMostrado) / (1000*60*60);
+  if(horasDesde < 8) return; // no molestar mas de una vez cada 8 horas
+  var lista = negociosParaVisitar();
+  if(lista.length > 0){
+    mostrarAlertaVisitasNegocios(lista);
+  }
+}
+
+function mostrarAlertaVisitasNegocios(lista){
+  if(document.getElementById('visitas-negocios-overlay')) return;
+  localStorage.setItem('ultimoAvisoVisitas', new Date().getTime().toString());
+  var overlay = document.createElement('div');
+  overlay.id = 'visitas-negocios-overlay';
+  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:999999;display:flex;align-items:center;justify-content:center;padding:20px';
+  var itemsHtml = lista.slice(0,6).map(function(item){
+    var atraso = item.diasAtraso===null ? 'Nunca visitada' : (item.diasAtraso===0 ? 'Justo hoy' : 'Hace '+item.diasAtraso+' día(s) de atraso');
+    return '<div style="text-align:left;background:#F5F5F5;border-radius:8px;padding:10px;margin-bottom:6px">'
+      +'<div style="font-size:13px;font-weight:700;color:#1a237e">'+item.nombre+'</div>'
+      +'<div style="font-size:11px;color:#C62828">'+atraso+'</div>'
+      +'</div>';
+  }).join('');
+  overlay.innerHTML = '<div style="background:white;border-radius:16px;padding:24px;max-width:360px;width:100%;text-align:center;max-height:85vh;overflow-y:auto">'
+    +'<div style="font-size:44px;margin-bottom:10px">🔔</div>'
+    +'<div style="font-size:17px;font-weight:800;color:#1a237e;margin-bottom:8px">Toca visitar '+lista.length+' negocio(s)</div>'
+    +itemsHtml
+    +(lista.length>6 ? '<div style="font-size:12px;color:#aaa;margin-bottom:8px">...y '+(lista.length-6)+' más</div>' : '')
+    +'<button onclick="ir(\'p-rutas\');document.getElementById(\'visitas-negocios-overlay\').remove();" style="width:100%;padding:13px;background:#1565C0;color:white;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;margin:10px 0 8px">🗺️ Ver en Ruta de Visitas</button>'
+    +'<button onclick="document.getElementById(\'visitas-negocios-overlay\').remove()" style="width:100%;padding:10px;background:none;color:#aaa;border:none;font-size:13px;cursor:pointer">Cerrar</button>'
+    +'</div>';
+  document.body.appendChild(overlay);
+}
+
+function toggleTipoNegocioOtro(selectId, otroInputId){
+  var sel = document.getElementById(selectId);
+  var otro = document.getElementById(otroInputId);
+  if(!sel || !otro) return;
+  otro.style.display = sel.value === 'Otro' ? 'block' : 'none';
+  if(sel.value !== 'Otro') otro.value = '';
+}
+
+function toggleIntervaloVisita(selectId, wrapId){
+  var sel = document.getElementById(selectId);
+  var wrap = document.getElementById(wrapId);
+  if(!sel || !wrap) return;
+  wrap.style.display = sel.value === 'Barberia' ? 'none' : 'block';
+}
+
 function saveCl(){
   var n=document.getElementById('cn').value.trim();
   var a=document.getElementById('ca').value.trim();
@@ -3006,7 +3096,10 @@ function saveCl(){
   if(!confirm('¿Guardar el cliente "'+n+' '+a+'"?')) return;
   var nuevoId = Date.now();
   var vipActivo = document.getElementById('cvip-activo').value === '1';
-  clientes.push({id:nuevoId,nombre:n,apellido:a,apodo:document.getElementById('capodo').value.trim(),negocio:document.getElementById('cne').value.trim(),tel:document.getElementById('ct').value.trim(),tipoNegocio:document.getElementById('ctipo').value,contacto:document.getElementById('ccontacto').value.trim(),contactoTel:document.getElementById('ccontactotel').value.trim(),email:document.getElementById('ce').value.trim(),dir:document.getElementById('cd').value.trim(),ciudad:document.getElementById('ccity').value.trim(),zip:document.getElementById('czip').value.trim(),estado:document.getElementById('cstate').value,vipActivo:vipActivo});
+  var tipoSel = document.getElementById('ctipo').value;
+  var tipoOtroTxt = document.getElementById('ctipo-otro').value.trim();
+  var intervaloVal = parseInt(document.getElementById('cintervalo').value) || null;
+  clientes.push({id:nuevoId,nombre:n,apellido:a,apodo:document.getElementById('capodo').value.trim(),negocio:document.getElementById('cne').value.trim(),tel:document.getElementById('ct').value.trim(),tipoNegocio:tipoSel,tipoNegocioOtro:tipoOtroTxt,intervaloVisitaDias:tipoSel==='Barberia'?null:intervaloVal,ultimaVisitaNegocio:null,contacto:document.getElementById('ccontacto').value.trim(),contactoTel:document.getElementById('ccontactotel').value.trim(),email:document.getElementById('ce').value.trim(),dir:document.getElementById('cd').value.trim(),ciudad:document.getElementById('ccity').value.trim(),zip:document.getElementById('czip').value.trim(),estado:document.getElementById('cstate').value,vipActivo:vipActivo});
   SS('ncl',clientes);
 
   // Registrar balance inicial si se ingresó
@@ -3032,6 +3125,8 @@ function saveCl(){
 
   ['cn','ca','cne','ct','ce','cd','ccity','czip','ccontacto','ccontactotel'].forEach(function(id){document.getElementById(id).value='';});
   document.getElementById('ctipo').value='Barberia';
+  document.getElementById('ctipo-otro').value=''; document.getElementById('ctipo-otro').style.display='none';
+  document.getElementById('cintervalo').value=''; document.getElementById('cintervalo-wrap').style.display='none';
   document.getElementById('cstate').value='';
   document.getElementById('cvip-activo').value='0';
   document.getElementById('cvip-switch').style.background='#ddd';
@@ -3045,6 +3140,14 @@ function saveCl(){
   renderCl('');
   document.getElementById('cl-l').style.display='block';
   document.getElementById('cl-n').style.display='none';
+}
+
+function etiquetaTipoNegocio(c){
+  if(!c.tipoNegocio || c.tipoNegocio==='Barberia') return '✂️ Barbería';
+  if(c.tipoNegocio==='Tienda') return '🏪 Tienda';
+  if(c.tipoNegocio==='MeatMarket') return '🥩 Meat Market';
+  if(c.tipoNegocio==='Otro') return '🏬 '+(c.tipoNegocioOtro||'Otro');
+  return '✂️ Barbería';
 }
 
 function renderCl(q){
@@ -3063,8 +3166,34 @@ function renderCl(q){
   if(elTotalCl) elTotalCl.textContent = totalCl;
   if(elTotalBarb) elTotalBarb.textContent = totalBarberias;
 
+  // ---- Filtro por tipo de negocio, con conteo de cada uno ----
+  var conteoTipos = { Barberia: 0, Tienda: 0, MeatMarket: 0, Otro: 0 };
+  clientes.forEach(function(c){
+    var t = c.tipoNegocio || 'Barberia';
+    if(conteoTipos[t] === undefined) conteoTipos[t] = 0;
+    conteoTipos[t]++;
+  });
+  if(!window._clFiltroTipo) window._clFiltroTipo = 'todos';
+  var elFiltros = document.getElementById('cl-filtro-tipos');
+  if(elFiltros){
+    var tabsInfo = [
+      { key:'todos', label:'Todos', count: totalCl },
+      { key:'Barberia', label:'✂️ Barberías', count: conteoTipos.Barberia||0 },
+      { key:'Tienda', label:'🏪 Tiendas', count: conteoTipos.Tienda||0 },
+      { key:'MeatMarket', label:'🥩 Meat Market', count: conteoTipos.MeatMarket||0 },
+      { key:'Otro', label:'🏬 Otros', count: conteoTipos.Otro||0 }
+    ].filter(function(t2){ return t2.key==='todos' || t2.count>0; });
+    elFiltros.innerHTML = tabsInfo.map(function(t2){
+      var activo = window._clFiltroTipo === t2.key;
+      return '<button onclick="window._clFiltroTipo=\''+t2.key+'\';renderCl(document.getElementById(\'cl-buscar-input\')?document.getElementById(\'cl-buscar-input\').value:\'\')" style="flex-shrink:0;padding:7px 12px;border-radius:20px;border:none;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;background:'+(activo?'var(--nbs-gold)':'#F0F0F2')+';color:'+(activo?'white':'var(--nbs-ink)')+'">'+t2.label+' ('+t2.count+')</button>';
+    }).join('');
+  }
+
   var el=document.getElementById('lcl');el.innerHTML='';
   var list=q?clientes.filter(function(c){return(c.nombre+' '+c.apellido+' '+(c.negocio||'')+' '+(c.apodo||'')+' '+(c.tel||'')+' '+(c.dir||'')+' '+(c.ciudad||'')+' '+(c.estado||'')+' '+(c.zip||'')+' '+(c.contacto||'')+' '+(c.contactoTel||'')).toLowerCase().includes(q.toLowerCase());}):clientes;
+  if(window._clFiltroTipo && window._clFiltroTipo !== 'todos'){
+    list = list.filter(function(c){ return (c.tipoNegocio||'Barberia') === window._clFiltroTipo; });
+  }
   if(!list.length){el.innerHTML='<p style="color:#aaa;font-size:13px;text-align:center;padding:20px">Sin clientes</p>';return;}
   ventas = LS('nv',[]);
   list.forEach(function(c){
@@ -5041,7 +5170,19 @@ function verCl(id){
   // Header
   var header=document.createElement('div');
   header.className='card';
-  var etiquetaTipo = { Barberia:'✂️ Barbería', Bodega:'🏪 Bodega/Tienda', Otro:'🏬 Otro negocio' }[c.tipoNegocio] || '✂️ Barbería';
+  var etiquetaTipo = etiquetaTipoNegocio(c);
+  var esNoBarberia = c.tipoNegocio && c.tipoNegocio !== 'Barberia';
+  var infoVisita = '';
+  if(esNoBarberia && c.intervaloVisitaDias){
+    var diasDesde = c.ultimaVisitaNegocio ? Math.floor((new Date() - parsearFechaVenta(c.ultimaVisitaNegocio)) / 86400000) : null;
+    var diasFaltan = diasDesde === null ? null : (c.intervaloVisitaDias - diasDesde);
+    var textoVisita = !c.ultimaVisitaNegocio ? 'Nunca marcada — toca abajo cuando la visites'
+      : (diasFaltan <= 0 ? '🔔 Ya toca visitar (hace '+diasDesde+' día(s) desde la última vez)' : 'Próxima visita en '+diasFaltan+' día(s)');
+    infoVisita = '<div style="background:'+(diasFaltan!==null&&diasFaltan<=0?'#FFEBEE':'#E3F2FD')+';border-radius:8px;padding:10px;grid-column:span 2">'
+      +'<div style="font-size:10px;color:#aaa;font-weight:700">🔔 RECORDATORIO DE VISITA (cada '+c.intervaloVisitaDias+' días)</div>'
+      +'<div style="font-size:13px;margin-top:2px;color:'+(diasFaltan!==null&&diasFaltan<=0?'#C62828':'#1565C0')+';font-weight:600">'+textoVisita+'</div>'
+      +'</div>';
+  }
   header.innerHTML='<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">'
     +'<div class="av" style="width:56px;height:56px;font-size:20px">'+ini(c.nombre,c.apellido)+'</div>'
     +'<div><div style="font-size:22px;font-weight:700">'+nombreCl(c)+'</div>'
@@ -5052,9 +5193,11 @@ function verCl(id){
     +'<div style="background:#f5f5f5;border-radius:8px;padding:10px"><div style="font-size:10px;color:#aaa;font-weight:700">EMAIL</div><div style="font-size:14px;margin-top:2px">'+(c.email||'N/A')+'</div></div>'
     +'<div style="background:#f5f5f5;border-radius:8px;padding:10px;grid-column:span 2"><div style="font-size:10px;color:#aaa;font-weight:700">DIRECCION</div><div style="font-size:14px;margin-top:2px">'+(c.dir||'')+(c.ciudad?', '+c.ciudad:'')+(c.estado?', '+c.estado:'')+(c.zip?' '+c.zip:'')+((!c.dir&&!c.ciudad&&!c.estado)?'N/A':'')+'</div></div>'
     +((c.contacto||c.contactoTel) ? '<div style="background:#F5F5F5;border-radius:8px;padding:10px;grid-column:span 2"><div style="font-size:10px;color:#aaa;font-weight:700">📇 CONTACTO ADICIONAL</div><div style="font-size:14px;margin-top:2px">'+(c.contacto||'Sin nombre')+(c.contactoTel?' · '+c.contactoTel:'')+'</div></div>' : '')
+    +infoVisita
     +'<div style="background:#f5f5f5;border-radius:8px;padding:10px"><div style="font-size:10px;color:#aaa;font-weight:700">TOTAL COMPRAS</div><div style="font-size:18px;font-weight:700;color:#1565C0;margin-top:2px">$'+fmtNum(totalCompras)+'</div></div>'
     +'<div style="background:'+(cr?'#FFEBEE':'#f5f5f5')+';border-radius:8px;padding:10px"><div style="font-size:10px;color:#aaa;font-weight:700">BALANCE PENDIENTE</div><div style="font-size:18px;font-weight:700;color:'+(cr?'#C62828':'#2E7D32')+';margin-top:2px">'+(cr?'$'+fmtNum(cr.saldo):'$0.00')+'</div></div>'
     +'</div>'
+    +(esNoBarberia && c.intervaloVisitaDias ? '<button class="btn" style="background:#1565C0;color:white;margin-bottom:8px" onclick="marcarVisitaNegocio('+id+')">✓ Marqué la visita de hoy</button>' : '')
     +'<div style="display:flex;gap:8px">'
     +'<button class="btn" style="flex:1;background:#1565C0;color:white;margin:0" onclick="editarCl('+id+')">✏️ Editar cliente</button>'
     +'<button class="btn" style="flex:1;background:#D32F2F;color:white;margin:0" onclick="eliminarCl('+id+')">🗑️ Eliminar</button>'
@@ -5866,11 +6009,18 @@ function editarCl(id){
     +'<label class="lbl">Apodo / Como lo conoces 🔒 (uso interno)</label><input class="inp" id="ecl-apodo" type="text" value="'+(c.apodo||'')+'" placeholder="Ej: El Flaco, Cano..." onblur="capitalizarFinal(this)">'
     +'</div>'
     +'<label class="lbl">Tipo de negocio</label>'
-    +'<select class="inp" id="ecl-tipo">'
+    +'<select class="inp" id="ecl-tipo" onchange="toggleTipoNegocioOtro(\'ecl-tipo\',\'ecl-tipo-otro\');toggleIntervaloVisita(\'ecl-tipo\',\'ecl-intervalo-wrap\')">'
     +'<option value="Barberia"'+(!c.tipoNegocio||c.tipoNegocio==='Barberia'?' selected':'')+'>✂️ Barbería</option>'
-    +'<option value="Bodega"'+(c.tipoNegocio==='Bodega'?' selected':'')+'>🏪 Bodega / Tienda</option>'
-    +'<option value="Otro"'+(c.tipoNegocio==='Otro'?' selected':'')+'>🏬 Otro negocio</option>'
+    +'<option value="Tienda"'+(c.tipoNegocio==='Tienda'||c.tipoNegocio==='Bodega'?' selected':'')+'>🏪 Tienda / Grocery Store</option>'
+    +'<option value="MeatMarket"'+(c.tipoNegocio==='MeatMarket'?' selected':'')+'>🥩 Meat Market</option>'
+    +'<option value="Otro"'+(c.tipoNegocio==='Otro'?' selected':'')+'>🏬 Otro (escribir)</option>'
     +'</select>'
+    +'<input class="inp" id="ecl-tipo-otro" type="text" placeholder="Escribe el tipo de negocio" value="'+(c.tipoNegocioOtro||'')+'" style="display:'+(c.tipoNegocio==='Otro'?'block':'none')+'">'
+    +'<div id="ecl-intervalo-wrap" style="display:'+(c.tipoNegocio&&c.tipoNegocio!=='Barberia'?'block':'none')+';background:#E3F2FD;border-radius:10px;padding:10px;margin-bottom:8px">'
+    +'<div style="font-size:11px;font-weight:700;color:#1565C0;margin-bottom:6px">🔔 RECORDATORIO DE VISITA</div>'
+    +'<label class="lbl" style="margin-bottom:2px">Recordarme visitar cada cuántos días</label>'
+    +'<input class="inp" id="ecl-intervalo" type="number" min="1" placeholder="Ej: 15" value="'+(c.intervaloVisitaDias||'')+'" style="margin-bottom:0">'
+    +'</div>'
     +'<label class="lbl">Negocio / Barberia</label><input class="inp" id="ecl-ne" type="text" value="'+(c.negocio||'')+'" autocomplete="off" oninput="onNegocioInput(\'ecl-ne\')" onblur="capitalizarFinal(this);ocultarDropdown(\'ecl-ne\')">'
     +'<label class="lbl">Telefono</label><input class="inp" id="ecl-t" type="tel" value="'+(c.tel||'')+'" oninput="fmtTel(this)" maxlength="17">'
     +'<div style="background:#F5F5F5;border-radius:10px;padding:10px;margin-bottom:8px">'
@@ -5905,6 +6055,8 @@ function guardarEdicionCl(id){
   var apodoEl = document.getElementById('ecl-apodo'); if(apodoEl) clientes[idx].apodo = apodoEl.value.trim();
   clientes[idx].tel = document.getElementById('ecl-t').value.trim();
   var tipoEl = document.getElementById('ecl-tipo'); if(tipoEl) clientes[idx].tipoNegocio = tipoEl.value;
+  var tipoOtroEl = document.getElementById('ecl-tipo-otro'); if(tipoOtroEl) clientes[idx].tipoNegocioOtro = tipoOtroEl.value.trim();
+  var intervaloEl = document.getElementById('ecl-intervalo'); if(intervaloEl) clientes[idx].intervaloVisitaDias = (tipoEl && tipoEl.value==='Barberia') ? null : (parseInt(intervaloEl.value)||null);
   var contactoEl = document.getElementById('ecl-contacto'); if(contactoEl) clientes[idx].contacto = contactoEl.value.trim();
   var contactoTelEl = document.getElementById('ecl-contactotel'); if(contactoTelEl) clientes[idx].contactoTel = contactoTelEl.value.trim();
   clientes[idx].email = document.getElementById('ecl-e').value.trim();
@@ -6035,6 +6187,55 @@ function genRpt(){
       c2.appendChild(row);
     });
     el.appendChild(c2);
+  }
+
+  if(tipo==='tiponegocio'){
+    clientes = LS('ncl', []);
+    var pt={};
+    filt.forEach(function(v){
+      var cl = clientes.find(function(c){ return String(c.id)===String(v.cid); });
+      var tipoKey = cl ? (cl.tipoNegocio||'Barberia') : 'Barberia';
+      var etiqueta = cl ? etiquetaTipoNegocio(cl) : '✂️ Barbería';
+      if(!pt[tipoKey]) pt[tipoKey]={v:0,g:0,c:0,etiqueta:etiqueta};
+      pt[tipoKey].v+=v.total; pt[tipoKey].g+=(v.ganancia||0); pt[tipoKey].c++;
+    });
+    var totVt=0,totGt=0,totCt=0;
+    Object.keys(pt).forEach(function(k){ totVt+=pt[k].v; totGt+=pt[k].g; totCt+=pt[k].c; });
+    var c3=document.createElement('div'); c3.className='card';
+    c3.innerHTML='<p style="font-size:15px;font-weight:700;margin-bottom:10px">🏬 Ventas por tipo de negocio</p>'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px">'
+      +'<div style="background:#E3F2FD;border-radius:8px;padding:10px;text-align:center">'
+      +'<div style="font-size:11px;color:#1565C0;font-weight:700">TOTAL VENTAS</div>'
+      +'<div style="font-size:16px;font-weight:800;color:#1565C0">$'+fmtNum(totVt)+'</div></div>'
+      +'<div style="background:#E8F5E9;border-radius:8px;padding:10px;text-align:center">'
+      +'<div style="font-size:11px;color:#2E7D32;font-weight:700">GANANCIA</div>'
+      +'<div style="font-size:16px;font-weight:800;color:#2E7D32">$'+fmtNum(totGt)+'</div></div>'
+      +'<div style="background:#FFF3E0;border-radius:8px;padding:10px;text-align:center">'
+      +'<div style="font-size:11px;color:#E65100;font-weight:700">FACTURAS</div>'
+      +'<div style="font-size:16px;font-weight:800;color:#E65100">'+totCt+'</div></div>'
+      +'</div>';
+    Object.keys(pt).sort(function(a,b){return pt[b].v-pt[a].v;}).forEach(function(k){
+      var margen = pt[k].v>0 ? Math.round((pt[k].g/pt[k].v)*100) : 0;
+      var row=document.createElement('div');
+      row.style.cssText='padding:10px;border-bottom:1px solid #f0f0f0';
+      row.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">'
+        +'<div style="font-size:14px;font-weight:700;color:#1a237e">'+pt[k].etiqueta+'</div>'
+        +'<div style="font-size:11px;color:#aaa">'+pt[k].c+' factura(s)</div>'
+        +'</div>'
+        +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">'
+        +'<div style="background:#f5f5f5;border-radius:6px;padding:6px;text-align:center">'
+        +'<div style="font-size:10px;color:#aaa">Vendido</div>'
+        +'<div style="font-size:13px;font-weight:700;color:#1565C0">$'+fmtNum(pt[k].v)+'</div></div>'
+        +'<div style="background:#f5f5f5;border-radius:6px;padding:6px;text-align:center">'
+        +'<div style="font-size:10px;color:#aaa">Ganancia</div>'
+        +'<div style="font-size:13px;font-weight:700;color:#2E7D32">$'+fmtNum(pt[k].g)+'</div></div>'
+        +'<div style="background:#f5f5f5;border-radius:6px;padding:6px;text-align:center">'
+        +'<div style="font-size:10px;color:#aaa">Margen</div>'
+        +'<div style="font-size:13px;font-weight:700;color:#E65100">'+margen+'%</div></div>'
+        +'</div>';
+      c3.appendChild(row);
+    });
+    el.appendChild(c3);
   }
 
   if(tipo==='productos'){
@@ -7756,6 +7957,9 @@ document.addEventListener('DOMContentLoaded', function(){
 
   // === SISTEMA DE RECORDATORIO DE BACKUP ===
   verificarBackup();
+
+  // === SISTEMA DE RECORDATORIO DE VISITAS A NEGOCIOS (tiendas, meat market, etc) ===
+  setTimeout(verificarVisitasNegocios, 2500);
 });
 
 function abrirMenuLateral(){
@@ -8015,6 +8219,7 @@ function renderDashboard(){
   // Stock bajo
   var productosStockBajo = productos.filter(function(p){ return p.stock <= (p.min||5) && p.stock >= 0; });
   var productosSinStock = productos.filter(function(p){ return p.stock <= 0; });
+  var negociosPendientesVisita = negociosParaVisitar();
 
   // Meta semanal
   var meta = parseInt(localStorage.getItem('metaSemanal')||'0');
@@ -8110,6 +8315,14 @@ function renderDashboard(){
     +(productosStockBajo.length>3?'<div style="font-size:11px;color:var(--nbs-muted)">...y '+(productosStockBajo.length-3)+' más</div>':'')
     +'</div>' : '')
 
+  // Alerta de negocios para visitar (tiendas, meat market, etc)
+  +(negociosPendientesVisita.length > 0 ?
+    '<div onclick="ir(\'p-rutas\')" style="background:#FFEBEE;border-radius:12px;padding:12px;margin-bottom:16px;cursor:pointer">'
+    +'<div style="font-size:12px;color:#C62828;font-weight:600;margin-bottom:6px;display:flex;align-items:center;gap:5px">🔔Negocios para visitar ('+negociosPendientesVisita.length+')</div>'
+    +negociosPendientesVisita.slice(0,3).map(function(item){ return '<div style="font-size:12px;color:var(--nbs-ink);padding:3px 0">• '+item.nombre+'</div>'; }).join('')
+    +(negociosPendientesVisita.length>3?'<div style="font-size:11px;color:var(--nbs-muted)">...y '+(negociosPendientesVisita.length-3)+' más — toca para ver en Ruta de Visitas</div>':'<div style="font-size:11px;color:var(--nbs-muted)">Toca para ver en Ruta de Visitas</div>')
+    +'</div>' : '')
+
   // Productos más vendidos
   +'<h3 style="font-size:12px;color:var(--nbs-muted);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;display:flex;align-items:center;gap:5px">🏆Más vendidos este mes</h3>'
   +renderTopProductos(ventasMes)
@@ -8190,6 +8403,30 @@ function renderRutas(){
   var diaActual = getDiaHoy();
   var diaIdx = DIAS_KEYS.indexOf(diaActual);
 
+  // Seccion de otros negocios pendientes por visitar (tiendas, meat market, etc - no siguen la ruta semanal)
+  var pendientesNegocios = negociosParaVisitar();
+  if(pendientesNegocios.length){
+    var bloqueNegocios = document.createElement('div');
+    bloqueNegocios.style.cssText = 'background:#FFEBEE;border-radius:12px;padding:14px;margin-bottom:16px';
+    bloqueNegocios.innerHTML = '<div style="font-size:13px;font-weight:800;color:#C62828;margin-bottom:8px">🔔 Otros negocios para visitar ('+pendientesNegocios.length+')</div>';
+    pendientesNegocios.forEach(function(item){
+      var atraso = item.diasAtraso===null ? 'Nunca visitada' : (item.diasAtraso===0 ? 'Justo hoy' : 'Hace '+item.diasAtraso+' día(s) de atraso');
+      var fila = document.createElement('div');
+      fila.style.cssText = 'display:flex;justify-content:space-between;align-items:center;background:white;border-radius:8px;padding:10px;margin-bottom:6px';
+      fila.innerHTML = '<div><div style="font-size:13px;font-weight:700;color:#1a237e">'+item.nombre+'</div><div style="font-size:11px;color:#C62828">'+atraso+'</div></div>';
+      var btn = document.createElement('button');
+      btn.textContent = '✓ Marqué la visita';
+      btn.style.cssText = 'padding:8px 12px;background:#1565C0;color:white;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;flex-shrink:0';
+      btn.onclick = (function(cid){ return function(){ marcarVisitaNegocio(cid); renderRutas(); }; })(item.id);
+      fila.appendChild(btn);
+      bloqueNegocios.appendChild(fila);
+    });
+    el.innerHTML = '';
+    el.appendChild(bloqueNegocios);
+  } else {
+    el.innerHTML = '';
+  }
+
   // Crear botones de días sin problemas de comillas
   var diasDiv = document.createElement('div');
   diasDiv.style.cssText = 'display:flex;overflow-x:auto;gap:6px;margin-bottom:16px;padding-bottom:4px';
@@ -8205,7 +8442,6 @@ function renderRutas(){
   var contenido = document.createElement('div');
   contenido.id = 'ruta-dia-contenido';
 
-  el.innerHTML = '';
   el.appendChild(diasDiv);
   el.appendChild(contenido);
   renderRutaDia(diaActual);
@@ -8880,6 +9116,7 @@ function verHistorialCliente(cid, modo){
       <optgroup label="📊 Ventas">
         <option value="total">Resumen general de ventas</option>
         <option value="cliente">Ventas por cliente</option>
+        <option value="tiponegocio">Ventas por tipo de negocio</option>
         <option value="productos">Productos más vendidos (cantidad)</option>
         <option value="ganancia">Productos mejor ganancia ($)</option>
         <option value="categoria">Ventas por categoría de producto</option>

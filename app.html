@@ -518,13 +518,20 @@ body{
       <label class="lbl">Apodo / Como lo conoces 🔒 (uso interno)</label><input class="inp" id="capodo" type="text" placeholder="Ej: El Flaco, Cano, Rubio..." onblur="capitalizarFinal(this)">
       </div>
       <label class="lbl">Tipo de negocio</label>
-      <select class="inp" id="ctipo" onchange="toggleTipoNegocioOtro('ctipo','ctipo-otro');toggleIntervaloVisita('ctipo','cintervalo-wrap')">
+      <select class="inp" id="ctipo" onchange="toggleSubtipoTienda('ctipo','csubtipo-wrap');toggleIntervaloVisita('ctipo','cintervalo-wrap')">
         <option value="Barberia">✂️ Barbería</option>
-        <option value="Tienda">🏪 Tienda / Grocery Store</option>
-        <option value="MeatMarket">🥩 Meat Market</option>
-        <option value="Otro">🏬 Otro (escribir)</option>
+        <option value="Tienda">🏪 Tienda</option>
       </select>
-      <input class="inp" id="ctipo-otro" type="text" placeholder="Escribe el tipo de negocio" style="display:none">
+      <div id="csubtipo-wrap" style="display:none">
+        <label class="lbl">Tipo de tienda</label>
+        <select class="inp" id="csubtipo" onchange="toggleTipoNegocioOtro('csubtipo','csubtipo-otro')">
+          <option value="GroceryStore">🛒 Grocery Store</option>
+          <option value="MeatMarket">🥩 Meat Market</option>
+          <option value="SuperMarket">🏬 Super Market</option>
+          <option value="Otro">✏️ Otro (escribir)</option>
+        </select>
+        <input class="inp" id="csubtipo-otro" type="text" placeholder="Escribe el tipo de tienda" style="display:none">
+      </div>
       <div id="cintervalo-wrap" style="display:none;background:#E3F2FD;border-radius:10px;padding:10px;margin-bottom:8px">
         <div style="font-size:11px;font-weight:700;color:#1565C0;margin-bottom:6px">🔔 RECORDATORIO DE VISITA</div>
         <label class="lbl" style="margin-bottom:2px">Recordarme visitar cada cuántos días</label>
@@ -3007,14 +3014,6 @@ function toggleNuevoClienteVIP(){
   knob.style.left = activo ? '22px' : '3px';
 }
 
-function etiquetaTipoNegocio(c){
-  if(!c.tipoNegocio || c.tipoNegocio === 'Barberia') return '✂️ Barbería';
-  if(c.tipoNegocio === 'Tienda' || c.tipoNegocio === 'Bodega') return '🏪 Tienda/Grocery Store';
-  if(c.tipoNegocio === 'MeatMarket') return '🥩 Meat Market';
-  if(c.tipoNegocio === 'Otro') return '🏬 ' + (c.tipoNegocioOtro || 'Otro negocio');
-  return '✂️ Barbería';
-}
-
 function marcarVisitaNegocio(id){
   clientes = LS('ncl', []);
   var c = clientes.find(function(x){ return x.id===id; });
@@ -3074,6 +3073,13 @@ function mostrarAlertaVisitasNegocios(lista){
   document.body.appendChild(overlay);
 }
 
+function toggleSubtipoTienda(selectId, wrapId){
+  var sel = document.getElementById(selectId);
+  var wrap = document.getElementById(wrapId);
+  if(!sel || !wrap) return;
+  wrap.style.display = sel.value === 'Tienda' ? 'block' : 'none';
+}
+
 function toggleTipoNegocioOtro(selectId, otroInputId){
   var sel = document.getElementById(selectId);
   var otro = document.getElementById(otroInputId);
@@ -3097,9 +3103,10 @@ function saveCl(){
   var nuevoId = Date.now();
   var vipActivo = document.getElementById('cvip-activo').value === '1';
   var tipoSel = document.getElementById('ctipo').value;
-  var tipoOtroTxt = document.getElementById('ctipo-otro').value.trim();
+  var subtipoSel = tipoSel==='Tienda' ? document.getElementById('csubtipo').value : null;
+  var subtipoOtroTxt = document.getElementById('csubtipo-otro').value.trim();
   var intervaloVal = parseInt(document.getElementById('cintervalo').value) || null;
-  clientes.push({id:nuevoId,nombre:n,apellido:a,apodo:document.getElementById('capodo').value.trim(),negocio:document.getElementById('cne').value.trim(),tel:document.getElementById('ct').value.trim(),tipoNegocio:tipoSel,tipoNegocioOtro:tipoOtroTxt,intervaloVisitaDias:tipoSel==='Barberia'?null:intervaloVal,ultimaVisitaNegocio:null,contacto:document.getElementById('ccontacto').value.trim(),contactoTel:document.getElementById('ccontactotel').value.trim(),email:document.getElementById('ce').value.trim(),dir:document.getElementById('cd').value.trim(),ciudad:document.getElementById('ccity').value.trim(),zip:document.getElementById('czip').value.trim(),estado:document.getElementById('cstate').value,vipActivo:vipActivo});
+  clientes.push({id:nuevoId,nombre:n,apellido:a,apodo:document.getElementById('capodo').value.trim(),negocio:document.getElementById('cne').value.trim(),tel:document.getElementById('ct').value.trim(),tipoNegocio:tipoSel,subtipoTienda:subtipoSel,subtipoTiendaOtro:subtipoOtroTxt,intervaloVisitaDias:tipoSel==='Barberia'?null:intervaloVal,ultimaVisitaNegocio:null,contacto:document.getElementById('ccontacto').value.trim(),contactoTel:document.getElementById('ccontactotel').value.trim(),email:document.getElementById('ce').value.trim(),dir:document.getElementById('cd').value.trim(),ciudad:document.getElementById('ccity').value.trim(),zip:document.getElementById('czip').value.trim(),estado:document.getElementById('cstate').value,vipActivo:vipActivo});
   SS('ncl',clientes);
 
   // Registrar balance inicial si se ingresó
@@ -3125,7 +3132,8 @@ function saveCl(){
 
   ['cn','ca','cne','ct','ce','cd','ccity','czip','ccontacto','ccontactotel'].forEach(function(id){document.getElementById(id).value='';});
   document.getElementById('ctipo').value='Barberia';
-  document.getElementById('ctipo-otro').value=''; document.getElementById('ctipo-otro').style.display='none';
+  document.getElementById('csubtipo').value='GroceryStore'; document.getElementById('csubtipo-wrap').style.display='none';
+  document.getElementById('csubtipo-otro').value=''; document.getElementById('csubtipo-otro').style.display='none';
   document.getElementById('cintervalo').value=''; document.getElementById('cintervalo-wrap').style.display='none';
   document.getElementById('cstate').value='';
   document.getElementById('cvip-activo').value='0';
@@ -3142,12 +3150,18 @@ function saveCl(){
   document.getElementById('cl-n').style.display='none';
 }
 
+function subtipoTiendaLabel(c){
+  // Compatibilidad: registros viejos guardaban MeatMarket/Otro directamente en tipoNegocio
+  var st = c.subtipoTienda || (c.tipoNegocio==='MeatMarket' ? 'MeatMarket' : (c.tipoNegocio==='Otro' ? 'Otro' : 'GroceryStore'));
+  if(st==='MeatMarket') return '🥩 Meat Market';
+  if(st==='SuperMarket') return '🏬 Super Market';
+  if(st==='Otro') return '✏️ '+(c.subtipoTiendaOtro||c.tipoNegocioOtro||'Otro');
+  return '🛒 Grocery Store';
+}
+
 function etiquetaTipoNegocio(c){
   if(!c.tipoNegocio || c.tipoNegocio==='Barberia') return '✂️ Barbería';
-  if(c.tipoNegocio==='Tienda') return '🏪 Tienda';
-  if(c.tipoNegocio==='MeatMarket') return '🥩 Meat Market';
-  if(c.tipoNegocio==='Otro') return '🏬 '+(c.tipoNegocioOtro||'Otro');
-  return '✂️ Barbería';
+  return '🏪 Tienda — '+subtipoTiendaLabel(c);
 }
 
 function renderCl(q){
@@ -3166,11 +3180,10 @@ function renderCl(q){
   if(elTotalCl) elTotalCl.textContent = totalCl;
   if(elTotalBarb) elTotalBarb.textContent = totalBarberias;
 
-  // ---- Filtro por tipo de negocio, con conteo de cada uno ----
-  var conteoTipos = { Barberia: 0, Tienda: 0, MeatMarket: 0, Otro: 0 };
+  // ---- Filtro por tipo de negocio, con conteo de cada uno (simplificado a Barberia/Tienda) ----
+  var conteoTipos = { Barberia: 0, Tienda: 0 };
   clientes.forEach(function(c){
-    var t = c.tipoNegocio || 'Barberia';
-    if(conteoTipos[t] === undefined) conteoTipos[t] = 0;
+    var t = (!c.tipoNegocio || c.tipoNegocio==='Barberia') ? 'Barberia' : 'Tienda';
     conteoTipos[t]++;
   });
   if(!window._clFiltroTipo) window._clFiltroTipo = 'todos';
@@ -3179,9 +3192,7 @@ function renderCl(q){
     var tabsInfo = [
       { key:'todos', label:'Todos', count: totalCl },
       { key:'Barberia', label:'✂️ Barberías', count: conteoTipos.Barberia||0 },
-      { key:'Tienda', label:'🏪 Tiendas', count: conteoTipos.Tienda||0 },
-      { key:'MeatMarket', label:'🥩 Meat Market', count: conteoTipos.MeatMarket||0 },
-      { key:'Otro', label:'🏬 Otros', count: conteoTipos.Otro||0 }
+      { key:'Tienda', label:'🏪 Tiendas', count: conteoTipos.Tienda||0 }
     ].filter(function(t2){ return t2.key==='todos' || t2.count>0; });
     elFiltros.innerHTML = tabsInfo.map(function(t2){
       var activo = window._clFiltroTipo === t2.key;
@@ -3192,7 +3203,7 @@ function renderCl(q){
   var el=document.getElementById('lcl');el.innerHTML='';
   var list=q?clientes.filter(function(c){return(c.nombre+' '+c.apellido+' '+(c.negocio||'')+' '+(c.apodo||'')+' '+(c.tel||'')+' '+(c.dir||'')+' '+(c.ciudad||'')+' '+(c.estado||'')+' '+(c.zip||'')+' '+(c.contacto||'')+' '+(c.contactoTel||'')).toLowerCase().includes(q.toLowerCase());}):clientes;
   if(window._clFiltroTipo && window._clFiltroTipo !== 'todos'){
-    list = list.filter(function(c){ return (c.tipoNegocio||'Barberia') === window._clFiltroTipo; });
+    list = list.filter(function(c){ var t2=(!c.tipoNegocio||c.tipoNegocio==='Barberia')?'Barberia':'Tienda'; return t2 === window._clFiltroTipo; });
   }
   if(!list.length){el.innerHTML='<p style="color:#aaa;font-size:13px;text-align:center;padding:20px">Sin clientes</p>';return;}
   ventas = LS('nv',[]);
@@ -4173,8 +4184,7 @@ function saveV(){
   }
   accDiv.innerHTML = '<div style="margin-bottom:8px;font-size:14px;font-weight:600;color:#2E7D32">✓ '+msg+'</div>'
     +'<div style="display:flex;gap:8px">'
-    +'<button onclick="imprimirFactura(ventaActual)" style="flex:1;padding:12px;background:#1a237e;color:white;border:none;border-radius:8px;cursor:pointer;font-size:14px">🖨️ Imprimir</button>'
-    +'<button onclick="emailFactura(ventaActual)" style="flex:1;padding:12px;background:#2E7D32;color:white;border:none;border-radius:8px;cursor:pointer;font-size:14px">✉️ Email</button>'
+    +'<button onclick="verFacturaProfesional(\''+ultV.id+'\')" style="flex:1;padding:12px;background:var(--nbs-gold);color:white;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:700">👁️ Ver factura</button>'
     +'</div>';
   ventaActual = ultV;
 }
@@ -5259,7 +5269,7 @@ function verCl(id){
           +(v.tipo==='credito'?'<div style="font-size:12px;color:'+(saldo>0?'#C62828':'#2E7D32')+'">'+(saldo>0?'Debe: $'+fmtNum(saldo):'Pagado')+'</div>':'')
           +'</div></div>';
       }
-      card.onclick=(function(venta){return function(){verFactura(venta);};})(v);
+      card.onclick=(function(venta){return function(){verFacturaProfesional(venta.id);};})(v);
       el.appendChild(card);
     });
   } else {
@@ -6009,13 +6019,20 @@ function editarCl(id){
     +'<label class="lbl">Apodo / Como lo conoces 🔒 (uso interno)</label><input class="inp" id="ecl-apodo" type="text" value="'+(c.apodo||'')+'" placeholder="Ej: El Flaco, Cano..." onblur="capitalizarFinal(this)">'
     +'</div>'
     +'<label class="lbl">Tipo de negocio</label>'
-    +'<select class="inp" id="ecl-tipo" onchange="toggleTipoNegocioOtro(\'ecl-tipo\',\'ecl-tipo-otro\');toggleIntervaloVisita(\'ecl-tipo\',\'ecl-intervalo-wrap\')">'
+    +'<select class="inp" id="ecl-tipo" onchange="toggleSubtipoTienda(\'ecl-tipo\',\'ecl-subtipo-wrap\');toggleIntervaloVisita(\'ecl-tipo\',\'ecl-intervalo-wrap\')">'
     +'<option value="Barberia"'+(!c.tipoNegocio||c.tipoNegocio==='Barberia'?' selected':'')+'>✂️ Barbería</option>'
-    +'<option value="Tienda"'+(c.tipoNegocio==='Tienda'||c.tipoNegocio==='Bodega'?' selected':'')+'>🏪 Tienda / Grocery Store</option>'
-    +'<option value="MeatMarket"'+(c.tipoNegocio==='MeatMarket'?' selected':'')+'>🥩 Meat Market</option>'
-    +'<option value="Otro"'+(c.tipoNegocio==='Otro'?' selected':'')+'>🏬 Otro (escribir)</option>'
+    +'<option value="Tienda"'+(c.tipoNegocio&&c.tipoNegocio!=='Barberia'?' selected':'')+'>🏪 Tienda</option>'
     +'</select>'
-    +'<input class="inp" id="ecl-tipo-otro" type="text" placeholder="Escribe el tipo de negocio" value="'+(c.tipoNegocioOtro||'')+'" style="display:'+(c.tipoNegocio==='Otro'?'block':'none')+'">'
+    +'<div id="ecl-subtipo-wrap" style="display:'+(c.tipoNegocio&&c.tipoNegocio!=='Barberia'?'block':'none')+'">'
+    +'<label class="lbl">Tipo de tienda</label>'
+    +'<select class="inp" id="ecl-subtipo" onchange="toggleTipoNegocioOtro(\'ecl-subtipo\',\'ecl-subtipo-otro\')">'
+    +'<option value="GroceryStore"'+((c.subtipoTienda||'GroceryStore')==='GroceryStore'?' selected':'')+'>🛒 Grocery Store</option>'
+    +'<option value="MeatMarket"'+(c.subtipoTienda==='MeatMarket'||c.tipoNegocio==='MeatMarket'?' selected':'')+'>🥩 Meat Market</option>'
+    +'<option value="SuperMarket"'+(c.subtipoTienda==='SuperMarket'?' selected':'')+'>🏬 Super Market</option>'
+    +'<option value="Otro"'+(c.subtipoTienda==='Otro'||c.tipoNegocio==='Otro'?' selected':'')+'>✏️ Otro (escribir)</option>'
+    +'</select>'
+    +'<input class="inp" id="ecl-subtipo-otro" type="text" placeholder="Escribe el tipo de tienda" value="'+(c.subtipoTiendaOtro||c.tipoNegocioOtro||'')+'" style="display:'+((c.subtipoTienda==='Otro'||c.tipoNegocio==='Otro')?'block':'none')+'">'
+    +'</div>'
     +'<div id="ecl-intervalo-wrap" style="display:'+(c.tipoNegocio&&c.tipoNegocio!=='Barberia'?'block':'none')+';background:#E3F2FD;border-radius:10px;padding:10px;margin-bottom:8px">'
     +'<div style="font-size:11px;font-weight:700;color:#1565C0;margin-bottom:6px">🔔 RECORDATORIO DE VISITA</div>'
     +'<label class="lbl" style="margin-bottom:2px">Recordarme visitar cada cuántos días</label>'
@@ -6055,7 +6072,8 @@ function guardarEdicionCl(id){
   var apodoEl = document.getElementById('ecl-apodo'); if(apodoEl) clientes[idx].apodo = apodoEl.value.trim();
   clientes[idx].tel = document.getElementById('ecl-t').value.trim();
   var tipoEl = document.getElementById('ecl-tipo'); if(tipoEl) clientes[idx].tipoNegocio = tipoEl.value;
-  var tipoOtroEl = document.getElementById('ecl-tipo-otro'); if(tipoOtroEl) clientes[idx].tipoNegocioOtro = tipoOtroEl.value.trim();
+  var subtipoEl = document.getElementById('ecl-subtipo'); if(subtipoEl) clientes[idx].subtipoTienda = (tipoEl && tipoEl.value==='Tienda') ? subtipoEl.value : null;
+  var subtipoOtroEl = document.getElementById('ecl-subtipo-otro'); if(subtipoOtroEl) clientes[idx].subtipoTiendaOtro = subtipoOtroEl.value.trim();
   var intervaloEl = document.getElementById('ecl-intervalo'); if(intervaloEl) clientes[idx].intervaloVisitaDias = (tipoEl && tipoEl.value==='Barberia') ? null : (parseInt(intervaloEl.value)||null);
   var contactoEl = document.getElementById('ecl-contacto'); if(contactoEl) clientes[idx].contacto = contactoEl.value.trim();
   var contactoTelEl = document.getElementById('ecl-contactotel'); if(contactoTelEl) clientes[idx].contactoTel = contactoTelEl.value.trim();
@@ -6194,7 +6212,7 @@ function genRpt(){
     var pt={};
     filt.forEach(function(v){
       var cl = clientes.find(function(c){ return String(c.id)===String(v.cid); });
-      var tipoKey = cl ? (cl.tipoNegocio||'Barberia') : 'Barberia';
+      var tipoKey = cl ? ((!cl.tipoNegocio||cl.tipoNegocio==='Barberia')?'Barberia':'Tienda') : 'Barberia';
       var etiqueta = cl ? etiquetaTipoNegocio(cl) : '✂️ Barbería';
       if(!pt[tipoKey]) pt[tipoKey]={v:0,g:0,c:0,etiqueta:etiqueta};
       pt[tipoKey].v+=v.total; pt[tipoKey].g+=(v.ganancia||0); pt[tipoKey].c++;

@@ -7317,17 +7317,39 @@ function imprimirFacturaBT(vid){
 }
 
 
+function envolverTexto(ctx, texto, maxAncho, maxLineas){
+  var palabras = (texto||'').trim().split(/\s+/);
+  var lineas = [];
+  var linea = '';
+  for(var i=0; i<palabras.length; i++){
+    var prueba = linea ? linea+' '+palabras[i] : palabras[i];
+    if(ctx.measureText(prueba).width <= maxAncho){
+      linea = prueba;
+    } else {
+      if(linea) lineas.push(linea);
+      if(lineas.length === maxLineas-1){
+        var resto = palabras.slice(i).join(' ');
+        while(resto.length>1 && ctx.measureText(resto+'\u2026').width > maxAncho){ resto = resto.slice(0,-1); }
+        lineas.push(resto+(resto===palabras.slice(i).join(' ')?'':'\u2026'));
+        return lineas;
+      }
+      linea = palabras[i];
+    }
+  }
+  if(linea) lineas.push(linea);
+  return lineas;
+}
+
 function dibujarContenidoFactura(ctx, W, pad, v, cl, pagado, saldo, numFact, abonos, colorMode){
   var y;
-  // Tamanos de letra: mas grandes en la version termica (b/n) para que se lea bien en el papel,
+  // Tamanos de letra: bastante mas grandes en la version termica (b/n) para que se lea bien en el papel,
   // sin tocar la version a color que se ve en el telefono.
   var fs = colorMode
     ? { dir:12, lbl:11, cliente:17, negocio:13, dirCl:11, prodLbl:11, item:15, itemQty:13, pago:14, total:21 }
-    : { dir:14, lbl:13, cliente:20, negocio:16, dirCl:13, prodLbl:13, item:18, itemQty:16, pago:17, total:25 };
-  var maxCliente = colorMode ? 24 : 20;
-  var maxNegocio = colorMode ? 24 : 20;
-  var maxDir = colorMode ? 34 : 28;
-  var maxItem = colorMode ? 26 : 21;
+    : { dir:16, lbl:16, cliente:26, negocio:20, dirCl:16, prodLbl:16, item:22, itemQty:19, pago:21, total:32 };
+  var maxCliente = colorMode ? 24 : 17;
+  var maxNegocio = colorMode ? 24 : 15;
+  var maxDir = colorMode ? 34 : 22;
 
   // Header con logo
   var logoW = Math.min(W*0.62, 260);
@@ -7349,43 +7371,43 @@ function dibujarContenidoFactura(ctx, W, pad, v, cl, pagado, saldo, numFact, abo
   ctx.fillStyle = colorMode ? '#888' : '#000';
   ctx.textAlign = 'center';
   ctx.fillText('964 Atwells Ave, Providence, RI 02909', W/2, y);
-  y += colorMode?15:17;
+  y += colorMode?15:20;
   ctx.fillText('401-305-0188', W/2, y);
-  y += colorMode?24:27;
+  y += colorMode?24:30;
 
   ctx.font = 'bold '+fs.lbl+'px sans-serif';
   ctx.textAlign = 'left'; ctx.fillStyle = colorMode ? '#aaa' : '#000'; ctx.fillText('CLIENTE', pad, y);
   ctx.textAlign = 'right'; ctx.fillText('FACTURA', W-pad, y);
-  y += colorMode?20:22;
+  y += colorMode?20:26;
   ctx.font = 'bold '+fs.cliente+'px sans-serif';
   ctx.fillStyle = colorMode ? '#1a237e' : '#000';
   ctx.textAlign = 'left'; ctx.fillText((v.cn||'').substring(0,maxCliente), pad, y);
   ctx.textAlign = 'right'; ctx.fillText('#'+numFact, W-pad, y);
-  y += colorMode?19:22;
+  y += colorMode?19:28;
   ctx.font = 'bold '+fs.negocio+'px sans-serif';
   ctx.fillStyle = colorMode ? '#555' : '#000';
   if(cl && cl.negocio){ ctx.textAlign='left'; ctx.fillText(cl.negocio.substring(0,maxNegocio), pad, y); }
   ctx.textAlign='right'; ctx.fillText(v.fecha, W-pad, y);
-  y += colorMode?17:20;
+  y += colorMode?17:24;
   var dirCl = cl ? ((cl.dir||'')+(cl.ciudad?', '+cl.ciudad:'')).trim() : '';
   if(dirCl){
     ctx.font = (colorMode?'':'bold ')+fs.dirCl+'px sans-serif';
     ctx.fillStyle = colorMode ? '#888' : '#000';
     ctx.textAlign='left'; ctx.fillText(dirCl.substring(0,maxDir), pad, y);
     ctx.textAlign='right'; ctx.fillText(v.hora, W-pad, y);
-    y += colorMode?15:18;
+    y += colorMode?15:21;
     ctx.font = 'bold '+fs.negocio+'px sans-serif';
     ctx.fillStyle = colorMode ? '#555' : '#000';
   } else {
     ctx.textAlign='right'; ctx.fillText(v.hora, W-pad, y);
   }
   if(cl && cl.tel){ ctx.textAlign='left'; ctx.fillText(cl.tel, pad, y); }
-  y += colorMode?16:19;
+  y += colorMode?16:23;
 
   y += 6;
   ctx.strokeStyle = colorMode ? '#e5e7eb' : '#000'; ctx.lineWidth = colorMode ? 1 : 2;
   ctx.beginPath(); ctx.moveTo(pad,y); ctx.lineTo(W-pad,y); ctx.stroke();
-  y += 22;
+  y += colorMode?22:26;
 
   ctx.font = 'bold '+fs.prodLbl+'px sans-serif';
   ctx.fillStyle = colorMode ? '#aaa' : '#000';
@@ -7394,21 +7416,44 @@ function dibujarContenidoFactura(ctx, W, pad, v, cl, pagado, saldo, numFact, abo
   y += 10;
   ctx.strokeStyle = colorMode ? '#e5e7eb' : '#000';
   ctx.beginPath(); ctx.moveTo(pad,y); ctx.lineTo(W-pad,y); ctx.stroke();
-  y += colorMode?22:25;
+  y += colorMode?22:28;
 
   (v.items||[]).forEach(function(it){
     ctx.font = 'bold '+fs.item+'px sans-serif';
     ctx.fillStyle = colorMode ? '#1a1a2e' : '#000';
-    ctx.textAlign='left';
-    ctx.fillText((it.nombre||'').substring(0,maxItem), pad, y);
-    ctx.textAlign='right';
-    ctx.fillText('$'+fmtNum(it.cant*it.precio), W-pad, y);
-    y += colorMode?18:21;
+    if(colorMode){
+      ctx.textAlign='left';
+      ctx.fillText((it.nombre||'').substring(0,26), pad, y);
+      ctx.textAlign='right';
+      ctx.fillText('$'+fmtNum(it.cant*it.precio), W-pad, y);
+      y += 18;
+    } else {
+      // Version termica: el nombre del producto se puede partir en hasta 2 lineas para no cortarlo
+      var precioTxt = '$'+fmtNum(it.cant*it.precio);
+      var anchoPrecio = ctx.measureText(precioTxt).width;
+      var anchoDisponibleLinea1 = (W-2*pad) - anchoPrecio - 10;
+      var lineas = envolverTexto(ctx, it.nombre||'', W-2*pad, 3);
+      // Si la primera linea es mas larga de lo que cabe junto al precio, forzar que el precio quede en su propia fila
+      var precioEnLineaAparte = ctx.measureText(lineas[0]||'').width > anchoDisponibleLinea1;
+      ctx.textAlign='left';
+      ctx.fillText(lineas[0]||'', pad, y);
+      if(!precioEnLineaAparte){
+        ctx.textAlign='right'; ctx.fillText(precioTxt, W-pad, y);
+      }
+      y += 26;
+      for(var li=1; li<lineas.length; li++){
+        ctx.textAlign='left'; ctx.fillText(lineas[li], pad, y);
+        y += 26;
+      }
+      if(precioEnLineaAparte){
+        ctx.textAlign='right'; ctx.fillText(precioTxt, W-pad, y-26);
+      }
+    }
     ctx.font='bold '+fs.itemQty+'px sans-serif';
     ctx.fillStyle = colorMode ? '#777' : '#000';
     ctx.textAlign='left';
     ctx.fillText(it.cant+' x $'+fmtNum(it.precio), pad, y);
-    y += colorMode?22:26;
+    y += colorMode?22:30;
   });
 
   y += 2;
@@ -7439,19 +7484,19 @@ function dibujarContenidoFactura(ctx, W, pad, v, cl, pagado, saldo, numFact, abo
       ctx.fillStyle = '#F1F8E9';
       ctx.fillRect(pad-6, boxTop, W-2*pad+12, boxHeight);
     }
-    ctx.font='bold '+(colorMode?12:14)+'px sans-serif';
+    ctx.font='bold '+(colorMode?12:16)+'px sans-serif';
     ctx.fillStyle = colorMode ? '#2E7D32' : '#000';
     ctx.textAlign='left'; ctx.fillText('HISTORIAL DE ABONOS', pad, y);
-    y += colorMode?22:24;
-    ctx.font='bold '+(colorMode?13:15)+'px sans-serif';
+    y += colorMode?22:28;
+    ctx.font='bold '+(colorMode?13:17)+'px sans-serif';
     abonos.forEach(function(p){
       ctx.fillStyle = colorMode ? '#555' : '#000';
-      ctx.textAlign='left'; ctx.fillText(((p.fecha||'')+(p.nota?' - '+p.nota:'')).substring(0,colorMode?24:20), pad, y);
+      ctx.textAlign='left'; ctx.fillText(((p.fecha||'')+(p.nota?' - '+p.nota:'')).substring(0,colorMode?24:17), pad, y);
       ctx.fillStyle = colorMode ? '#2E7D32' : '#000';
       ctx.textAlign='right'; ctx.fillText('$'+fmtNum(p.monto), W-pad, y);
-      y += colorMode?20:23;
+      y += colorMode?20:27;
     });
-    ctx.font='bold '+(colorMode?14:16)+'px sans-serif';
+    ctx.font='bold '+(colorMode?14:18)+'px sans-serif';
     ctx.fillStyle = colorMode ? '#2E7D32' : '#000';
     ctx.textAlign='left'; ctx.fillText('Total abonado:', pad, y);
     ctx.textAlign='right'; ctx.fillText('$'+fmtNum(pagado), W-pad, y);
@@ -7471,7 +7516,7 @@ function dibujarContenidoFactura(ctx, W, pad, v, cl, pagado, saldo, numFact, abo
       ctx.fillStyle = '#FFEBEE';
       ctx.fillRect(pad-6, bt, W-2*pad+12, 26);
     }
-    ctx.font='bold '+(colorMode?15:18)+'px sans-serif';
+    ctx.font='bold '+(colorMode?15:21)+'px sans-serif';
     ctx.fillStyle = colorMode ? '#C62828' : '#000';
     ctx.textAlign='left'; ctx.fillText('BALANCE PENDIENTE:', pad, y);
     ctx.textAlign='right'; ctx.fillText('$'+fmtNum(saldo), W-pad, y);
@@ -7482,18 +7527,18 @@ function dibujarContenidoFactura(ctx, W, pad, v, cl, pagado, saldo, numFact, abo
       ctx.fillStyle = '#E8F5E9';
       ctx.fillRect(pad-6, y-18, W-2*pad+12, 26);
     }
-    ctx.font='bold '+(colorMode?15:18)+'px sans-serif';
+    ctx.font='bold '+(colorMode?15:21)+'px sans-serif';
     ctx.fillStyle = colorMode ? '#2E7D32' : '#000';
     ctx.textAlign='center'; ctx.fillText('\u2713 PAGADO COMPLETO', W/2, y);
     y += 32;
   }
 
   y += 16;
-  ctx.font='bold '+(colorMode?12:14)+'px sans-serif';
+  ctx.font='bold '+(colorMode?12:16)+'px sans-serif';
   ctx.fillStyle = colorMode ? '#aaa' : '#000';
   ctx.textAlign='center';
   ctx.fillText('Gracias por su preferencia', W/2, y);
-  y += 16;
+  y += colorMode?16:20;
   ctx.fillText('Nunez Beauty Supply', W/2, y);
   y += 18;
 

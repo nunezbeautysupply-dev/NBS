@@ -1452,6 +1452,50 @@ function pantallaActual(){
   return null;
 }
 function volverAtras(){
+  // Si la pantalla actual tiene una "subvista" abierta (un formulario, perfil, o editor
+  // que se muestra/oculta DENTRO de la misma pantalla, sin pasar por ir()), hay que cerrar
+  // esa subvista primero, en vez de salir de la pantalla por completo hacia el historial.
+  var actual = pantallaActual();
+
+  if(actual === 'p-cat'){
+    var catEdit = document.getElementById('cat-edit-wrap');
+    var catMarcaLista = document.getElementById('cat-marca-lista-wrap');
+    var catMarca = document.getElementById('cat-marca-wrap');
+    if(catEdit && catEdit.style.display === 'block'){ cerrarEdicionProducto(); return; }
+    if(catMarcaLista && catMarcaLista.style.display === 'block'){ cerrarEditarProductosDeMarca(); return; }
+    if(catMarca && catMarca.style.display === 'block'){ cerrarEditarPorMarca(); return; }
+  }
+  if(actual === 'p-cl'){
+    var clN = document.getElementById('cl-n');
+    if(clN && clN.style.display === 'block'){
+      clN.style.display = 'none';
+      document.getElementById('cl-l').style.display = 'block';
+      return;
+    }
+  }
+  if(actual === 'p-sup'){
+    var supPerfil = document.getElementById('sup-perfil-wrap');
+    var supN = document.getElementById('sup-n');
+    if(supPerfil && supPerfil.style.display === 'block'){
+      supPerfil.style.display = 'none';
+      document.getElementById('sup-lista-wrap').style.display = 'block';
+      return;
+    }
+    if(supN && supN.style.display === 'block'){
+      supN.style.display = 'none';
+      document.getElementById('sup-l').style.display = 'block';
+      return;
+    }
+  }
+  if(actual === 'p-gastos'){
+    var gastosN = document.getElementById('gastos-n');
+    if(gastosN && gastosN.style.display === 'block'){
+      gastosN.style.display = 'none';
+      document.getElementById('gastos-l').style.display = 'block';
+      return;
+    }
+  }
+
   if(historialPantallas.length){
     var prev = historialPantallas.pop();
     ir(prev, true);
@@ -1467,7 +1511,13 @@ function ir(id, sinHistorial){
   var all = ['menu','p-cl','p-v','p-rpt','p-cxc','p-cl-perfil','p-cl-factura','p-cat','p-sup','p-comp','p-ped','p-gastos','p-vip','p-mas','p-facturas','p-dashboard','p-rutas','p-manual','p-cxp'];
   for(var i=0;i<all.length;i++) document.getElementById(all[i]).style.display='none';
   document.getElementById(id).style.display='block';
-  if(id==='p-cl'){ renderCl(''); llenarDataLists(); }
+  if(id==='p-cl'){
+    var clN = document.getElementById('cl-n');
+    var clL = document.getElementById('cl-l');
+    if(clN) clN.style.display = 'none';
+    if(clL) clL.style.display = 'block';
+    renderCl(''); llenarDataLists();
+  }
   if(id==='p-v'){
     syncVcl();
     var vf=document.getElementById('vfecha');
@@ -1481,6 +1531,17 @@ function ir(id, sinHistorial){
   if(id==='p-cxc'){ var bc=document.getElementById('cxc-buscar'); if(bc) bc.value=''; renderCxC(); }
   if(id==='p-cat'){
     loadProds();
+    // Reiniciar todas las subvistas -Editar toda una marca, Editar producto- para que
+    // siempre se muestre la lista principal del catalogo al entrar, sin importar donde
+    // se haya quedado la ultima vez.
+    var catEditW = document.getElementById('cat-edit-wrap');
+    var catMarcaListaW = document.getElementById('cat-marca-lista-wrap');
+    var catMarcaW = document.getElementById('cat-marca-wrap');
+    var catListaW = document.getElementById('cat-lista-wrap');
+    if(catEditW) catEditW.style.display = 'none';
+    if(catMarcaListaW) catMarcaListaW.style.display = 'none';
+    if(catMarcaW) catMarcaW.style.display = 'none';
+    if(catListaW) catListaW.style.display = 'block';
     var elCatSkel = document.getElementById('catlista');
     if(elCatSkel){
       var filasSkel = '';
@@ -5860,15 +5921,9 @@ function guardarTodosLosProductosDeMarca(){
   SS('np_eliminados', eliminados);
   SS('np', productos);
   alert('✅ Listo. ' + (cantEditar>0 ? cantEditar+' producto(s) actualizado(s). ' : '') + (cantEliminar>0 ? cantEliminar+' producto(s) eliminado(s).' : ''));
-  // Regresar a la MISMA marca (no al catalogo completo) para poder seguir trabajando ahi
-  var marcaParaVolver = window._epmlMarcaActual;
-  if(marcaParaVolver){
-    document.getElementById('epm-marca').value = marcaParaVolver;
-    abrirEditarProductosDeMarca();
-  } else {
-    cerrarEditarProductosDeMarca();
-    renderCatalogo('');
-  }
+  // Regresar siempre al catalogo completo despues de guardar
+  cerrarEditarProductosDeMarca();
+  renderCatalogo('');
 }
 
 function verificarPIN(callback){

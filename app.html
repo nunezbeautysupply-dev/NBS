@@ -5852,6 +5852,8 @@ function abrirEditarProductosDeMarca(){
       +'</div>'
       +'<label class="lbl">Proveedor</label>'
       +'<select class="inp" id="epml-suplidor-'+i+'">'+opcionesProveedor+'</select>'
+      +'<button type="button" onclick="guardarProductoIndividualDeMarca('+i+')" style="width:100%;padding:11px;background:var(--nbs-green-bg);color:var(--nbs-green-text);border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;margin-top:10px">💾 Guardar solo este producto</button>'
+      +'<div class="snk" id="epml-mk-'+i+'" style="margin-top:8px">Guardado</div>'
       +'</div>';
   }).join('');
 
@@ -5869,6 +5871,42 @@ function abrirEditarProductosDeMarca(){
 function cerrarEditarProductosDeMarca(){
   document.getElementById('cat-marca-lista-wrap').style.display = 'none';
   document.getElementById('cat-lista-wrap').style.display = 'block';
+}
+
+function guardarProductoIndividualDeMarca(i){
+  var ids = window._epmlIds || [];
+  var pid = ids[i];
+  if(!pid){ alert('No se encontró este producto.'); return; }
+  if(window._epmlEliminar && window._epmlEliminar[i]){ alert('Este producto está marcado para eliminar. Toca "🗑️ Eliminar" de nuevo para desmarcarlo si quieres guardarlo.'); return; }
+
+  loadProds();
+  var p = productos.find(function(x){ return String(x.id) === String(pid); });
+  if(!p){ alert('No se encontró este producto en el catálogo.'); return; }
+
+  var nombreInput = document.getElementById('epml-nombre-'+i);
+  var marcaSelInput = document.getElementById('epml-marca-sel-'+i);
+  var catSelInput = document.getElementById('epml-cat-sel-'+i);
+  var marcaInput = document.getElementById('epml-marca-'+i);
+  var catInput = document.getElementById('epml-cat-'+i);
+  var costoInput = document.getElementById('epml-costo-'+i);
+  var precioInput = document.getElementById('epml-precio-'+i);
+  var supInput = document.getElementById('epml-suplidor-'+i);
+  var fotoInput = document.getElementById('epml-foto-data-'+i);
+  if(!nombreInput) return;
+
+  var marcaFinal = (marcaSelInput.value === '__otra__' ? marcaInput.value.trim() : marcaSelInput.value);
+  var restoFinal = nombreInput.value.trim();
+  p.nombre = (marcaFinal ? marcaFinal + ' ' : '') + restoFinal;
+  p.nombreCorto = restoFinal;
+  p.marca = marcaFinal;
+  p.foto = fotoInput ? fotoInput.value : (p.foto || '');
+  p.cat = (catSelInput.value === '__otra__' ? catInput.value.trim() : catSelInput.value);
+  p.costo = parseFloat(costoInput.value) || 0;
+  p.precio = parseFloat(precioInput.value) || 0;
+  p.proveedorPref = supInput.value;
+
+  SS('np', productos);
+  flash('epml-mk-'+i);
 }
 
 function guardarTodosLosProductosDeMarca(){
@@ -5921,9 +5959,15 @@ function guardarTodosLosProductosDeMarca(){
   SS('np_eliminados', eliminados);
   SS('np', productos);
   alert('✅ Listo. ' + (cantEditar>0 ? cantEditar+' producto(s) actualizado(s). ' : '') + (cantEliminar>0 ? cantEliminar+' producto(s) eliminado(s).' : ''));
-  // Regresar siempre al catalogo completo despues de guardar
-  cerrarEditarProductosDeMarca();
-  renderCatalogo('');
+  // Regresar a la MISMA marca (no al catalogo completo) para poder seguir haciendo cambios ahi
+  var marcaParaVolver = window._epmlMarcaActual;
+  if(marcaParaVolver){
+    document.getElementById('epm-marca').value = marcaParaVolver;
+    abrirEditarProductosDeMarca();
+  } else {
+    cerrarEditarProductosDeMarca();
+    renderCatalogo('');
+  }
 }
 
 function verificarPIN(callback){
@@ -9513,5 +9557,14 @@ function verHistorialCliente(cid, modo){
   <h2 style="font-size:20px;font-weight:700;color:var(--nbs-ink);margin-bottom:14px">📤 Cuentas por Pagar</h2>
   <div id="cxp-contenido"></div>
 </div>
+<button id="btn-subir-flotante" onclick="window.scrollTo({top:0,behavior:'smooth'})" style="display:none;position:fixed;bottom:20px;right:16px;z-index:99990;background:var(--nbs-gold);color:white;border:none;border-radius:50px;padding:12px 18px;font-size:14px;font-weight:700;box-shadow:0 4px 14px rgba(0,0,0,0.25);cursor:pointer;align-items:center;gap:6px">⬆️ Subir</button>
+<script>
+(function(){
+  var btn = document.getElementById('btn-subir-flotante');
+  window.addEventListener('scroll', function(){
+    if(window.scrollY > 400){ btn.style.display = 'flex'; } else { btn.style.display = 'none'; }
+  });
+})();
+</script>
 </body>
 </html>

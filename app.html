@@ -7169,7 +7169,7 @@ function verFacturaProfesional(vid){
   actBtns.className = 'no-print';
   actBtns.style.cssText = 'display:flex;gap:8px;margin-bottom:16px;max-width:400px;margin-left:auto;margin-right:auto';
   [['ti-arrow-left','Volver',false, cerrarFacturaView],
-   ['ti-share','Compartir',true, function(){ compartirFactura(vid); }],
+   ['ti-share','Compartir',true, function(){ abrirMenuAccionesFactura(vid); }],
    ['ti-edit','Editar',false, function(){ editarFactura(vid); }]
   ].forEach(function(b){
     var btn = document.createElement('button');

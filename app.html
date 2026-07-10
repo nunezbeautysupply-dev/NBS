@@ -7445,7 +7445,7 @@ function dibujarContenidoFactura(ctx, W, pad, v, cl, pagado, saldo, numFact, abo
   // sin tocar la version a color que se ve en el telefono.
   var fs = colorMode
     ? { dir:12, lbl:11, cliente:17, negocio:13, dirCl:11, prodLbl:11, item:15, itemQty:13, pago:14, total:21 }
-    : { dir:18, lbl:16, cliente:22, negocio:18, dirCl:15, prodLbl:16, item:19, itemQty:17, pago:21, total:32 };
+    : { dir:18, lbl:18, cliente:24, negocio:20, dirCl:18, prodLbl:16, item:19, itemQty:17, pago:21, total:32 };
   var maxCliente = colorMode ? 24 : 17; // solo se usa en el modo a color
   var maxNegocio = colorMode ? 24 : 15; // solo se usa en el modo a color
   var maxDir = colorMode ? 34 : 22; // solo se usa en el modo a color
@@ -7542,18 +7542,18 @@ function dibujarContenidoFactura(ctx, W, pad, v, cl, pagado, saldo, numFact, abo
       var lineasNeg = envolverTexto(ctx, cl.negocio, W-2*pad, 2);
       lineasNeg.forEach(function(linea){
         ctx.textAlign='left'; ctx.fillText(linea, pad, y);
-        y += 26;
+        y += 28;
       });
     }
 
     // Direccion - en su propia linea, SIN cortar (se parte en hasta 2 lineas si hace falta)
     var dirCl2 = cl ? ((cl.dir||'')+(cl.ciudad?', '+cl.ciudad:'')).trim() : '';
     if(dirCl2){
-      ctx.font = fs.dirCl+'px sans-serif';
+      ctx.font = 'bold '+fs.dirCl+'px sans-serif';
       var lineasDir = envolverTexto(ctx, dirCl2, W-2*pad, 2);
       lineasDir.forEach(function(linea){
         ctx.textAlign='left'; ctx.fillText(linea, pad, y);
-        y += 24;
+        y += 27;
       });
     }
     y += 4;

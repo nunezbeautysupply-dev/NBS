@@ -608,6 +608,7 @@ button:active{transform:scale(0.96);filter:brightness(0.93);}
       <div style="background:#F5F5F5;border-radius:10px;padding:10px;margin-bottom:8px">
         <div style="font-size:11px;font-weight:700;color:#666;margin-bottom:6px">📇 CONTACTO ADICIONAL (opcional)</div>
         <label class="lbl">Nombre del contacto</label><input class="inp" id="ccontacto" type="text" placeholder="Ej: encargado, gerente, otro dueño..." onblur="capitalizarFinal(this)">
+        <label class="lbl">Apodo del contacto</label><input class="inp" id="ccontactoapodo" type="text" placeholder="Ej: Robertico, Nena...">
         <label class="lbl" style="margin-bottom:0">Teléfono del contacto</label><input class="inp" id="ccontactotel" type="tel" placeholder="+1 (401) 000-0000" oninput="fmtTel(this)" maxlength="17" style="margin-bottom:0">
       </div>
       <label class="lbl">Email</label><input class="inp" id="ce" type="email" placeholder="correo@email.com">
@@ -1738,7 +1739,7 @@ function filtrarVIPBusqueda(q){
   if(!q || !q.trim()){ el.style.display='none'; return; }
   var q2 = q.toLowerCase();
   var list = clientes.filter(function(c){
-    return ((c.nombre||'')+' '+(c.apellido||'')+' '+(c.negocio||'')+' '+(c.apodo||'')+' '+(c.tel||'')+' '+(c.dir||'')+' '+(c.ciudad||'')+' '+(c.contacto||'')+' '+(c.contactoTel||'')).toLowerCase().indexOf(q2) >= 0;
+    return ((c.nombre||'')+' '+(c.apellido||'')+' '+(c.negocio||'')+' '+(c.apodo||'')+' '+(c.tel||'')+' '+(c.dir||'')+' '+(c.ciudad||'')+' '+(c.contacto||'')+' '+(c.contactoApodo||'')+' '+(c.contactoTel||'')).toLowerCase().indexOf(q2) >= 0;
   });
   if(!list.length){
     el.style.display='block';
@@ -2719,7 +2720,8 @@ function ini(n,a){
 function nombreCl(c){
   if(!c) return '';
   var base = (c.nombre||'') + ' ' + (c.apellido||'');
-  return c.apodo ? (base + ' "' + c.apodo + '"') : base;
+  var apodos = [c.apodo, c.contactoApodo].filter(function(a){ return a && a.trim(); });
+  return apodos.length ? (base + ' "' + apodos.join(' - ') + '"') : base;
 }
 
 // Nombre del cliente (con apodo) a partir de una venta/factura, para pantallas INTERNAS.
@@ -3251,7 +3253,7 @@ function saveCl(){
   var subtipoSel = tipoSel==='Tienda' ? document.getElementById('csubtipo').value : null;
   var subtipoOtroTxt = document.getElementById('csubtipo-otro').value.trim();
   var intervaloVal = parseInt(document.getElementById('cintervalo').value) || null;
-  clientes.push({id:nuevoId,nombre:n,apellido:a,apodo:document.getElementById('capodo').value.trim(),negocio:document.getElementById('cne').value.trim(),tel:document.getElementById('ct').value.trim(),tipoNegocio:tipoSel,subtipoTienda:subtipoSel,subtipoTiendaOtro:subtipoOtroTxt,intervaloVisitaDias:tipoSel==='Barberia'?null:intervaloVal,ultimaVisitaNegocio:null,contacto:document.getElementById('ccontacto').value.trim(),contactoTel:document.getElementById('ccontactotel').value.trim(),email:document.getElementById('ce').value.trim(),dir:document.getElementById('cd').value.trim(),ciudad:document.getElementById('ccity').value.trim(),zip:document.getElementById('czip').value.trim(),estado:document.getElementById('cstate').value,vipActivo:vipActivo});
+  clientes.push({id:nuevoId,nombre:n,apellido:a,apodo:document.getElementById('capodo').value.trim(),negocio:document.getElementById('cne').value.trim(),tel:document.getElementById('ct').value.trim(),tipoNegocio:tipoSel,subtipoTienda:subtipoSel,subtipoTiendaOtro:subtipoOtroTxt,intervaloVisitaDias:tipoSel==='Barberia'?null:intervaloVal,ultimaVisitaNegocio:null,contacto:document.getElementById('ccontacto').value.trim(),contactoApodo:document.getElementById('ccontactoapodo').value.trim(),contactoTel:document.getElementById('ccontactotel').value.trim(),email:document.getElementById('ce').value.trim(),dir:document.getElementById('cd').value.trim(),ciudad:document.getElementById('ccity').value.trim(),zip:document.getElementById('czip').value.trim(),estado:document.getElementById('cstate').value,vipActivo:vipActivo});
   SS('ncl',clientes);
 
   // Registrar balance inicial si se ingresó
@@ -3275,7 +3277,7 @@ function saveCl(){
     SS('nv', ventas);
   }
 
-  ['cn','ca','cne','ct','ce','cd','ccity','czip','ccontacto','ccontactotel'].forEach(function(id){document.getElementById(id).value='';});
+  ['cn','ca','cne','ct','ce','cd','ccity','czip','ccontacto','ccontactoapodo','ccontactotel'].forEach(function(id){document.getElementById(id).value='';});
   document.getElementById('ctipo').value='Barberia';
   document.getElementById('csubtipo').value='GroceryStore'; document.getElementById('csubtipo-wrap').style.display='none';
   document.getElementById('csubtipo-otro').value=''; document.getElementById('csubtipo-otro').style.display='none';
@@ -3346,7 +3348,7 @@ function renderCl(q){
   }
 
   var el=document.getElementById('lcl');el.innerHTML='';
-  var list=q?clientes.filter(function(c){return(c.nombre+' '+c.apellido+' '+(c.negocio||'')+' '+(c.apodo||'')+' '+(c.tel||'')+' '+(c.dir||'')+' '+(c.ciudad||'')+' '+(c.estado||'')+' '+(c.zip||'')+' '+(c.contacto||'')+' '+(c.contactoTel||'')).toLowerCase().includes(q.toLowerCase());}):clientes;
+  var list=q?clientes.filter(function(c){return(c.nombre+' '+c.apellido+' '+(c.negocio||'')+' '+(c.apodo||'')+' '+(c.tel||'')+' '+(c.dir||'')+' '+(c.ciudad||'')+' '+(c.estado||'')+' '+(c.zip||'')+' '+(c.contacto||'')+' '+(c.contactoApodo||'')+' '+(c.contactoTel||'')).toLowerCase().includes(q.toLowerCase());}):clientes;
   if(window._clFiltroTipo && window._clFiltroTipo !== 'todos'){
     list = list.filter(function(c){ var t2=(!c.tipoNegocio||c.tipoNegocio==='Barberia')?'Barberia':'Tienda'; return t2 === window._clFiltroTipo; });
   }
@@ -4638,7 +4640,7 @@ function renderBarberias(q){
       if(k.toLowerCase().indexOf(qLower) >= 0) return true;
       // Coincide con nombre de algún barbero de esa barbería
       return barberias[k].some(function(c){
-        return (c.nombre+' '+c.apellido+' '+(c.apodo||'')+' '+(c.tel||'')+' '+(c.dir||'')+' '+(c.ciudad||'')+' '+(c.contacto||'')+' '+(c.contactoTel||'')).toLowerCase().indexOf(qLower) >= 0;
+        return (c.nombre+' '+c.apellido+' '+(c.apodo||'')+' '+(c.tel||'')+' '+(c.dir||'')+' '+(c.ciudad||'')+' '+(c.contacto||'')+' '+(c.contactoApodo||'')+' '+(c.contactoTel||'')).toLowerCase().indexOf(qLower) >= 0;
       });
     });
   }
@@ -4651,7 +4653,7 @@ function renderBarberias(q){
   keys.forEach(function(neg){
     // Si hay búsqueda, mostrar barberos que coincidan destacados
     var barberosCoinc = q ? barberias[neg].filter(function(c){
-      return (c.nombre+' '+c.apellido+' '+(c.apodo||'')+' '+(c.tel||'')+' '+(c.dir||'')+' '+(c.ciudad||'')+' '+(c.contacto||'')+' '+(c.contactoTel||'')).toLowerCase().indexOf(q.toLowerCase()) >= 0;
+      return (c.nombre+' '+c.apellido+' '+(c.apodo||'')+' '+(c.tel||'')+' '+(c.dir||'')+' '+(c.ciudad||'')+' '+(c.contacto||'')+' '+(c.contactoApodo||'')+' '+(c.contactoTel||'')).toLowerCase().indexOf(q.toLowerCase()) >= 0;
     }) : [];
 
     var d = document.createElement('div');
@@ -4757,7 +4759,7 @@ function renderBarberiasInicio(q){
     keys = keys.filter(function(k){
       if(k.toLowerCase().indexOf(ql) >= 0) return true;
       return barberias[k].some(function(c){
-        return (c.nombre+' '+c.apellido+' '+(c.apodo||'')+' '+(c.tel||'')+' '+(c.dir||'')+' '+(c.ciudad||'')+' '+(c.contacto||'')+' '+(c.contactoTel||'')).toLowerCase().indexOf(ql) >= 0;
+        return (c.nombre+' '+c.apellido+' '+(c.apodo||'')+' '+(c.tel||'')+' '+(c.dir||'')+' '+(c.ciudad||'')+' '+(c.contacto||'')+' '+(c.contactoApodo||'')+' '+(c.contactoTel||'')).toLowerCase().indexOf(ql) >= 0;
       });
     });
     keys.forEach(function(k){ barberiasAbiertas[k] = true; });
@@ -5347,7 +5349,7 @@ function verCl(id){
     +'<div style="background:#f5f5f5;border-radius:8px;padding:10px"><div style="font-size:10px;color:#aaa;font-weight:700">TELEFONO</div><div style="font-size:14px;margin-top:2px">'+(c.tel||'N/A')+'</div></div>'
     +'<div style="background:#f5f5f5;border-radius:8px;padding:10px"><div style="font-size:10px;color:#aaa;font-weight:700">EMAIL</div><div style="font-size:14px;margin-top:2px">'+(c.email||'N/A')+'</div></div>'
     +'<div style="background:#f5f5f5;border-radius:8px;padding:10px;grid-column:span 2"><div style="font-size:10px;color:#aaa;font-weight:700">DIRECCION</div><div style="font-size:14px;margin-top:2px">'+(c.dir||'')+(c.ciudad?', '+c.ciudad:'')+(c.estado?', '+c.estado:'')+(c.zip?' '+c.zip:'')+((!c.dir&&!c.ciudad&&!c.estado)?'N/A':'')+'</div></div>'
-    +((c.contacto||c.contactoTel) ? '<div style="background:#F5F5F5;border-radius:8px;padding:10px;grid-column:span 2"><div style="font-size:10px;color:#aaa;font-weight:700">📇 CONTACTO ADICIONAL</div><div style="font-size:14px;margin-top:2px">'+(c.contacto||'Sin nombre')+(c.contactoTel?' · '+c.contactoTel:'')+'</div></div>' : '')
+    +((c.contacto||c.contactoTel) ? '<div style="background:#F5F5F5;border-radius:8px;padding:10px;grid-column:span 2"><div style="font-size:10px;color:#aaa;font-weight:700">📇 CONTACTO ADICIONAL</div><div style="font-size:14px;margin-top:2px">'+(c.contacto||'Sin nombre')+(c.contactoApodo?' "'+c.contactoApodo+'"':'')+(c.contactoTel?' · '+c.contactoTel:'')+'</div></div>' : '')
     +infoVisita
     +'<div style="background:#f5f5f5;border-radius:8px;padding:10px"><div style="font-size:10px;color:#aaa;font-weight:700">TOTAL COMPRAS</div><div style="font-size:18px;font-weight:700;color:#1565C0;margin-top:2px">$'+fmtNum(totalCompras)+'</div></div>'
     +'<div style="background:'+(cr?'#FFEBEE':'#f5f5f5')+';border-radius:8px;padding:10px"><div style="font-size:10px;color:#aaa;font-weight:700">BALANCE PENDIENTE</div><div style="font-size:18px;font-weight:700;color:'+(cr?'#C62828':'#2E7D32')+';margin-top:2px">'+(cr?'$'+fmtNum(cr.saldo):'$0.00')+'</div></div>'
@@ -6224,6 +6226,7 @@ function editarCl(id){
     +'<div style="background:#F5F5F5;border-radius:10px;padding:10px;margin-bottom:8px">'
     +'<div style="font-size:11px;font-weight:700;color:#666;margin-bottom:6px">📇 CONTACTO ADICIONAL (opcional)</div>'
     +'<label class="lbl">Nombre del contacto</label><input class="inp" id="ecl-contacto" type="text" value="'+(c.contacto||'')+'" placeholder="Ej: encargado, gerente, otro dueño..." onblur="capitalizarFinal(this)">'
+    +'<label class="lbl">Apodo del contacto</label><input class="inp" id="ecl-contactoapodo" type="text" value="'+(c.contactoApodo||'')+'" placeholder="Ej: Robertico, Nena...">'
     +'<label class="lbl" style="margin-bottom:0">Teléfono del contacto</label><input class="inp" id="ecl-contactotel" type="tel" value="'+(c.contactoTel||'')+'" oninput="fmtTel(this)" maxlength="17" style="margin-bottom:0">'
     +'</div>'
     +'<label class="lbl">Email</label><input class="inp" id="ecl-e" type="email" value="'+(c.email||'')+'">'
@@ -6257,6 +6260,7 @@ function guardarEdicionCl(id){
   var subtipoOtroEl = document.getElementById('ecl-subtipo-otro'); if(subtipoOtroEl) clientes[idx].subtipoTiendaOtro = subtipoOtroEl.value.trim();
   var intervaloEl = document.getElementById('ecl-intervalo'); if(intervaloEl) clientes[idx].intervaloVisitaDias = (tipoEl && tipoEl.value==='Barberia') ? null : (parseInt(intervaloEl.value)||null);
   var contactoEl = document.getElementById('ecl-contacto'); if(contactoEl) clientes[idx].contacto = contactoEl.value.trim();
+  var contactoApodoEl = document.getElementById('ecl-contactoapodo'); if(contactoApodoEl) clientes[idx].contactoApodo = contactoApodoEl.value.trim();
   var contactoTelEl = document.getElementById('ecl-contactotel'); if(contactoTelEl) clientes[idx].contactoTel = contactoTelEl.value.trim();
   clientes[idx].email = document.getElementById('ecl-e').value.trim();
   clientes[idx].dir = document.getElementById('ecl-d').value.trim();
@@ -6644,7 +6648,8 @@ function renderCxC(q){
       var apodo = (cl && cl.apodo) ? cl.apodo.toLowerCase() : '';
       var tel = (cl && cl.tel) ? cl.tel.toLowerCase() : '';
       var dir = cl ? ((cl.dir||'')+' '+(cl.ciudad||'')).toLowerCase() : '';
-      return p.cn.toLowerCase().indexOf(ql) >= 0 || p.negocio.toLowerCase().indexOf(ql) >= 0 || apodo.indexOf(ql) >= 0 || tel.indexOf(ql) >= 0 || dir.indexOf(ql) >= 0;
+      var contactoInfo = cl ? ((cl.contacto||'')+' '+(cl.contactoApodo||'')+' '+(cl.contactoTel||'')).toLowerCase() : '';
+      return p.cn.toLowerCase().indexOf(ql) >= 0 || p.negocio.toLowerCase().indexOf(ql) >= 0 || apodo.indexOf(ql) >= 0 || tel.indexOf(ql) >= 0 || dir.indexOf(ql) >= 0 || contactoInfo.indexOf(ql) >= 0;
     });
   }
 
@@ -7084,7 +7089,7 @@ function renderFacturas(q){
     var ql = q.toLowerCase();
     lista = lista.filter(function(v){
       var cl = clientes.find(function(c){ return String(c.id)===String(v.cid); });
-      var extra = cl ? ((cl.apodo||'')+' '+(cl.negocio||'')+' '+(cl.tel||'')+' '+(cl.dir||'')+' '+(cl.ciudad||'')) : '';
+      var extra = cl ? ((cl.apodo||'')+' '+(cl.negocio||'')+' '+(cl.tel||'')+' '+(cl.dir||'')+' '+(cl.ciudad||'')+' '+(cl.contacto||'')+' '+(cl.contactoApodo||'')+' '+(cl.contactoTel||'')) : '';
       return ((v.cn||'')+' '+extra).toLowerCase().indexOf(ql) >= 0;
     });
   }
@@ -8911,7 +8916,7 @@ function renderRutaAgregarLista(diaKey, filtro){
     lista = barberiasNoEnDia.filter(function(neg){
       if(neg.toLowerCase().indexOf(q) >= 0) return true;
       return barberias[neg].some(function(c){
-        return ((c.nombre||'')+' '+(c.apellido||'')+' '+(c.apodo||'')+' '+(c.tel||'')+' '+(c.dir||'')+' '+(c.ciudad||'')+' '+(c.contacto||'')+' '+(c.contactoTel||'')).toLowerCase().indexOf(q) >= 0;
+        return ((c.nombre||'')+' '+(c.apellido||'')+' '+(c.apodo||'')+' '+(c.tel||'')+' '+(c.dir||'')+' '+(c.ciudad||'')+' '+(c.contacto||'')+' '+(c.contactoApodo||'')+' '+(c.contactoTel||'')).toLowerCase().indexOf(q) >= 0;
       });
     });
   }

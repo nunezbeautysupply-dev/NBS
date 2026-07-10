@@ -104,7 +104,11 @@ body{
 }
 .mb:active{transform:scale(0.98);box-shadow:none;}
 
-.pg{display:none;padding:16px;max-width:480px;margin:0 auto;}
+.pg{display:none;padding:16px;max-width:480px;margin:0 auto;animation:pantallaEntra 0.28s ease;}
+@keyframes pantallaEntra{
+  from{opacity:0;transform:translateY(10px);}
+  to{opacity:1;transform:translateY(0);}
+}
 
 .back{
   display:flex;
@@ -122,7 +126,9 @@ body{
   background:#E8EAF6;
   color:var(--primary);
   letter-spacing:-0.2px;
+  transition:transform 0.1s, filter 0.1s;
 }
+.back:active{transform:scale(0.96);filter:brightness(0.94);}
 
 .btn{
   display:block;
@@ -136,9 +142,13 @@ body{
   margin-bottom:10px;
   cursor:pointer;
   letter-spacing:-0.2px;
-  transition:transform 0.1s;
+  transition:transform 0.1s, filter 0.1s;
 }
-.btn:active{transform:scale(0.98);}
+.btn:active{transform:scale(0.97);filter:brightness(0.93);}
+
+/* Cualquier boton normal de la app (dentro de tarjetas, listas, etc) tambien reacciona al tocar */
+button{transition:transform 0.1s, filter 0.1s;}
+button:active{transform:scale(0.96);filter:brightness(0.93);}
 
 .inp{
   width:100%;
@@ -174,9 +184,39 @@ body{
   margin-bottom:12px;
   box-shadow:var(--shadow);
   border:1px solid rgba(0,0,0,0.04);
+  animation:tarjetaEntra 0.35s ease backwards;
 }
+@keyframes tarjetaEntra{
+  from{opacity:0;transform:translateY(8px);}
+  to{opacity:1;transform:translateY(0);}
+}
+/* Efecto cascada: las primeras tarjetas de una lista aparecen una tras otra */
+.card:nth-of-type(1){animation-delay:0.02s;}
+.card:nth-of-type(2){animation-delay:0.05s;}
+.card:nth-of-type(3){animation-delay:0.08s;}
+.card:nth-of-type(4){animation-delay:0.11s;}
+.card:nth-of-type(5){animation-delay:0.14s;}
+.card:nth-of-type(6){animation-delay:0.17s;}
+.card:nth-of-type(n+7){animation-delay:0.2s;}
 
-.snk{background:#1a237e;color:white;padding:10px;border-radius:8px;font-size:13px;margin-top:8px;display:none;text-align:center;font-weight:600;}
+.snk{
+  background:#1a237e;color:white;padding:12px 14px;border-radius:10px;font-size:13px;margin-top:8px;
+  display:none;text-align:center;font-weight:600;align-items:center;justify-content:center;gap:8px;
+}
+.snk.mostrando{display:flex;animation:snkEntra 0.3s ease;}
+.snk .snk-check{
+  display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;
+  background:rgba(255,255,255,0.25);font-size:12px;flex-shrink:0;animation:snkCheck 0.4s ease 0.05s backwards;
+}
+@keyframes snkEntra{
+  from{opacity:0;transform:translateY(-6px) scale(0.95);}
+  to{opacity:1;transform:translateY(0) scale(1);}
+}
+@keyframes snkCheck{
+  from{transform:scale(0);opacity:0;}
+  60%{transform:scale(1.25);}
+  to{transform:scale(1);opacity:1;}
+}
 
 .av{width:44px;height:44px;border-radius:12px;background:var(--nbs-gold-bg);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:var(--nbs-gold-dark);flex-shrink:0;}
 
@@ -2162,8 +2202,13 @@ function llenarDataLists(){
 function flash(id){
   var el = document.getElementById(id);
   if(!el) return;
-  el.style.display = 'block';
-  setTimeout(function(){ el.style.display = 'none'; }, 1800);
+  if(!el.getAttribute('data-msg')) el.setAttribute('data-msg', el.textContent.trim());
+  var texto = el.getAttribute('data-msg');
+  el.innerHTML = '<span class="snk-check">✓</span><span>'+texto+'</span>';
+  el.style.display = '';
+  el.classList.add('mostrando');
+  clearTimeout(el._flashTimeout);
+  el._flashTimeout = setTimeout(function(){ el.classList.remove('mostrando'); }, 1800);
 }
 
 // ===== MANUAL DE USUARIO =====
@@ -2344,9 +2389,9 @@ function renderCXP(){
     el.appendChild(vacSup);
   } else {
     suplidoresConDeuda.sort(function(a,b){ return b.total-a.total; });
-    suplidoresConDeuda.forEach(function(s){
+    suplidoresConDeuda.forEach(function(s, idxCard){
       var card = document.createElement('div');
-      card.style.cssText = 'background:white;border:0.5px solid var(--nbs-line);border-radius:10px;padding:12px 14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;box-shadow:var(--nbs-shadow-card)';
+      card.style.cssText = 'background:white;border:0.5px solid var(--nbs-line);border-radius:10px;padding:12px 14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;box-shadow:var(--nbs-shadow-card);animation:tarjetaEntra 0.35s ease backwards;animation-delay:'+(Math.min(idxCard,6)*0.03)+'s';
       card.innerHTML = '<span style="font-size:14px;font-weight:600;color:var(--nbs-ink)">'+s.nombre+'</span><span style="font-size:15px;font-weight:700;color:var(--nbs-red-text)">$'+fmtNum(s.total)+'</span>';
       card.onclick = (function(sid){ return function(){ ir('p-sup'); verSup(sid, 'abiertas'); }; })(s.id);
       el.appendChild(card);
@@ -2365,10 +2410,10 @@ function renderCXP(){
     vacT.textContent = 'No has agregado ninguna tarjeta todavía.';
     el.appendChild(vacT);
   }
-  tarjetas.forEach(function(t){
+  tarjetas.forEach(function(t, idxCard){
     var pctUso = t.limite > 0 ? Math.min(100, Math.round((t.balance/t.limite)*100)) : 0;
     var card = document.createElement('div');
-    card.style.cssText = 'background:white;border:0.5px solid var(--nbs-line);border-radius:12px;padding:14px;margin-bottom:8px;box-shadow:var(--nbs-shadow-card)';
+    card.style.cssText = 'background:white;border:0.5px solid var(--nbs-line);border-radius:12px;padding:14px;margin-bottom:8px;box-shadow:var(--nbs-shadow-card);animation:tarjetaEntra 0.35s ease backwards;animation-delay:'+(Math.min(idxCard,6)*0.03)+'s';
     card.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:'+(t.limite>0?'8px':'10px')+'">'
       +'<div><div style="font-size:14px;font-weight:700;color:var(--nbs-ink)">'+t.nombre+'</div>'+(t.banco?'<div style="font-size:11px;color:var(--nbs-muted)">'+t.banco+'</div>':'')+'</div>'
       +'<div style="text-align:right"><div style="font-size:17px;font-weight:800;color:var(--nbs-red-text)">$'+fmtNum(t.balance)+'</div>'+(t.limite>0?'<div style="font-size:10px;color:var(--nbs-muted)">de $'+fmtNum(t.limite)+' límite</div>':'')+'</div>'
@@ -2399,9 +2444,9 @@ function renderCXP(){
     vacO.textContent = 'Préstamos, renta, equipos financiados, etc. — aquí no tienes ninguna registrada.';
     el.appendChild(vacO);
   }
-  otrasDeudas.forEach(function(d){
+  otrasDeudas.forEach(function(d, idxCard){
     var card = document.createElement('div');
-    card.style.cssText = 'background:white;border:0.5px solid var(--nbs-line);border-radius:12px;padding:14px;margin-bottom:8px;box-shadow:var(--nbs-shadow-card)';
+    card.style.cssText = 'background:white;border:0.5px solid var(--nbs-line);border-radius:12px;padding:14px;margin-bottom:8px;box-shadow:var(--nbs-shadow-card);animation:tarjetaEntra 0.35s ease backwards;animation-delay:'+(Math.min(idxCard,6)*0.03)+'s';
     card.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">'
       +'<div><div style="font-size:14px;font-weight:700;color:var(--nbs-ink)">'+d.nombre+'</div><div style="font-size:11px;color:var(--nbs-muted)">'+(d.tipo||'Otro')+(d.notas?' · '+d.notas:'')+'</div></div>'
       +'<div style="font-size:17px;font-weight:800;color:var(--nbs-red-text)">$'+fmtNum(d.balance)+'</div>'

@@ -199,6 +199,7 @@ button:active{transform:scale(0.96);filter:brightness(0.93);}
 .card:nth-of-type(6){animation-delay:0.17s;}
 .card:nth-of-type(n+7){animation-delay:0.2s;}
 
+
 .snk{
   background:#1a237e;color:white;padding:12px 14px;border-radius:10px;font-size:13px;margin-top:8px;
   display:none;text-align:center;font-weight:600;align-items:center;justify-content:center;gap:8px;
@@ -219,6 +220,29 @@ button:active{transform:scale(0.96);filter:brightness(0.93);}
 }
 
 .av{width:44px;height:44px;border-radius:12px;background:var(--nbs-gold-bg);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:var(--nbs-gold-dark);flex-shrink:0;}
+
+/* Brillo animado que se desliza sobre las barras de progreso (VIP, Fidelidad, Meta semanal) */
+.barra-brillo{position:relative;overflow:hidden;}
+.barra-brillo::after{
+  content:'';position:absolute;top:0;left:-60%;width:60%;height:100%;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,0.65),transparent);
+  animation:brilloDeslizante 2.2s infinite;
+}
+@keyframes brilloDeslizante{
+  0%{left:-60%;}
+  100%{left:110%;}
+}
+
+/* Pantallas de carga tipo esqueleto (mientras una lista larga termina de construirse) */
+.skel{background:linear-gradient(90deg,#eee 25%,#f5f5f5 50%,#eee 75%);background-size:200% 100%;animation:skelBrillo 1.4s infinite;border-radius:8px;}
+@keyframes skelBrillo{0%{background-position:200% 0;}100%{background-position:-200% 0;}}
+
+/* Confeti de celebracion */
+.confeti-pieza{position:fixed;top:-20px;width:8px;height:14px;z-index:9999999;pointer-events:none;animation:confetiCaer linear forwards;}
+@keyframes confetiCaer{
+  0%{transform:translateY(0) rotate(0deg);opacity:1;}
+  100%{transform:translateY(100vh) rotate(360deg);opacity:0.4;}
+}
 
 .clrow{display:flex;align-items:center;gap:12px;padding:14px;background:white;border-radius:12px;margin-bottom:8px;cursor:pointer;box-shadow:var(--nbs-shadow-card);border:0.5px solid var(--nbs-line);transition:transform 0.1s;}
 .clrow:active{transform:scale(0.98);}
@@ -277,7 +301,7 @@ button:active{transform:scale(0.96);filter:brightness(0.93);}
 </div>
 
 <!-- Overlay del menú lateral -->
-<div id="menu-lateral-overlay" onclick="cerrarMenuLateral()" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9998"></div>
+<div id="menu-lateral-overlay" onclick="cerrarMenuLateral()" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);z-index:9998"></div>
 
 <!-- Menú lateral -->
 <div id="menu-lateral" style="display:none;position:fixed;top:0;left:0;bottom:0;width:280px;background:white;z-index:9999;overflow-y:auto;box-shadow:4px 0 20px rgba(0,0,0,0.15);transform:translateX(-100%);transition:transform 0.3s ease">
@@ -1455,7 +1479,18 @@ function ir(id, sinHistorial){
   }
   if(id==='p-rpt') document.getElementById('rto').value=fechaHoyISO();
   if(id==='p-cxc'){ var bc=document.getElementById('cxc-buscar'); if(bc) bc.value=''; renderCxC(); }
-  if(id==='p-cat'){ loadProds(); renderCatalogo(''); }
+  if(id==='p-cat'){
+    loadProds();
+    var elCatSkel = document.getElementById('catlista');
+    if(elCatSkel){
+      var filasSkel = '';
+      for(var sk=0; sk<6; sk++){
+        filasSkel += '<div class="skel-row"><div class="skel skel-av"></div><div style="flex:1"><div class="skel skel-line1"></div><div class="skel skel-line2"></div></div></div>';
+      }
+      elCatSkel.innerHTML = filasSkel;
+    }
+    setTimeout(function(){ renderCatalogo(''); }, 200);
+  }
   if(id==='p-sup'){
     document.getElementById('sup-lista-wrap').style.display='block';
     document.getElementById('sup-perfil-wrap').style.display='none';
@@ -1757,7 +1792,7 @@ function renderVIPLista(list){
           +'<div style="font-size:12px;font-weight:600;color:var(--nbs-ink)">'+p.nombre+(esMitad?' <span style="font-size:10px;color:#E65100">(2 uds=$1 punto)</span>':'')+'</div>'
           +'<div style="font-size:12px;font-weight:700;color:'+color+'">'+p.progreso+'/'+VIP_META+'</div></div>'
           +'<div style="height:8px;background:#F0F0F2;border-radius:4px;overflow:hidden;margin-bottom:4px">'
-          +'<div style="height:100%;width:'+pct+'%;background:'+color+';border-radius:4px"></div></div>'
+          +'<div style="height:100%;width:'+pct+'%;background:'+color+';border-radius:4px" class="barra-brillo"></div></div>'
           +'<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--nbs-muted)">'
           +'<span>Unidades: '+p.unidades+' → Puntos: '+p.puntos+'</span>'
           +(p.gratis>0?'<span style="color:#AD1457;font-weight:700">🎁 '+p.gratis+' gratis</span>':'<span>'+(VIP_META-p.progreso)+' para completar</span>')
@@ -1787,6 +1822,7 @@ function verificarVIPdespuesDeVenta(cid, itemsVendidos){
   if(alertas.length){
     var nombre=nombreClConNegocio(cl);
     setTimeout(function(){
+      lanzarConfeti();
       alert('⭐ PROGRAMA LEALTAD VIP ⭐\n\n'+nombre+'\n\n'+alertas.join('\n')+'\n\n¡Entrégale su producto gratis!');
     },500);
   }
@@ -1815,7 +1851,7 @@ function mostrarPopupFidelidad(cid, fidelidad){
   if(!overlay){
     overlay = document.createElement('div');
     overlay.id = 'fidelidad-popup-overlay';
-    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:99999;display:flex;align-items:center;justify-content:center;padding:24px';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:99999;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:24px';
     document.body.appendChild(overlay);
   }
   overlay.innerHTML = '';
@@ -1830,6 +1866,7 @@ function mostrarPopupFidelidad(cid, fidelidad){
     +'<button id="fidpop-luego" style="width:100%;padding:12px;background:none;color:var(--nbs-muted);border:none;font-size:13px;cursor:pointer">Recordármelo después</button>';
   overlay.appendChild(card);
   overlay.style.display = 'flex';
+  lanzarConfeti();
 
   document.getElementById('fidpop-dar').onclick = function(){
     overlay.style.display = 'none';
@@ -2475,7 +2512,7 @@ function abrirFormTarjeta(id){
   if(!overlay){
     overlay = document.createElement('div');
     overlay.id = 'cxp-form-overlay';
-    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:99999;display:flex;align-items:flex-end';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:99999;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:flex;align-items:flex-end';
     document.body.appendChild(overlay);
   }
   overlay.innerHTML = '<div style="background:white;width:100%;max-width:480px;margin:0 auto;border-radius:16px 16px 0 0;padding:20px;max-height:90vh;overflow-y:auto">'
@@ -2547,7 +2584,7 @@ function abrirFormOtraDeuda(id){
   if(!overlay){
     overlay = document.createElement('div');
     overlay.id = 'cxp-form-overlay';
-    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:99999;display:flex;align-items:flex-end';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:99999;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:flex;align-items:flex-end';
     document.body.appendChild(overlay);
   }
   var tipos = ['Préstamo', 'Renta', 'Equipo financiado', 'Servicio/Utilidad', 'Otro'];
@@ -3101,7 +3138,7 @@ function mostrarAlertaVisitasNegocios(lista){
   localStorage.setItem('ultimoAvisoVisitas', new Date().getTime().toString());
   var overlay = document.createElement('div');
   overlay.id = 'visitas-negocios-overlay';
-  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:999999;display:flex;align-items:center;justify-content:center;padding:20px';
+  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:999999;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:20px';
   var itemsHtml = lista.slice(0,6).map(function(item){
     var atraso = item.diasAtraso===null ? 'Nunca visitada' : (item.diasAtraso===0 ? 'Justo hoy' : 'Hace '+item.diasAtraso+' día(s) de atraso');
     return '<div style="text-align:left;background:#F5F5F5;border-radius:8px;padding:10px;margin-bottom:6px">'
@@ -3503,7 +3540,7 @@ function abrirRecortarFoto(dataUrlOriginal, onConfirmar){
   if(!overlay){
     overlay = document.createElement('div');
     overlay.id = 'crop-foto-overlay';
-    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;box-sizing:border-box';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:99999;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;box-sizing:border-box';
     document.body.appendChild(overlay);
   }
   overlay.innerHTML = '';
@@ -3678,7 +3715,7 @@ function abrirOpcionesFotoProducto(){
   if(!overlay){
     overlay = document.createElement('div');
     overlay.id = 'foto-acciones-overlay';
-    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:99998;display:flex;align-items:flex-end';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:99998;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:flex;align-items:flex-end';
     document.body.appendChild(overlay);
   }
   overlay.innerHTML = '';
@@ -5279,7 +5316,7 @@ function verCl(id){
     +'<span style="font-size:12px;font-weight:700;color:var(--nbs-gold-dark)">$'+fmtNum(fidelidad.total)+' / $'+fmtNum(fidelidad.meta)+'</span>'
     +'</div>'
     +'<div style="height:8px;background:#F0F0F2;border-radius:4px;overflow:hidden;margin-bottom:6px">'
-    +'<div style="height:100%;width:'+pctFid+'%;background:'+(listo?'var(--nbs-green-text)':'var(--nbs-gold)')+';border-radius:4px"></div></div>'
+    +'<div style="height:100%;width:'+pctFid+'%;background:'+(listo?'var(--nbs-green-text)':'var(--nbs-gold)')+';border-radius:4px" class="barra-brillo"></div></div>'
     +'<div style="font-size:11px;color:var(--nbs-muted);margin-bottom:10px">Suma compras de productos menores a $30. Al llegar a $'+fmtNum(fidelidad.meta)+', dale un regalo entre $10 y $20 para agradecer su preferencia.'+(fidelidad.regalosDados>0?' · '+fidelidad.regalosDados+' regalo(s) dado(s) antes.':'')+'</div>'
     +'<button onclick="darRegaloFidelidad(\''+id+'\')" style="width:100%;padding:10px;background:'+(listo?'var(--nbs-gold)':'#F0F0F2')+';color:'+(listo?'white':'var(--nbs-muted)')+';border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">🎁 Ya le di el regalo'+(listo?'':' (aún no llega a la meta)')+'</button>';
   el.appendChild(fidCard);
@@ -5583,7 +5620,7 @@ function abrirOpcionesFotoMarca(i){
   if(!overlay){
     overlay = document.createElement('div');
     overlay.id = 'foto-acciones-overlay';
-    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:99998;display:flex;align-items:flex-end';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:99998;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:flex;align-items:flex-end';
     document.body.appendChild(overlay);
   }
   overlay.innerHTML = '';
@@ -6899,7 +6936,7 @@ function abrirMenuAccionesFactura(vid){
   if(!overlay){
     overlay = document.createElement('div');
     overlay.id = 'fact-acciones-overlay';
-    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:99998;display:flex;align-items:flex-end';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:99998;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:flex;align-items:flex-end';
     document.body.appendChild(overlay);
   }
   overlay.innerHTML = '';
@@ -8070,7 +8107,7 @@ function mostrarAlertaBackup(ultimoBackup){
   if(document.getElementById('backup-overlay')) return;
   var overlay = document.createElement('div');
   overlay.id = 'backup-overlay';
-  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:999999;display:flex;align-items:center;justify-content:center;padding:20px';
+  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:999999;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:20px';
   var horas = ultimoBackup ? Math.round((new Date().getTime() - ultimoBackup) / (1000 * 60 * 60)) : null;
   var mensaje = horas ? 'Han pasado <b>'+horas+' hora(s)</b> desde tu último backup.' : 'Nunca has hecho un backup de tus datos.';
   overlay.innerHTML = '<div style="background:white;border-radius:16px;padding:24px;max-width:340px;width:100%;text-align:center">'
@@ -8304,7 +8341,7 @@ function renderDashboard(){
   +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">'
   +'<div style="background:white;border-radius:12px;padding:14px;border:0.5px solid var(--nbs-line);box-shadow:var(--nbs-shadow-card)">'
   +'<div style="font-size:11px;color:var(--nbs-muted);font-weight:600;margin-bottom:6px">VENTAS HOY</div>'
-  +'<div style="font-size:22px;font-weight:700;color:var(--nbs-ink)">$'+fmtNum(totalHoy)+'</div>'
+  +'<div style="font-size:22px;font-weight:700;color:var(--nbs-ink)" class="contador-animado" data-valor="'+totalHoy+'">$0.00</div>'
   +'<div style="font-size:11px;color:var(--nbs-green-text);margin-top:4px">Ganancia: $'+fmtNum(gananciaHoy)+'</div>'
   +'</div>'
   +'<div style="background:white;border-radius:12px;padding:14px;border:0.5px solid var(--nbs-line);box-shadow:var(--nbs-shadow-card)">'
@@ -8319,7 +8356,7 @@ function renderDashboard(){
   +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">'
   +'<div style="background:white;border-radius:12px;padding:14px;border:0.5px solid var(--nbs-line);box-shadow:var(--nbs-shadow-card)">'
   +'<div style="font-size:11px;color:var(--nbs-muted);font-weight:600;margin-bottom:6px">VENTAS MES</div>'
-  +'<div style="font-size:20px;font-weight:700;color:var(--nbs-ink)">$'+fmtNum(totalMes)+'</div>'
+  +'<div style="font-size:20px;font-weight:700;color:var(--nbs-ink)" class="contador-animado" data-valor="'+totalMes+'">$0.00</div>'
   +'<div style="font-size:11px;color:var(--nbs-green-text);margin-top:4px">Ganancia: $'+fmtNum(gananciaMes)+'</div>'
   +'</div>'
   +'<div style="background:white;border-radius:12px;padding:14px;border:0.5px solid var(--nbs-line);box-shadow:var(--nbs-shadow-card)">'
@@ -8333,20 +8370,20 @@ function renderDashboard(){
   +'<div onclick="ir(\'p-cxc\')" style="background:var(--nbs-gold-bg);border-radius:12px;padding:14px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;cursor:pointer">'
   +'<div><div style="font-size:12px;color:var(--nbs-gold-dark);font-weight:600;display:flex;align-items:center;gap:5px">💳Cuentas por cobrar</div>'
   +'<div style="font-size:11px;color:var(--nbs-gold-dark);margin-top:2px">Dinero que te deben</div></div>'
-  +'<div style="font-size:22px;font-weight:700;color:var(--nbs-gold-dark)">$'+fmtNum(totalCxC)+'</div>'
+  +'<div style="font-size:22px;font-weight:700;color:var(--nbs-gold-dark)" class="contador-animado" data-valor="'+totalCxC+'">$0.00</div>'
   +'</div>'
 
   // CxP
   +'<div onclick="ir(\'p-cxp\')" style="background:#F5E6EA;border-radius:12px;padding:14px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;cursor:pointer">'
   +'<div><div style="font-size:12px;color:#7B1E3A;font-weight:600;display:flex;align-items:center;gap:5px">📤Cuentas por pagar</div>'
   +'<div style="font-size:11px;color:#7B1E3A;margin-top:2px">Suplidores, tarjetas y otras deudas</div></div>'
-  +'<div style="font-size:22px;font-weight:700;color:#7B1E3A">$'+fmtNum(totalCxP)+'</div>'
+  +'<div style="font-size:22px;font-weight:700;color:#7B1E3A" class="contador-animado" data-valor="'+totalCxP+'">$0.00</div>'
   +'</div>'
 
   // Balance neto (CxC - CxP)
   +'<div style="background:'+(totalCxC-totalCxP>=0?'var(--nbs-green-bg)':'var(--nbs-red-bg)')+';border-radius:12px;padding:12px;margin-bottom:16px;text-align:center">'
   +'<div style="font-size:11px;color:'+(totalCxC-totalCxP>=0?'var(--nbs-green-text)':'var(--nbs-red-text)')+';font-weight:600">⚖️ BALANCE NETO (lo que te deben − lo que debes)</div>'
-  +'<div style="font-size:18px;font-weight:800;color:'+(totalCxC-totalCxP>=0?'var(--nbs-green-text)':'var(--nbs-red-text)')+';margin-top:2px">$'+fmtNum(totalCxC-totalCxP)+'</div>'
+  +'<div style="font-size:18px;font-weight:800;color:'+(totalCxC-totalCxP>=0?'var(--nbs-green-text)':'var(--nbs-red-text)')+';margin-top:2px" class="contador-animado" data-valor="'+(totalCxC-totalCxP)+'">$0.00</div>'
   +'</div>'
 
   // Meta semanal
@@ -8356,7 +8393,7 @@ function renderDashboard(){
   +'<div style="font-size:13px;font-weight:600;color:var(--nbs-ink)">$'+fmtNum(totalSemana)+' / $'+fmtNum(meta)+'</div>'
   +'</div>'
   +'<div style="background:#F0F0F2;border-radius:20px;height:10px;overflow:hidden">'
-  +'<div style="background:'+(progresoPct>=100?'var(--nbs-green-text)':'var(--nbs-gold)')+';height:100%;width:'+progresoPct+'%;border-radius:20px;transition:width 0.5s"></div>'
+  +'<div style="background:'+(progresoPct>=100?'var(--nbs-green-text)':'var(--nbs-gold)')+';height:100%;width:'+progresoPct+'%;border-radius:20px;transition:width 0.5s" class="barra-brillo"></div>'
   +'</div>'
   +'<div style="display:flex;justify-content:space-between;margin-top:6px">'
   +'<span style="font-size:11px;color:var(--nbs-muted)">'+progresoPct+'% completado</span>'
@@ -8395,6 +8432,40 @@ function renderDashboard(){
   +'<div style="background:white;border-radius:12px;padding:12px;border:0.5px solid var(--nbs-line);box-shadow:var(--nbs-shadow-card)">'
   +renderHistorialPrecios()
   +'</div>';
+  animarContadoresDashboard();
+}
+
+function lanzarConfeti(){
+  var colores = ['#B8860B','#1a237e','#7B1E3A','#D4AF37','#3B6D11'];
+  var cantidad = 32;
+  for(var c=0; c<cantidad; c++){
+    var pieza = document.createElement('div');
+    pieza.className = 'confeti-pieza';
+    pieza.style.left = (Math.random()*100)+'vw';
+    pieza.style.background = colores[Math.floor(Math.random()*colores.length)];
+    pieza.style.animationDuration = (1.8+Math.random()*1.4)+'s';
+    pieza.style.animationDelay = (Math.random()*0.4)+'s';
+    document.body.appendChild(pieza);
+    (function(p){ setTimeout(function(){ p.remove(); }, 3500); })(pieza);
+  }
+}
+
+function animarContadoresDashboard(){
+  document.querySelectorAll('.contador-animado').forEach(function(el){
+    var valorFinal = parseFloat(el.getAttribute('data-valor')) || 0;
+    var esNegativo = valorFinal < 0;
+    var absValor = Math.abs(valorFinal);
+    var pasos = 28;
+    var actual = 0;
+    var incremento = absValor/pasos;
+    var i = 0;
+    var intervalo = setInterval(function(){
+      actual += incremento;
+      i++;
+      if(i>=pasos){ actual = absValor; clearInterval(intervalo); }
+      el.textContent = (esNegativo?'-':'')+'$'+fmtNum(actual);
+    }, 22);
+  });
 }
 
 function renderTopProductos(ventasMes){

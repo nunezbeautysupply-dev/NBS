@@ -21,7 +21,7 @@
   <link rel="manifest" href="manifest.json">
   <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
   <link rel="apple-touch-icon" href="icon-192.png">
-<title>NBS App v3.5</title>
+<title>NBS App v3.6</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
@@ -245,7 +245,7 @@ body{
     <img src="icon-512.png" style="width:40px;height:40px" alt="NBS">
     <div>
       <div style="font-size:15px;font-weight:700;color:var(--nbs-ink)">Nunez Beauty Supply</div>
-      <div style="font-size:11px;color:var(--nbs-muted)">Supply Manager v3.5</div>
+      <div style="font-size:11px;color:var(--nbs-muted)">Supply Manager v3.6</div>
     </div>
   </div>
   <div style="padding:10px 8px">
@@ -353,7 +353,7 @@ body{
 </div>
 
 <div id="p-sup" class="pg">
-  <button class="back" onclick="volverAtras()">← Atrás</button>
+  <div style="display:flex;gap:8px;margin-bottom:16px"><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="volverAtras()">← Atrás</button><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="ir('p-ped')">🏠 Inicio</button></div>
   <h2 style="font-size:20px;font-weight:700;color:#1a237e;margin-bottom:14px">🏭 Suplidores</h2>
   <div id="sup-lista-wrap">
     <div style="display:flex;gap:8px;margin-bottom:12px">
@@ -394,6 +394,7 @@ body{
 
 <div id="p-cat" class="pg">
   <div style="display:flex;gap:8px;margin-bottom:16px"><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="volverAtras()">← Atrás</button><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="ir('p-ped')">🏠 Inicio</button></div>
+  <h2 style="font-size:20px;font-weight:700;color:#1a237e;margin-bottom:14px">📦 Catálogo de Productos</h2>
   <div id="cat-lista-wrap">
     <div style="background:#E0F7FA;border-radius:10px;padding:12px;margin-bottom:12px">
       <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer" onclick="toggleMarcasDetalle()">
@@ -490,6 +491,7 @@ body{
 
 <div id="p-cl" class="pg">
   <div style="display:flex;gap:8px;margin-bottom:16px"><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="volverAtras()">← Atrás</button><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="ir('p-ped')">🏠 Inicio</button></div>
+  <h2 style="font-size:20px;font-weight:700;color:#1a237e;margin-bottom:14px">👥 Clientes</h2>
   <div id="cl-contador" style="display:flex;gap:8px;margin-bottom:12px">
     <div style="flex:1;background:#E3F2FD;border-radius:10px;padding:10px;text-align:center">
       <div style="font-size:11px;color:#1565C0;font-weight:700">CLIENTES</div>
@@ -5279,10 +5281,8 @@ function verCl(id){
     el.appendChild(noVentas);
   }
 
-  // Show profile page
-  var all=['menu','p-cl','p-v','p-cxc','p-rpt','p-cl-perfil','p-cl-factura'];
-  all.forEach(function(x){document.getElementById(x).style.display='none';});
-  document.getElementById('p-cl-perfil').style.display='block';
+  // Show profile page (usando ir() para que el historial de navegacion funcione correctamente)
+  ir('p-cl-perfil');
 }
 
 function verFactura(v){
@@ -8773,8 +8773,8 @@ function verHistorialCliente(cid, modo){
 <input type="hidden" id="vsel">
 <div id="p-v" class="pg">
   <div style="display:flex;gap:8px;margin-bottom:16px"><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="volverAtras()">← Atrás</button><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="ir('p-ped')">🏠 Inicio</button></div>
+  <h2 style="font-size:20px;font-weight:700;color:#1a237e;margin-bottom:14px">🧾 Vender</h2>
   <div class="card">
-    <p style="font-size:15px;font-weight:700;margin-bottom:12px">Nueva venta</p>
     <label class="lbl">Cliente</label>
     <select class="inp" id="vcl">
       <option value="">-- Cliente general --</option>
@@ -8936,9 +8936,9 @@ function verHistorialCliente(cid, modo){
   </div>
 </div>
 <div id="p-comp" class="pg">
-  <button class="back" onclick="volverAtras()">← Atrás</button>
+  <div style="display:flex;gap:8px;margin-bottom:16px"><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="volverAtras()">← Atrás</button><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="ir('p-ped')">🏠 Inicio</button></div>
+  <h2 style="font-size:20px;font-weight:700;color:#1a237e;margin-bottom:14px">🚚 Compras</h2>
   <div class="card">
-    <p style="font-size:15px;font-weight:700;margin-bottom:12px">Nueva compra</p>
     <label class="lbl">Suplidor *</label>
     <select class="inp" id="ccsup">
       <option value="">-- Seleccionar suplidor --</option>
@@ -8994,8 +8994,7 @@ function verHistorialCliente(cid, modo){
   </div>
 </div>
 <div id="p-cl-perfil" class="pg">
-  <button class="back" onclick="ir('p-cl')">← Volver a clientes</button>
-
+  <div style="display:flex;gap:8px;margin-bottom:16px"><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="volverAtras()">← Atrás</button><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="ir('p-ped')">🏠 Inicio</button></div>
   <div id="cl-perfil-contenido"></div>
 </div>
 
@@ -9122,9 +9121,9 @@ function verHistorialCliente(cid, modo){
 </div>
 
 <div id="p-rpt" class="pg">
-  <button class="back" onclick="volverAtras()">← Atrás</button>
+  <div style="display:flex;gap:8px;margin-bottom:16px"><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="volverAtras()">← Atrás</button><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="ir('p-ped')">🏠 Inicio</button></div>
+  <h2 style="font-size:20px;font-weight:700;color:#1a237e;margin-bottom:14px">📊 Reportes</h2>
   <div class="card">
-    <p style="font-size:15px;font-weight:700;margin-bottom:12px">📊 Reporte de ventas</p>
     <div class="r2">
       <div><label class="lbl">Desde</label><input class="inp" id="rfrom" type="date"></div>
       <div><label class="lbl">Hasta</label><input class="inp" id="rto" type="date"></div>

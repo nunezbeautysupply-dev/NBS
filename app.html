@@ -9059,6 +9059,26 @@ function getDiaHoy(){
   return map[d] || 'lun';
 }
 
+// Devuelve la fecha (MM/DD/YYYY) de la ocurrencia MAS RECIENTE de ese dia de la semana
+// -hoy mismo si coincide, o hasta 6 dias hacia atras si ya paso esta semana-.
+// Esto permite marcar un negocio como visitado aunque hayan pasado uno o varios dias,
+// mientras siga siendo la misma semana.
+function fechaMasRecienteParaDia(diaKey){
+  var mapInverso = {'lun':1,'mar':2,'mie':3,'jue':4,'vie':5,'sab':6};
+  var diaObjetivo = mapInverso[diaKey];
+  if(!diaObjetivo) return fechaHoy();
+  var hoy = new Date();
+  var diaActualNum = hoy.getDay();
+  var diferencia = diaActualNum - diaObjetivo;
+  if(diferencia < 0) diferencia += 7; // si el dia objetivo cae mas adelante en la semana, retroceder toda la semana
+  var fechaResultado = new Date(hoy);
+  fechaResultado.setDate(hoy.getDate() - diferencia);
+  var mm = String(fechaResultado.getMonth()+1).padStart(2,'0');
+  var dd = String(fechaResultado.getDate()).padStart(2,'0');
+  var yyyy = fechaResultado.getFullYear();
+  return mm+'/'+dd+'/'+yyyy;
+}
+
 function renderRutas(){
   var el = document.getElementById('rutas-contenido');
   if(!el) return;
@@ -9118,7 +9138,8 @@ function renderRutaDia(diaKey){
   var diaLabel = DIAS_SEMANA[diaIdx] || diaKey;
   var rutasPorDia = LS('rutas_por_dia', {});
   var rutaHoy = rutasPorDia[diaKey] || [];
-  var visitas = LS('visitas_'+diaKey+'_'+fechaHoy(),[]);
+  var fechaDeEsteDia = fechaMasRecienteParaDia(diaKey);
+  var visitas = LS('visitas_'+diaKey+'_'+fechaDeEsteDia,[]);
 
   clientes = LS('ncl',[]);
   var barberias = {};
@@ -9132,7 +9153,7 @@ function renderRutaDia(diaKey){
   // Header
   var header = document.createElement('div');
   header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:12px';
-  header.innerHTML = '<div style="font-size:15px;font-weight:800;color:#1a237e">📅 '+diaLabel+'</div>'
+  header.innerHTML = '<div><div style="font-size:15px;font-weight:800;color:#1a237e">📅 '+diaLabel+'</div><div style="font-size:11px;color:#aaa;margin-top:1px">'+fechaDeEsteDia+(diaKey!==getDiaHoy()?' · día pasado':' · hoy')+'</div></div>'
     +'<div style="font-size:12px;color:#aaa">'+rutaHoy.length+' barbería(s)</div>';
   el.appendChild(header);
 
@@ -9288,7 +9309,7 @@ function quitarDeDia(diaKey, neg){
 }
 
 function toggleVisita(diaKey, neg){
-  var key = 'visitas_'+diaKey+'_'+fechaHoy();
+  var key = 'visitas_'+diaKey+'_'+fechaMasRecienteParaDia(diaKey);
   var visitas = LS(key,[]);
   var idx = visitas.indexOf(neg);
   if(idx >= 0) visitas.splice(idx,1);

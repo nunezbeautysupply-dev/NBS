@@ -1715,7 +1715,9 @@ function siguienteNumeroFactura(){
 function renumerarTodasLasFacturas(){
   var todas = LS('nv', []);
   if(!todas.length){ alert('No hay facturas para renumerar.'); return; }
-  if(!confirm('Esto va a cambiar el número de TODAS las facturas ('+todas.length+' en total), ordenándolas de la más vieja a la más nueva empezando en 0001. Esta acción no se puede deshacer fácilmente.\n\n¿Deseas continuar?')) return;
+  if(!confirm('⚠️ Esto va a cambiar el número de TODAS las facturas ('+todas.length+' en total), ordenándolas de la más vieja a la más nueva empezando en 0001.\n\n¿Deseas continuar?')) return;
+  var confirmacion2 = prompt('Para confirmar de verdad, escribe la palabra RENUMERAR (en mayúsculas) y toca Aceptar:');
+  if(confirmacion2 !== 'RENUMERAR'){ alert('Cancelado — no se hizo ningún cambio.'); return; }
   todas.sort(function(a,b){
     var fa = parsearFechaVenta(a.fecha), fb = parsearFechaVenta(b.fecha);
     var da = fa ? fa.getTime() : 0, db = fb ? fb.getTime() : 0;
@@ -1725,7 +1727,8 @@ function renumerarTodasLasFacturas(){
   todas.forEach(function(v, idx){ v.numFactura = String(idx+1).padStart(4, '0'); });
   SS('nv', todas);
   alert('✅ Listo. Se renumeraron '+todas.length+' facturas.\n\nLa más vieja quedó como #0001 y la más reciente como #'+todas[todas.length-1].numFactura+'.');
-  renderFacturas('');
+  if(document.getElementById('cxc-buscar')) cambiarPestanaCxC(window._cxcTabActiva || 'pendientes');
+  else renderFacturas('');
 }
 
 function toggleVIPBtn(btn){
@@ -10123,7 +10126,6 @@ function verHistorialCliente(cid, modo){
 <div id="p-facturas" class="pg">
   <div style="display:flex;gap:8px;margin-bottom:16px"><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="volverAtras()">← Atrás</button><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="ir('p-ped')">🏠 Inicio</button></div>
   <h2 style="font-size:20px;font-weight:700;color:#1a237e;margin-bottom:10px">🧾 Facturas</h2>
-  <button onclick="renumerarTodasLasFacturas()" style="width:100%;padding:10px;background:#F5F5F5;color:#555;border:none;border-radius:8px;font-size:12px;cursor:pointer;margin-bottom:10px">🔢 Renumerar todas las facturas (de la más vieja a la más nueva)</button>
   <input class="inp" id="fact-buscar" type="text" placeholder="Buscar por nombre, apodo, negocio, teléfono..." oninput="renderFacturas(this.value)" autocomplete="off" style="margin-bottom:8px">
 
   <div class="card" style="padding:12px;margin-bottom:10px">
@@ -10301,6 +10303,12 @@ function verHistorialCliente(cid, modo){
   <input class="inp" id="cxc-buscar" type="text" placeholder="Buscar por nombre o negocio..." oninput="cxcBuscarActivo(this.value)" autocomplete="off" style="margin-bottom:10px">
   <div id="cxc-lista"></div>
   <div id="cxc-saldadas-lista" style="display:none"></div>
+
+  <div style="margin-top:32px;padding-top:16px;border-top:1px solid #eee">
+    <div style="font-size:10px;color:#bbb;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;margin-bottom:8px;text-align:center">Herramienta avanzada — usar rara vez</div>
+    <button onclick="renumerarTodasLasFacturas()" style="width:100%;padding:10px;background:#FAFAFA;color:#999;border:1px dashed #ddd;border-radius:8px;font-size:11px;cursor:pointer">🔢 Renumerar todas las facturas (de la más vieja a la más nueva)</button>
+  </div>
+
   <div id="cxc-abono" style="display:none">
     <div class="card">
       <p style="font-size:26px;font-weight:700;margin-bottom:6px" id="cxc-nombre"></p>

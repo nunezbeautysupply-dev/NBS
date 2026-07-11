@@ -21,7 +21,7 @@
   <link rel="manifest" href="manifest.json">
   <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
   <link rel="apple-touch-icon" href="icon-192.png">
-<title>NBS App v3.6</title>
+<title>NBS App v3.8</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
@@ -309,7 +309,7 @@ button:active{transform:scale(0.96);filter:brightness(0.93);}
     <img src="icon-512.png" style="width:40px;height:40px" alt="NBS">
     <div>
       <div style="font-size:15px;font-weight:700;color:var(--nbs-ink)">Nunez Beauty Supply</div>
-      <div style="font-size:11px;color:var(--nbs-muted)">Supply Manager v3.6</div>
+      <div style="font-size:11px;color:var(--nbs-muted)">Supply Manager v3.8</div>
     </div>
   </div>
   <div style="padding:10px 8px">
@@ -317,9 +317,8 @@ button:active{transform:scale(0.96);filter:brightness(0.93);}
     <button onclick="irMenu('p-ped')" class="mlb2"><span class="mlb2-icon"><span style="font-size:19px">⚡</span></span>Pedidos rápidos</button>
     <button onclick="irMenu('p-v')" class="mlb2"><span class="mlb2-icon"><span style="font-size:19px">💵</span></span>Vender</button>
     <button onclick="irMenu('p-cl')" class="mlb2"><span class="mlb2-icon"><span style="font-size:19px">👥</span></span>Clientes</button>
-    <button onclick="irMenu('p-cxc')" class="mlb2" style="background:#EAF3E2;border-radius:10px;margin-bottom:8px"><span class="mlb2-icon" style="font-size:16px">💳</span><span style="color:#2E7D32;font-weight:700">Cuentas por Cobrar</span><span style="margin-left:auto;font-size:10px;color:#2E7D32;opacity:0.7">↓ te deben</span></button>
+    <button onclick="irMenu('p-cxc')" class="mlb2" style="background:#EAF3E2;border-radius:10px;margin-bottom:8px"><span class="mlb2-icon" style="font-size:16px">💳</span><span style="color:#2E7D32;font-weight:700">Cuentas por Cobrar / Facturas</span></button>
     <button onclick="irMenu('p-vip')" class="mlb2"><span class="mlb2-icon"><span style="font-size:19px">⭐</span></span>Programa VIP</button>
-    <button onclick="irMenu('p-facturas')" class="mlb2"><span class="mlb2-icon"><span style="font-size:19px">🧾</span></span>Facturas</button>
     <button onclick="irMenu('p-cxp')" class="mlb2" style="background:#F5E6EA;border-radius:10px;margin-bottom:4px"><span class="mlb2-icon" style="font-size:16px">📤</span><span style="color:#7B1E3A;font-weight:700">Cuentas por Pagar</span><span style="margin-left:auto;font-size:10px;color:#7B1E3A;opacity:0.7">↑ tú debes</span></button>
 
     <div style="font-size:10px;color:var(--nbs-muted-2);font-weight:700;letter-spacing:1px;padding:12px 8px 4px">INVENTARIO</div>
@@ -374,9 +373,8 @@ button:active{transform:scale(0.96);filter:brightness(0.93);}
   <button class="mb2" id="btn-cat" onclick="irProtegido('p-cat')"><span class="mb2-icon" style="background:#E6F4F3"><span style="font-size:10px;font-weight:800;color:#0F766E;letter-spacing:0.3px">CA</span></span>Catálogo<span class="mb2-chev">›</span></button>
   <button class="mb2" onclick="ir('p-ped')"><span class="mb2-icon"><span style="font-size:10px;font-weight:800;color:var(--nbs-gold-dark);letter-spacing:0.3px">PR</span></span>Pedidos rápidos<span class="mb2-chev">›</span></button>
   <button class="mb2" onclick="ir('p-v')"><span class="mb2-icon" style="background:#EAF3E2"><span style="font-size:10px;font-weight:800;color:#3B6D11;letter-spacing:0.3px">VE</span></span>Vender<span class="mb2-chev">›</span></button>
-  <button class="mb2" onclick="ir('p-cxc')"><span class="mb2-icon" style="background:#FBECEC"><span style="font-size:10px;font-weight:800;color:#993C1D;letter-spacing:0.3px">CC</span></span>Cuentas por Cobrar<span class="mb2-chev">›</span></button>
+  <button class="mb2" onclick="ir('p-cxc')"><span class="mb2-icon" style="background:#FBECEC"><span style="font-size:10px;font-weight:800;color:#993C1D;letter-spacing:0.3px">CC</span></span>Cuentas por Cobrar / Facturas<span class="mb2-chev">›</span></button>
   <button class="mb2" id="btn-gastos" onclick="irProtegido('p-gastos')"><span class="mb2-icon" style="background:#FDEEE3"><span style="font-size:10px;font-weight:800;color:#C2540C;letter-spacing:0.3px">GA</span></span>Gastos<span class="mb2-chev">›</span></button>
-  <button class="mb2" id="btn-facturas" onclick="irProtegido('p-facturas')"><span class="mb2-icon" style="background:#F1EAFB"><span style="font-size:10px;font-weight:800;color:#6D28A6;letter-spacing:0.3px">FA</span></span>Facturas<span class="mb2-chev">›</span></button>
 
   <!-- PIN toggle -->
   <div id="pin-toggle-bar" style="background:white;border:0.5px solid var(--nbs-line);border-radius:12px;padding:12px 14px;margin-bottom:8px;margin-top:8px;display:flex;justify-content:space-between;align-items:center;box-shadow:var(--nbs-shadow-card)">
@@ -1530,7 +1528,7 @@ function ir(id, sinHistorial){
     actualizarLabelPagoVenta();
   }
   if(id==='p-rpt') document.getElementById('rto').value=fechaHoyISO();
-  if(id==='p-cxc'){ var bc=document.getElementById('cxc-buscar'); if(bc) bc.value=''; renderCxC(); }
+  if(id==='p-cxc'){ var bc=document.getElementById('cxc-buscar'); if(bc) bc.value=''; window._cxcTabActiva='pendientes'; cambiarPestanaCxC('pendientes'); }
   if(id==='p-cat'){
     loadProds();
     // Reiniciar todas las subvistas -Editar toda una marca, Editar producto- para que
@@ -1700,6 +1698,34 @@ function parsearFechaVenta(fechaStr){
     }
     return resultado;
   } catch(e){ return new Date(0); }
+}
+
+function siguienteNumeroFactura(){
+  var todas = LS('nv', []);
+  var maxNum = 0;
+  todas.forEach(function(v){
+    if(v.numFactura){
+      var n = parseInt(v.numFactura, 10);
+      if(!isNaN(n) && n > maxNum) maxNum = n;
+    }
+  });
+  return String(maxNum + 1).padStart(4, '0');
+}
+
+function renumerarTodasLasFacturas(){
+  var todas = LS('nv', []);
+  if(!todas.length){ alert('No hay facturas para renumerar.'); return; }
+  if(!confirm('Esto va a cambiar el número de TODAS las facturas ('+todas.length+' en total), ordenándolas de la más vieja a la más nueva empezando en 0001. Esta acción no se puede deshacer fácilmente.\n\n¿Deseas continuar?')) return;
+  todas.sort(function(a,b){
+    var fa = parsearFechaVenta(a.fecha), fb = parsearFechaVenta(b.fecha);
+    var da = fa ? fa.getTime() : 0, db = fb ? fb.getTime() : 0;
+    if(da !== db) return da - db;
+    return (a.id > b.id) ? 1 : (a.id < b.id ? -1 : 0);
+  });
+  todas.forEach(function(v, idx){ v.numFactura = String(idx+1).padStart(4, '0'); });
+  SS('nv', todas);
+  alert('✅ Listo. Se renumeraron '+todas.length+' facturas.\n\nLa más vieja quedó como #0001 y la más reciente como #'+todas[todas.length-1].numFactura+'.');
+  renderFacturas('');
 }
 
 function toggleVIPBtn(btn){
@@ -3273,7 +3299,7 @@ function saveCl(){
     if(biComentario) biNota += ' · ' + biComentario;
     ventas = LS('nv',[]);
     ventas.push({
-      id: Date.now()+1, cid: nuevoId, cn: n+' '+a, tipo: 'credito',
+      id: Date.now()+1, numFactura: siguienteNumeroFactura(), cid: nuevoId, cn: n+' '+a, tipo: 'credito',
       items: [{ pid: null, nombre: biNota, cant: 1, precio: biMonto, costo: 0 }],
       subtotal: biMonto, total: biMonto, ganancia: 0,
       fecha: biFechaFmt,
@@ -4266,6 +4292,22 @@ function agregarProducto(pid, cant, prod){
   clearV();
   renderIV();
 }
+function onDescTipoChange(){
+  var tipo = document.getElementById('vdesc-tipo').value;
+  var val = document.getElementById('vdesc-val');
+  // Al cambiar de tipo, reiniciar el campo con el formato correcto para cada caso
+  val.value = tipo === 'monto' ? '0.00' : '0';
+  calcDesc();
+}
+
+function onDescInput(input){
+  var tipo = document.getElementById('vdesc-tipo').value;
+  if(tipo === 'monto'){
+    formatoMoneda(input); // formato tipo calculadora, solo tiene sentido para montos en $
+  }
+  calcDesc();
+}
+
 function calcDesc(){
   var tipo = document.getElementById('vdesc-tipo') ? document.getElementById('vdesc-tipo').value : 'ninguno';
   var val = parseFloat(document.getElementById('vdesc-val') ? document.getElementById('vdesc-val').value : 0) || 0;
@@ -4368,7 +4410,7 @@ function saveV(){
   ventas = LS('nv',[]);
   var clienteData = cl ? {negocio:cl.negocio||'',tel:cl.tel||'',email:cl.email||'',dir:cl.dir||'',ciudad:cl.ciudad||'',estado:cl.estado||'',zip:cl.zip||''} : null;
   var descInfo = descMonto > 0 ? {tipo:descTipo, valor:descVal, monto:descMonto} : null;
-  ventas.push({id:Date.now(),cid:cid,cn:cn,tipo:tipo,items:iV.slice(),subtotal:subtot,descuento:descInfo,total:tot,ganancia:gan,fecha:fechaVenta,hora:new Date().toLocaleTimeString('es-US',{hour:'2-digit',minute:'2-digit'}),pagosFactura:pagosIniciales,clienteData:clienteData});
+  ventas.push({id:Date.now(),numFactura:siguienteNumeroFactura(),cid:cid,cn:cn,tipo:tipo,items:iV.slice(),subtotal:subtot,descuento:descInfo,total:tot,ganancia:gan,fecha:fechaVenta,hora:new Date().toLocaleTimeString('es-US',{hour:'2-digit',minute:'2-digit'}),pagosFactura:pagosIniciales,clienteData:clienteData});
   iV=[];
   renderIV();
   document.getElementById('vcl').value='';
@@ -4667,20 +4709,6 @@ function editarPedido(idx){
 var pedBarberiaSel = null;
 var pedBarberoCid = null;
 var pedBarberoNombre = null;
-
-function iniciarNuevoPedido(){
-  pedItemsTemp = [];
-  pedidoEditandoIdx = null;
-  pedBarberiaSel = null;
-  pedBarberoCid = null;
-  pedBarberoNombre = null;
-  document.getElementById('ped-lista-wrap').style.display = 'none';
-  document.getElementById('ped-form-wrap').style.display = 'none';
-  document.getElementById('ped-barbero-wrap').style.display = 'none';
-  document.getElementById('ped-barberia-wrap').style.display = 'block';
-  document.getElementById('ped-barberia-buscar').value = '';
-  renderBarberias('');
-}
 
 function renderBarberias(q){
   clientes = LS('ncl', []);
@@ -4989,6 +5017,8 @@ function iniciarNuevoPedido(){
   pedBarberoCid = null;
   pedBarberoNombre = null;
   document.getElementById('ped-lista-wrap').style.display = 'none';
+  document.getElementById('ped-form-wrap').style.display = 'none';
+  document.getElementById('ped-barbero-wrap').style.display = 'none';
   document.getElementById('ped-barberia-wrap').style.display = 'block';
   document.getElementById('ped-barberia-buscar').value = '';
   renderBarberias('');
@@ -5429,7 +5459,8 @@ function verCl(id){
     +'<button class="btn" style="flex:1;background:#F9A825;color:#1a1a1a;margin:0" onclick="irAPedidoCliente('+id+')">⚡ Pedido rápido</button>'
     +'</div>'
     +'<button class="btn" style="background:#6A1B9A;color:white" onclick="agregarBalanceInicial('+id+')">💰 Agregar balance inicial</button>'
-    +'<button class="btn" id="btn-vip-cl" style="background:'+(c.vipActivo?'#AD1457':'#546E7A')+';color:white" data-clid="'+id+'" onclick="toggleVIPBtn(this)">'+(c.vipActivo?'⭐ Inscrito en VIP — Toca para retirar':'☆ Inscribir en programa VIP')+'</button>';
+    +'<button class="btn" id="btn-vip-cl" style="background:'+(c.vipActivo?'#AD1457':'#546E7A')+';color:white" data-clid="'+id+'" onclick="toggleVIPBtn(this)">'+(c.vipActivo?'⭐ Inscrito en VIP — Toca para retirar':'☆ Inscribir en programa VIP')+'</button>'
+    +'<button class="btn" style="background:#1a237e;color:white" onclick="verHistorialCliente('+id+',\'completo\')">📋 Ver historial completo -pagos, facturas, VIP, visitas</button>';
   el.appendChild(header);
 
   // Programa de Fidelidad (compras generales de productos menores a $30)
@@ -6225,6 +6256,7 @@ function guardarBalanceInicial(id){
   ventas = LS('nv', []);
   ventas.push({
     id: Date.now(),
+    numFactura: siguienteNumeroFactura(),
     cid: cl.id,
     cn: cl.nombre+' '+cl.apellido,
     tipo: 'credito',
@@ -6681,6 +6713,85 @@ function genRpt(){
 
 var cxcClienteId = null;
 
+function cambiarPestanaCxC(tab){
+  window._cxcTabActiva = tab;
+  var btnPend = document.getElementById('cxc-tab-pendientes');
+  var btnSald = document.getElementById('cxc-tab-saldadas');
+  var listaPend = document.getElementById('cxc-lista');
+  var listaSald = document.getElementById('cxc-saldadas-lista');
+  var buscar = document.getElementById('cxc-buscar');
+  if(tab === 'saldadas'){
+    btnSald.style.background = 'var(--nbs-gold)'; btnSald.style.color = 'white';
+    btnPend.style.background = '#F0F0F2'; btnPend.style.color = 'var(--nbs-ink)';
+    listaPend.style.display = 'none';
+    listaSald.style.display = 'block';
+    buscar.placeholder = 'Buscar factura saldada...';
+    renderFacturasSaldadas(buscar.value);
+  } else {
+    btnPend.style.background = 'var(--nbs-gold)'; btnPend.style.color = 'white';
+    btnSald.style.background = '#F0F0F2'; btnSald.style.color = 'var(--nbs-ink)';
+    listaSald.style.display = 'none';
+    listaPend.style.display = 'block';
+    buscar.placeholder = 'Buscar por nombre o negocio...';
+    renderCxC(buscar.value);
+  }
+}
+
+function cxcBuscarActivo(q){
+  if(window._cxcTabActiva === 'saldadas'){ renderFacturasSaldadas(q); } else { renderCxC(q); }
+}
+
+function renderFacturasSaldadas(q){
+  ventas = LS('nv', []);
+  clientes = LS('ncl', []);
+  var el = document.getElementById('cxc-saldadas-lista');
+  el.innerHTML = '';
+
+  var saldadas = ventas.filter(function(v){
+    if(v.cancelada) return false;
+    var pagado = v.tipo==='credito'
+      ? (v.pagosFactura ? v.pagosFactura.filter(function(p){return typeof p.monto==='number';}).reduce(function(s,p){return s+p.monto;},0) : 0)
+      : v.total;
+    return (v.total - pagado) <= 0.005;
+  });
+
+  if(q && q.trim()){
+    var ql = q.toLowerCase();
+    saldadas = saldadas.filter(function(v){
+      var cl = clientes.find(function(c){ return String(c.id)===String(v.cid); });
+      var extra = cl ? ((cl.apodo||'')+' '+(cl.negocio||'')+' '+(cl.tel||'')+' '+(cl.dir||'')+' '+(cl.ciudad||'')+' '+(cl.contacto||'')+' '+(cl.contactoApodo||'')+' '+(cl.contactoTel||'')) : '';
+      return ((v.cn||'')+' '+extra+' '+(v.numFactura||'')).toLowerCase().indexOf(ql) >= 0;
+    });
+  }
+
+  saldadas.sort(function(a,b){ return parsearFechaVenta(b.fecha) - parsearFechaVenta(a.fecha); });
+
+  if(!saldadas.length){
+    el.innerHTML = '<div class="card"><p style="color:#aaa;text-align:center;padding:20px">No hay facturas saldadas todavía</p></div>';
+    return;
+  }
+
+  var resumen = document.createElement('div');
+  resumen.style.cssText = 'background:var(--nbs-green-bg);border-radius:12px;padding:14px;margin-bottom:12px';
+  resumen.innerHTML = '<div style="font-size:11px;color:var(--nbs-green-text);font-weight:500">✅ Facturas saldadas</div>'
+    +'<div style="font-size:22px;font-weight:700;color:var(--nbs-green-text);margin-top:2px">'+saldadas.length+' factura(s)</div>';
+  el.appendChild(resumen);
+
+  saldadas.forEach(function(v){
+    var cl = clientes.find(function(c){ return String(c.id)===String(v.cid); });
+    var card = document.createElement('div');
+    card.className = 'card';
+    card.style.cssText = 'cursor:pointer;border:0.5px solid var(--nbs-line);border-left:3px solid var(--nbs-green-text);padding:14px';
+    card.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center">'
+      +'<div><div style="font-size:15px;font-weight:700">'+(cl?nombreCl(cl):v.cn)+'</div>'
+      +'<div style="font-size:11px;color:#aaa;margin-top:2px">'+(v.numFactura?'#'+v.numFactura+' · ':'')+v.fecha+' · '+(v.tipo==='credito'?'A crédito':'Contado')+'</div></div>'
+      +'<div style="text-align:right"><div style="font-size:16px;font-weight:700;color:var(--nbs-green-text)">$'+fmtNum(v.total)+'</div>'
+      +'<div style="font-size:10px;color:var(--nbs-green-text)">✓ saldada</div></div></div>';
+    card.onclick = (function(vid){ return function(){ verFacturaProfesional(vid); }; })(v.id);
+    el.appendChild(card);
+  });
+}
+
 function renderCxC(q){
   ventas = LS('nv',[]);
   clientes = LS('ncl',[]);
@@ -6844,10 +6955,11 @@ function abrirAbono(cid){
       var card = document.createElement('div');
       card.style.cssText = 'background:#F8F4FF;border-radius:10px;padding:12px;margin-bottom:8px;border-left:3px solid '+(saldoFactura>0?'#C62828':'#2E7D32');
       card.innerHTML = '<div style="display:flex;justify-content:space-between;margin-bottom:6px">'
-        +'<div><div style="font-size:13px;font-weight:700">Factura '+v.fecha+' - '+v.hora+'</div>'
+        +'<div><div style="font-size:13px;font-weight:700">Factura '+(v.numFactura?'#'+v.numFactura+' · ':'')+v.fecha+' - '+v.hora+'</div>'
         +'<div style="font-size:11px;color:#aaa">Total factura: $'+fmtNum(v.total)+'</div></div>'
         +'<div style="text-align:right"><div style="font-size:16px;font-weight:700;color:'+(saldoFactura>0?'#C62828':'#2E7D32')+'">$'+fmtNum(saldoFactura)+'</div>'
-        +'<div style="font-size:11px;color:#aaa">'+(saldoFactura>0?'pendiente':'pagado')+'</div></div></div>';
+        +'<div style="font-size:11px;color:#aaa">'+(saldoFactura>0?'pendiente':'pagado')+'</div></div></div>'
+        +'<button type="button" onclick="verFacturaProfesional(\''+v.id+'\')" style="width:100%;padding:8px;background:#E8EAF6;color:#1a237e;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;margin-bottom:8px">👁️ Ver factura completa / Editar productos y pagos</button>';
 
       // Items of the invoice
       var items = v.items.map(function(it){ return it.nombre+' x'+it.cant; }).join(', ');
@@ -6873,8 +6985,8 @@ function abrirAbono(cid){
           infoSpan.innerHTML = (p.fecha||'') + (p.nota?' · '+p.nota:'') + (detalleMetodos ? '<div style="font-size:10px;color:#6A1B9A;margin-top:2px">'+detalleMetodos+'</div>' : '');
           
           var montoSpan = document.createElement('span');
-          montoSpan.style.cssText = 'color:#2E7D32;font-weight:700;margin:0 8px';
-          montoSpan.textContent = '+$'+fmtNum(p.monto);
+          montoSpan.style.cssText = 'color:'+(p.esDevolucion?'#E65100':'#2E7D32')+';font-weight:700;margin:0 8px';
+          montoSpan.textContent = (p.esDevolucion?'↩️ +$':'+$')+fmtNum(p.monto);
           
           var btnEdit = document.createElement('button');
           btnEdit.textContent = '✏️';
@@ -7259,7 +7371,7 @@ function renderFacturas(q){
 function crearTarjetaFactura(v){
     var pagado = v.tipo==='credito' ? (v.pagosFactura ? v.pagosFactura.filter(function(p){return typeof p.monto==='number';}).reduce(function(s,p){return s+p.monto;},0) : 0) : v.total;
     var saldo = Math.max(0, v.total - pagado);
-    var numFact = String(v.id).slice(-6);
+    var numFact = v.numFactura || String(v.id).slice(-6);
     var clForCard = clientes.find(function(x){return String(x.id)===String(v.cid);});
     var negForCard = clForCard && clForCard.negocio ? clForCard.negocio.trim() : '';
     var dirForCard = clForCard ? ((clForCard.dir||'')+(clForCard.ciudad?', '+clForCard.ciudad:'')).trim() : '';
@@ -7315,7 +7427,7 @@ function verFacturaProfesional(vid){
   var cl = clientes.find(function(c){ return String(c.id)===String(v.cid); });
   var pagado = v.tipo==='credito' ? (v.pagosFactura ? v.pagosFactura.filter(function(p){return typeof p.monto==='number';}).reduce(function(s,p){return s+p.monto;},0) : 0) : v.total;
   var saldo = Math.max(0, v.total - pagado);
-  var numFact = String(v.id).slice(-6);
+  var numFact = v.numFactura || String(v.id).slice(-6);
 
   var overlay = document.getElementById('factura-view-overlay');
   if(!overlay){
@@ -7360,6 +7472,22 @@ function verFacturaProfesional(vid){
     actBtns.appendChild(btn);
   });
   overlay.appendChild(actBtns);
+
+  var btnDevolucion = document.createElement('button');
+  btnDevolucion.className = 'no-print';
+  btnDevolucion.innerHTML = '↩️ Procesar devolución de producto(s)';
+  btnDevolucion.style.cssText = 'display:block;width:100%;max-width:400px;margin:0 auto 8px;padding:10px;background:#FFF3E0;color:#E65100;border:1px solid #FFCC80;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700';
+  btnDevolucion.onclick = function(){ abrirDevolucion(vid); };
+  overlay.appendChild(btnDevolucion);
+
+  if(!v.cancelada){
+    var btnCancelarFac = document.createElement('button');
+    btnCancelarFac.className = 'no-print';
+    btnCancelarFac.innerHTML = '🚫 Cancelar esta factura completa';
+    btnCancelarFac.style.cssText = 'display:block;width:100%;max-width:400px;margin:0 auto 16px;padding:10px;background:#FFEBEE;color:#C62828;border:1px solid #FFCDD2;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700';
+    btnCancelarFac.onclick = function(){ cancelarFacturaCompleta(vid); };
+    overlay.appendChild(btnCancelarFac);
+  }
 
   // Contenido de la factura
   var itemsHTML = v.items.map(function(it, idx){
@@ -7443,7 +7571,7 @@ function imprimirFacturaBT(vid){
   var cl = clientes.find(function(c){ return String(c.id)===String(v.cid); });
   var pagado = v.tipo==='credito' ? (v.pagosFactura ? v.pagosFactura.filter(function(p){return typeof p.monto==='number';}).reduce(function(s,p){return s+p.monto;},0) : 0) : v.total;
   var saldo = Math.max(0, v.total - pagado);
-  var numFact = String(v.id).slice(-6);
+  var numFact = v.numFactura || String(v.id).slice(-6);
 
   // Construir texto formateado para ESC POS de 32 caracteres (58mm)
   function pad(str, len){ return (str+'').substring(0,len)+Array(Math.max(0,len-(str+'').length)+1).join(' '); }
@@ -7589,13 +7717,18 @@ function dibujarContenidoFactura(ctx, W, pad, v, cl, pagado, saldo, numFact, abo
     // ===== Formato nuevo, SOLO para impresion termica =====
     ctx.fillStyle = '#000';
 
-    // Fila 1: Factura No. X  |  fecha hora
+    // Fila 1: hora (izquierda) | fecha (derecha)
     ctx.font = 'bold '+fs.lbl+'px sans-serif';
-    ctx.textAlign='left'; ctx.fillText('Factura No. '+numFact, pad, y);
-    ctx.textAlign='right'; ctx.fillText(v.fecha+'  '+v.hora, W-pad, y);
-    y += 30;
+    ctx.textAlign='left'; ctx.fillText(v.hora, pad, y);
+    ctx.textAlign='right'; ctx.fillText(v.fecha, W-pad, y);
+    y += 28;
 
-    // Fila 2: nombre del cliente + telefono juntos si caben; si no, telefono baja a su propia linea
+    // Fila 2: numero de factura, centrado y solo
+    ctx.font = 'bold '+(fs.lbl+2)+'px sans-serif';
+    ctx.textAlign='center'; ctx.fillText('Factura No. '+numFact, W/2, y);
+    y += 32;
+
+    // Fila 3: nombre del cliente + telefono juntos si caben; si no, telefono baja a su propia linea
     var nombreCl = v.cn || '';
     var telCl = (cl && cl.tel) ? cl.tel : '';
     ctx.font = 'bold '+fs.cliente+'px sans-serif';
@@ -7617,13 +7750,13 @@ function dibujarContenidoFactura(ctx, W, pad, v, cl, pagado, saldo, numFact, abo
       y += 26;
     }
 
-    // Nombre de la barberia/negocio - en su propia linea, SIN cortar (se parte en hasta 2 lineas si hace falta)
+    // Nombre de la barberia/negocio - letra mas pequena, en su propia linea, SIN cortar
     if(cl && cl.negocio){
-      ctx.font = 'bold '+fs.negocio+'px sans-serif';
+      ctx.font = fs.dirCl+'px sans-serif';
       var lineasNeg = envolverTexto(ctx, cl.negocio, W-2*pad, 2);
       lineasNeg.forEach(function(linea){
         ctx.textAlign='left'; ctx.fillText(linea, pad, y);
-        y += 28;
+        y += 24;
       });
     }
 
@@ -7689,76 +7822,86 @@ function dibujarContenidoFactura(ctx, W, pad, v, cl, pagado, saldo, numFact, abo
   ctx.beginPath(); ctx.moveTo(pad,y); ctx.lineTo(W-pad,y); ctx.stroke();
   y += colorMode?26:29;
 
-  ctx.font='bold '+fs.pago+'px sans-serif';
-  ctx.fillStyle = colorMode ? '#555' : '#000';
-  ctx.textAlign='left'; ctx.fillText('Tipo de pago:', pad, y);
-  ctx.fillStyle = colorMode ? (v.tipo==='credito' ? '#E65100' : '#2E7D32') : '#000';
-  ctx.textAlign='right'; ctx.fillText(v.tipo==='credito'?'A credito':'Contado', W-pad, y);
-  y += colorMode?30:33;
+  if(colorMode){
+    ctx.font='bold '+fs.pago+'px sans-serif';
+    ctx.fillStyle = '#555';
+    ctx.textAlign='left'; ctx.fillText('Tipo de pago:', pad, y);
+    ctx.fillStyle = (v.tipo==='credito' ? '#E65100' : '#2E7D32');
+    ctx.textAlign='right'; ctx.fillText(v.tipo==='credito'?'A credito':'Contado', W-pad, y);
+    y += 30;
 
-  ctx.font='bold '+fs.total+'px sans-serif';
-  ctx.fillStyle = colorMode ? '#1a237e' : '#000';
-  ctx.textAlign='left'; ctx.fillText('TOTAL', pad, y);
-  ctx.fillStyle = colorMode ? '#1565C0' : '#000';
-  ctx.textAlign='right'; ctx.fillText('$'+fmtNum(v.total), W-pad, y);
-  y += 18;
+    ctx.font='bold '+fs.total+'px sans-serif';
+    ctx.fillStyle = '#1a237e';
+    ctx.textAlign='left'; ctx.fillText('TOTAL', pad, y);
+    ctx.fillStyle = '#1565C0';
+    ctx.textAlign='right'; ctx.fillText('$'+fmtNum(v.total), W-pad, y);
+    y += 18;
 
-  if(abonos.length){
-    y += 20;
-    var boxTop = y - 18;
-    if(colorMode){
-      // estimar altura del recuadro antes de dibujar el fondo
+    if(abonos.length){
+      y += 20;
+      var boxTop = y - 18;
       var boxHeight = 22 + abonos.length*20 + 12;
       ctx.fillStyle = '#F1F8E9';
       ctx.fillRect(pad-6, boxTop, W-2*pad+12, boxHeight);
+      ctx.font='bold 12px sans-serif';
+      ctx.fillStyle = '#2E7D32';
+      ctx.textAlign='left'; ctx.fillText('HISTORIAL DE ABONOS', pad, y);
+      y += 22;
+      ctx.font='bold 13px sans-serif';
+      abonos.forEach(function(p){
+        ctx.fillStyle = '#555';
+        ctx.textAlign='left'; ctx.fillText(((p.fecha||'')+(p.nota?' - '+p.nota:'')).substring(0,24), pad, y);
+        ctx.fillStyle = '#2E7D32';
+        ctx.textAlign='right'; ctx.fillText('$'+fmtNum(p.monto), W-pad, y);
+        y += 20;
+      });
+      ctx.font='bold 14px sans-serif';
+      ctx.fillStyle = '#2E7D32';
+      ctx.textAlign='left'; ctx.fillText('Total abonado:', pad, y);
+      ctx.textAlign='right'; ctx.fillText('$'+fmtNum(pagado), W-pad, y);
+      y += 24;
+    } else {
+      y += 16;
     }
-    ctx.font='bold '+(colorMode?12:16)+'px sans-serif';
-    ctx.fillStyle = colorMode ? '#2E7D32' : '#000';
-    ctx.textAlign='left'; ctx.fillText('HISTORIAL DE ABONOS', pad, y);
-    y += colorMode?22:28;
-    ctx.font='bold '+(colorMode?13:17)+'px sans-serif';
-    abonos.forEach(function(p){
-      ctx.fillStyle = colorMode ? '#555' : '#000';
-      ctx.textAlign='left'; ctx.fillText(((p.fecha||'')+(p.nota?' - '+p.nota:'')).substring(0,colorMode?24:17), pad, y);
-      ctx.fillStyle = colorMode ? '#2E7D32' : '#000';
-      ctx.textAlign='right'; ctx.fillText('$'+fmtNum(p.monto), W-pad, y);
-      y += colorMode?20:27;
-    });
-    ctx.font='bold '+(colorMode?14:18)+'px sans-serif';
-    ctx.fillStyle = colorMode ? '#2E7D32' : '#000';
-    ctx.textAlign='left'; ctx.fillText('Total abonado:', pad, y);
-    ctx.textAlign='right'; ctx.fillText('$'+fmtNum(pagado), W-pad, y);
-    y += 12;
-    if(!colorMode){
-      ctx.lineWidth = 2;
-      ctx.strokeRect(pad-6, boxTop, W-2*pad+12, y-boxTop);
-    }
-    y += 24;
-  } else {
-    y += 16;
-  }
 
-  if(saldo>0){
-    var bt = y - 18;
-    if(colorMode){
+    if(saldo>0){
+      var bt = y - 18;
       ctx.fillStyle = '#FFEBEE';
       ctx.fillRect(pad-6, bt, W-2*pad+12, 26);
-    }
-    ctx.font='bold '+(colorMode?15:21)+'px sans-serif';
-    ctx.fillStyle = colorMode ? '#C62828' : '#000';
-    ctx.textAlign='left'; ctx.fillText('BALANCE PENDIENTE:', pad, y);
-    ctx.textAlign='right'; ctx.fillText('$'+fmtNum(saldo), W-pad, y);
-    if(!colorMode){ ctx.lineWidth = 2; ctx.strokeRect(pad-6, bt, W-2*pad+12, 26); }
-    y += 32;
-  } else {
-    if(colorMode){
+      ctx.font='bold 15px sans-serif';
+      ctx.fillStyle = '#C62828';
+      ctx.textAlign='left'; ctx.fillText('BALANCE PENDIENTE:', pad, y);
+      ctx.textAlign='right'; ctx.fillText('$'+fmtNum(saldo), W-pad, y);
+      y += 32;
+    } else {
       ctx.fillStyle = '#E8F5E9';
       ctx.fillRect(pad-6, y-18, W-2*pad+12, 26);
+      ctx.font='bold 15px sans-serif';
+      ctx.fillStyle = '#2E7D32';
+      ctx.textAlign='center'; ctx.fillText('\u2713 PAGADO COMPLETO', W/2, y);
+      y += 32;
     }
-    ctx.font='bold '+(colorMode?15:21)+'px sans-serif';
-    ctx.fillStyle = colorMode ? '#2E7D32' : '#000';
-    ctx.textAlign='center'; ctx.fillText('\u2713 PAGADO COMPLETO', W/2, y);
-    y += 32;
+  } else {
+    // ===== Formato nuevo y simple, SOLO para impresion termica =====
+    // Linea 1: TOTAL ESTA FACTURA $00.00
+    ctx.font='bold '+fs.total+'px sans-serif';
+    ctx.fillStyle = '#000';
+    ctx.textAlign='left'; ctx.fillText('TOTAL ESTA FACTURA', pad, y);
+    ctx.textAlign='right'; ctx.fillText('$'+fmtNum(v.total), W-pad, y);
+    y += 36;
+
+    // Linea 2: PAGO $00.00
+    ctx.font='bold '+fs.pago+'px sans-serif';
+    ctx.textAlign='left'; ctx.fillText('PAGO', pad, y);
+    ctx.textAlign='right'; ctx.fillText('$'+fmtNum(pagado), W-pad, y);
+    y += 30;
+
+    // Linea 3: BALANCE PENDIENTE $00.00 -o $0.00 si esta saldada-
+    ctx.font='bold '+fs.pago+'px sans-serif';
+    ctx.fillStyle = saldo>0 ? '#000' : '#000';
+    ctx.textAlign='left'; ctx.fillText('BALANCE PENDIENTE', pad, y);
+    ctx.textAlign='right'; ctx.fillText('$'+fmtNum(saldo), W-pad, y);
+    y += 34;
   }
 
   y += 16;
@@ -7821,7 +7964,7 @@ function imprimirFacturaDiseno(vid){
   var cl = clientes.find(function(c){ return String(c.id)===String(v.cid); });
   var pagado = v.tipo==='credito' ? (v.pagosFactura ? v.pagosFactura.filter(function(p){return typeof p.monto==='number';}).reduce(function(s,p){return s+p.monto;},0) : 0) : v.total;
   var saldo = Math.max(0, v.total - pagado);
-  var numFact = String(v.id).slice(-6);
+  var numFact = v.numFactura || String(v.id).slice(-6);
 
   conLogoListo(function(){
     var canvas = generarFacturaCanvas(v, cl, pagado, saldo, numFact, false);
@@ -7850,7 +7993,7 @@ function compartirFactura(vid){
   var cl = clientes.find(function(c){ return String(c.id)===String(v.cid); });
   var pagado = v.tipo==='credito' ? (v.pagosFactura ? v.pagosFactura.filter(function(p){return typeof p.monto==='number';}).reduce(function(s,p){return s+p.monto;},0) : 0) : v.total;
   var saldo = Math.max(0, v.total - pagado);
-  var numFact = String(v.id).slice(-6);
+  var numFact = v.numFactura || String(v.id).slice(-6);
 
   conLogoListo(function(){
     // Imagen a color (igual al diseño de la vista Ver) para enviar al cliente por WhatsApp/email
@@ -8074,12 +8217,27 @@ function agregarProductoAFactura(idx){
 
 function guardarEdicionFactura(vid){
   ventas = LS('nv', []);
+  loadProds();
   var idx = ventas.findIndex(function(x){ return String(x.id)===String(vid); });
   if(idx < 0) return;
   if(!window._facturaEditItems || !window._facturaEditItems.length){ alert('La factura debe tener al menos un producto.'); return; }
 
   var totalAntes = ventas[idx].total;
   var tipoAntes = ventas[idx].tipo;
+
+  // Ajustar inventario: primero restaurar lo que tenia la factura ANTES de editar,
+  // luego descontar lo que tiene AHORA -asi los cambios de cantidad se reflejan bien en el stock-.
+  ventas[idx].items.forEach(function(it){
+    if(!it.pid) return;
+    var p = productos.find(function(x){ return String(x.id)===String(it.pid); });
+    if(p) p.stock = (p.stock||0) + it.cant;
+  });
+  window._facturaEditItems.forEach(function(it){
+    if(!it.pid) return;
+    var p = productos.find(function(x){ return String(x.id)===String(it.pid); });
+    if(p) p.stock = (p.stock||0) - (it.cant||1);
+  });
+  SS('np', productos);
 
   ventas[idx].items = window._facturaEditItems.map(function(it){
     return { nombre: (it.nombre||'').trim(), cant: it.cant||1, precio: it.precio||0, pid: it.pid||null, costo: it.costo||0 };
@@ -9162,7 +9320,383 @@ function registrarCambioPrecio(nombre, precioAntes, precioDespues){
 
 // ===== HISTORIAL DE COMPRAS POR CLIENTE =====
 function cerrarFacturaEdit(){ var o=document.getElementById("fact-edit-overlay"); if(o) o.style.display="none"; }
+function cancelarFacturaCompleta(vid){
+  verificarPIN(function(){
+    ventas = LS('nv', []);
+    var v = ventas.find(function(x){ return String(x.id)===String(vid); });
+    if(!v) return;
+    if(!confirm('¿Cancelar esta factura de $'+fmtNum(v.total)+' por completo?\n\nEl stock de todos los productos será restaurado.\nLa factura quedará marcada como CANCELADA -no se borra, para mantener el registro-.')) return;
+    loadProds();
+    v.cancelada = true;
+    v.fechaCancelacion = fechaHoy();
+    v.items.forEach(function(it){
+      if(!it.pid) return;
+      var p = productos.find(function(x){ return String(x.id)===String(it.pid); });
+      if(p) p.stock = (p.stock||0) + it.cant;
+    });
+    SS('nv', ventas);
+    SS('np', productos);
+    alert('✅ Factura cancelada. El inventario ya fue restaurado.');
+    cerrarFacturaView();
+    renderFacturas('');
+  });
+}
+
 function cerrarFacturaView(){ var o=document.getElementById("factura-view-overlay"); if(o) o.style.display="none"; }
+
+function abrirDevolucion(vid){
+  window._cambioItems = [];
+  ventas = LS('nv', []);
+  clientes = LS('ncl', []);
+  var v = ventas.find(function(x){ return String(x.id)===String(vid); });
+  if(!v) return;
+  var cl = clientes.find(function(c){ return String(c.id)===String(v.cid); });
+
+  var overlay = document.getElementById('devolucion-overlay');
+  if(!overlay){
+    overlay = document.createElement('div');
+    overlay.id = 'devolucion-overlay';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:white;z-index:999996;overflow-y:auto;padding:16px';
+    document.body.appendChild(overlay);
+  }
+
+  var wrap = document.createElement('div');
+  wrap.style.cssText = 'max-width:480px;margin:0 auto';
+
+  var header = document.createElement('div');
+  header.style.cssText = 'display:flex;align-items:center;gap:10px;margin-bottom:16px';
+  var btnBack = document.createElement('button');
+  btnBack.textContent = '← Volver';
+  btnBack.style.cssText = 'background:#E8EAF6;border:none;border-radius:8px;padding:10px 16px;cursor:pointer;font-size:14px;font-weight:600;color:#1a237e';
+  btnBack.onclick = function(){ overlay.style.display='none'; };
+  var iconoNBS = document.createElement('img');
+  iconoNBS.src = 'icon-512.png'; iconoNBS.alt = 'NBS';
+  iconoNBS.style.cssText = 'width:32px;height:32px;margin-left:auto;border-radius:8px;cursor:pointer';
+  iconoNBS.onclick = function(){ overlay.style.display='none'; ir('p-ped'); };
+  header.appendChild(btnBack); header.appendChild(iconoNBS);
+  wrap.appendChild(header);
+
+  var titulo = document.createElement('div');
+  titulo.innerHTML = '<div style="font-size:18px;font-weight:800;color:#E65100">↩️ Procesar Devolución</div>'
+    +'<div style="font-size:13px;color:#aaa;margin-top:2px">'+(cl?nombreCl(cl):v.cn)+' · Factura '+(v.numFactura?'#'+v.numFactura+' · ':'')+v.fecha+'</div>';
+  wrap.appendChild(titulo);
+
+  var aviso = document.createElement('div');
+  aviso.style.cssText = 'background:#E3F2FD;border-radius:10px;padding:10px;margin:12px 0;font-size:12px;color:#1565C0;line-height:1.5';
+  aviso.innerHTML = '💡 La factura original NO se modifica -queda igual para tus reportes-. La devolución se registra por separado con la fecha de hoy, y el inventario se restaura automáticamente.';
+  wrap.appendChild(aviso);
+
+  var itemsWrap = document.createElement('div');
+  itemsWrap.id = 'dev-items-wrap';
+  v.items.forEach(function(it, idx){
+    var card = document.createElement('div');
+    card.style.cssText = 'background:#FAFAFA;border-radius:10px;padding:12px;margin-bottom:8px;border:0.5px solid #eee';
+    card.innerHTML = '<div style="font-size:14px;font-weight:700;margin-bottom:2px">'+it.nombre+'</div>'
+      +'<div style="font-size:11px;color:#aaa;margin-bottom:8px">Vendidos: '+it.cant+' · Precio unidad: $'+fmtNum(it.precio)+'</div>'
+      +'<label class="lbl" style="margin-bottom:2px">Cantidad a devolver</label>'
+      +'<input class="inp" type="number" min="0" max="'+it.cant+'" value="0" id="dev-cant-'+idx+'" style="margin-bottom:0" oninput="calcularTotalDevolucion(\''+vid+'\')">';
+    itemsWrap.appendChild(card);
+  });
+  wrap.appendChild(itemsWrap);
+
+  var totalCard = document.createElement('div');
+  totalCard.style.cssText = 'background:#FFF3E0;border-radius:10px;padding:14px;margin:12px 0;text-align:center';
+  totalCard.innerHTML = '<div style="font-size:11px;color:#E65100;font-weight:700">VALOR DEVUELTO</div>'
+    +'<div style="font-size:26px;font-weight:800;color:#E65100" id="dev-total-monto">$0.00</div>';
+  wrap.appendChild(totalCard);
+
+  // ===== Opcion de cambio por otro producto =====
+  var cambioToggleWrap = document.createElement('div');
+  cambioToggleWrap.style.cssText = 'background:#F3E5F5;border-radius:10px;padding:12px;margin-bottom:12px';
+  cambioToggleWrap.innerHTML = '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:700;color:#6A1B9A">'
+    +'<input type="checkbox" id="dev-es-cambio" onchange="toggleCambioProducto(\''+vid+'\')" style="width:18px;height:18px">'
+    +'🔁 Es un cambio por otro producto (no una devolución de dinero)</label>';
+  wrap.appendChild(cambioToggleWrap);
+
+  var cambioWrap = document.createElement('div');
+  cambioWrap.id = 'dev-cambio-wrap';
+  cambioWrap.style.cssText = 'display:none;margin-bottom:12px';
+  cambioWrap.innerHTML = '<label class="lbl">Buscar el producto nuevo que se lleva el cliente</label>'
+    +'<input class="inp" id="dev-cambio-buscar" type="text" placeholder="Escribe el nombre del producto..." autocomplete="off" oninput="buscarProductoParaCambio(\''+vid+'\')">'
+    +'<div id="dev-cambio-resultados" style="display:none;max-height:180px;overflow-y:auto;background:white;border:1px solid #ddd;border-radius:8px;margin-top:4px"></div>'
+    +'<div id="dev-cambio-items"></div>';
+  wrap.appendChild(cambioWrap);
+
+  var diferenciaCard = document.createElement('div');
+  diferenciaCard.id = 'dev-diferencia-card';
+  diferenciaCard.style.cssText = 'display:none;background:#E3F2FD;border-radius:10px;padding:14px;margin-bottom:12px;text-align:center';
+  wrap.appendChild(diferenciaCard);
+
+  if(v.tipo === 'contado'){
+    var avisoContado = document.createElement('div');
+    avisoContado.id = 'dev-aviso-tipo';
+    avisoContado.style.cssText = 'background:#FFEBEE;border-radius:10px;padding:10px;margin-bottom:12px;font-size:12px;color:#C62828';
+    avisoContado.textContent = 'Esta factura ya estaba pagada de contado — recuerda entregarle este monto en efectivo o como corresponda al cliente.';
+    wrap.appendChild(avisoContado);
+  } else {
+    var avisoCredito = document.createElement('div');
+    avisoCredito.id = 'dev-aviso-tipo';
+    avisoCredito.style.cssText = 'background:#E8F5E9;border-radius:10px;padding:10px;margin-bottom:12px;font-size:12px;color:#2E7D32';
+    avisoCredito.textContent = 'Esta factura es a crédito — el monto devuelto se restará automáticamente de lo que el cliente debe.';
+    wrap.appendChild(avisoCredito);
+  }
+
+  var notaLabel = document.createElement('div');
+  notaLabel.innerHTML = '<label class="lbl">Motivo (opcional)</label><input class="inp" id="dev-nota" type="text" placeholder="Ej: producto defectuoso, no era el correcto...">';
+  wrap.appendChild(notaLabel);
+
+  var btnConfirmar = document.createElement('button');
+  btnConfirmar.textContent = '✓ Confirmar devolución';
+  btnConfirmar.style.cssText = 'width:100%;padding:14px;background:#E65100;color:white;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;margin-top:8px';
+  btnConfirmar.onclick = function(){ procesarDevolucion(vid); };
+  wrap.appendChild(btnConfirmar);
+
+  overlay.innerHTML = '';
+  overlay.appendChild(wrap);
+  overlay.style.display = 'block';
+}
+
+function calcularTotalDevolucion(vid){
+  ventas = LS('nv', []);
+  var v = ventas.find(function(x){ return String(x.id)===String(vid); });
+  if(!v) return;
+  var total = 0;
+  v.items.forEach(function(it, idx){
+    var el = document.getElementById('dev-cant-'+idx);
+    var cant = el ? (parseInt(el.value)||0) : 0;
+    if(cant > it.cant){ cant = it.cant; el.value = it.cant; }
+    if(cant < 0){ cant = 0; el.value = 0; }
+    total += cant * it.precio;
+  });
+  var elTotal = document.getElementById('dev-total-monto');
+  if(elTotal) elTotal.textContent = '$'+fmtNum(total);
+  actualizarDiferenciaCambio(vid, total);
+}
+
+function toggleCambioProducto(vid){
+  var checked = document.getElementById('dev-es-cambio').checked;
+  document.getElementById('dev-cambio-wrap').style.display = checked ? 'block' : 'none';
+  document.getElementById('dev-diferencia-card').style.display = checked ? 'block' : 'none';
+  document.getElementById('dev-aviso-tipo').style.display = checked ? 'none' : 'block';
+  if(!checked){
+    window._cambioItems = [];
+    document.getElementById('dev-cambio-items').innerHTML = '';
+  }
+  var totalDev = parseFloat((document.getElementById('dev-total-monto').textContent||'$0').replace('$','').replace(',','')) || 0;
+  actualizarDiferenciaCambio(vid, totalDev);
+}
+
+function buscarProductoParaCambio(vid){
+  loadProds();
+  var q = document.getElementById('dev-cambio-buscar').value.trim().toLowerCase();
+  var elRes = document.getElementById('dev-cambio-resultados');
+  if(!q){ elRes.style.display = 'none'; elRes.innerHTML = ''; return; }
+  var encontrados = productos.filter(function(p){
+    return (p.nombre||'').toLowerCase().indexOf(q) >= 0;
+  }).slice(0, 8);
+  if(!encontrados.length){ elRes.innerHTML = '<div style="padding:10px;font-size:12px;color:#aaa">Sin resultados</div>'; elRes.style.display='block'; return; }
+  elRes.innerHTML = encontrados.map(function(p){
+    return '<div onclick="agregarProductoCambio(\''+vid+'\',\''+p.id+'\')" style="padding:10px;border-bottom:1px solid #f0f0f0;cursor:pointer;font-size:13px">'
+      +'<div style="font-weight:600">'+p.nombre+'</div>'
+      +'<div style="font-size:11px;color:#aaa">$'+fmtNum(p.precio)+' · Stock: '+(p.stock||0)+'</div></div>';
+  }).join('');
+  elRes.style.display = 'block';
+}
+
+function agregarProductoCambio(vid, pid){
+  loadProds();
+  var p = productos.find(function(x){ return String(x.id)===String(pid); });
+  if(!p) return;
+  if(!window._cambioItems) window._cambioItems = [];
+  window._cambioItems.push({ nombre: p.nombre, cant: 1, precio: p.precio, costo: p.costo||0, pid: p.id });
+  document.getElementById('dev-cambio-buscar').value = '';
+  document.getElementById('dev-cambio-resultados').style.display = 'none';
+  renderItemsCambio(vid);
+}
+
+function renderItemsCambio(vid){
+  var el = document.getElementById('dev-cambio-items');
+  var items = window._cambioItems || [];
+  el.innerHTML = items.map(function(it, i){
+    return '<div style="background:white;border-radius:8px;padding:10px;margin-top:6px;border:0.5px solid #eee">'
+      +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'
+      +'<div style="font-size:13px;font-weight:600">'+it.nombre+'</div>'
+      +'<button type="button" onclick="quitarItemCambio('+i+',\''+vid+'\')" style="background:var(--nbs-red-bg);color:var(--nbs-red-dark);border:none;border-radius:6px;padding:5px 9px;cursor:pointer;flex-shrink:0">✕</button>'
+      +'</div>'
+      +'<div style="display:flex;gap:8px">'
+      +'<div style="flex:1"><label class="lbl" style="margin-bottom:2px">Cantidad</label><input class="inp" type="number" min="1" value="'+it.cant+'" style="margin-bottom:0;text-align:center" onchange="cambiarCantCambioItem('+i+',this.value,\''+vid+'\')"></div>'
+      +'<div style="flex:1.4"><label class="lbl" style="margin-bottom:2px">Precio c/u (puedes ajustarlo)</label><input class="inp" type="text" inputmode="numeric" value="'+fmtNum(it.precio)+'" style="margin-bottom:0;text-align:center" oninput="formatoMoneda(this)" onchange="cambiarPrecioCambioItem('+i+',this.value,\''+vid+'\')"></div>'
+      +'</div>'
+      +'</div>';
+  }).join('');
+  var totalDev = parseFloat((document.getElementById('dev-total-monto').textContent||'$0').replace('$','').replace(',','')) || 0;
+  actualizarDiferenciaCambio(vid, totalDev);
+}
+
+function cambiarPrecioCambioItem(i, val, vid){
+  var n = parseFloat(val);
+  if(isNaN(n) || n<0) n=0;
+  window._cambioItems[i].precio = n;
+  renderItemsCambio(vid);
+}
+
+function cambiarCantCambioItem(i, val, vid){
+  var n = parseInt(val)||1;
+  if(n<1) n=1;
+  window._cambioItems[i].cant = n;
+  renderItemsCambio(vid);
+}
+
+function quitarItemCambio(i, vid){
+  window._cambioItems.splice(i,1);
+  renderItemsCambio(vid);
+}
+
+function actualizarDiferenciaCambio(vid, totalDevuelto){
+  var checked = document.getElementById('dev-es-cambio') ? document.getElementById('dev-es-cambio').checked : false;
+  var card = document.getElementById('dev-diferencia-card');
+  if(!checked || !card) return;
+  var items = window._cambioItems || [];
+  var totalNuevo = items.reduce(function(s,it){ return s+(it.cant*it.precio); },0);
+  var diferencia = totalNuevo - totalDevuelto;
+  var texto, color;
+  if(Math.abs(diferencia) < 0.005){
+    texto = '✓ Cambio exacto — el cliente no debe ni le debes nada';
+    color = '#2E7D32';
+  } else if(diferencia > 0){
+    texto = 'El cliente debe pagar <b>$'+fmtNum(diferencia)+'</b> más';
+    color = '#C62828';
+  } else {
+    texto = 'Debes devolverle <b>$'+fmtNum(Math.abs(diferencia))+'</b> al cliente';
+    color = '#E65100';
+  }
+  card.innerHTML = '<div style="font-size:11px;color:#1565C0;font-weight:700">PRODUCTO NUEVO: $'+fmtNum(totalNuevo)+' — DEVUELTO: $'+fmtNum(totalDevuelto)+'</div>'
+    +'<div style="font-size:16px;font-weight:800;margin-top:4px;color:'+color+'">'+texto+'</div>';
+}
+
+function procesarDevolucion(vid){
+  ventas = LS('nv', []);
+  loadProds();
+  var v = ventas.find(function(x){ return String(x.id)===String(vid); });
+  if(!v) return;
+
+  var esCambio = document.getElementById('dev-es-cambio') && document.getElementById('dev-es-cambio').checked;
+
+  var itemsDevueltos = [];
+  var totalDevuelto = 0;
+  v.items.forEach(function(it, idx){
+    var el = document.getElementById('dev-cant-'+idx);
+    var cant = el ? (parseInt(el.value)||0) : 0;
+    if(cant > 0){
+      itemsDevueltos.push({ nombre: it.nombre, cant: cant, precio: it.precio, costo: it.costo||0, pid: it.pid||null });
+      totalDevuelto += cant * it.precio;
+    }
+  });
+
+  if(!itemsDevueltos.length){ alert('Indica al menos una cantidad a devolver.'); return; }
+
+  var itemsNuevos = esCambio ? (window._cambioItems||[]) : [];
+  var totalNuevo = itemsNuevos.reduce(function(s,it){ return s+(it.cant*it.precio); },0);
+
+  if(esCambio && !itemsNuevos.length){ alert('Agrega al menos un producto nuevo para el cambio, o desmarca la opción de cambio.'); return; }
+
+  var diferencia = totalNuevo - totalDevuelto; // positivo: cliente debe pagar mas. negativo: hay que devolverle.
+
+  var mensajeConfirmar = esCambio
+    ? '¿Confirmar el cambio?\n\nDevuelve: $'+fmtNum(totalDevuelto)+'\nSe lleva: $'+fmtNum(totalNuevo)+'\n'+(diferencia>0.005?'Cliente debe pagar $'+fmtNum(diferencia)+' más.':diferencia<-0.005?'Debes devolverle $'+fmtNum(Math.abs(diferencia))+'.':'Cambio exacto, no debe nada.')
+    : '¿Confirmar devolución por $'+fmtNum(totalDevuelto)+'?\n\nEsto restaurará el inventario y quedará registrado con la fecha de hoy.';
+  if(!confirm(mensajeConfirmar)) return;
+
+  // Restaurar inventario de lo devuelto
+  itemsDevueltos.forEach(function(it){
+    if(it.pid){
+      var p = productos.find(function(x){ return String(x.id)===String(it.pid); });
+      if(p) p.stock = (p.stock||0) + it.cant;
+    }
+  });
+  // Descontar inventario de lo nuevo -si es un cambio-
+  itemsNuevos.forEach(function(it){
+    if(it.pid){
+      var p = productos.find(function(x){ return String(x.id)===String(it.pid); });
+      if(p) p.stock = (p.stock||0) - it.cant;
+    }
+  });
+  SS('np', productos);
+
+  var nota = document.getElementById('dev-nota').value.trim();
+  var fechaHoyStr = fechaHoy();
+  var horaHoyStr = new Date().toLocaleTimeString('es-US',{hour:'2-digit',minute:'2-digit'});
+
+  // Registrar en la bitacora de devoluciones/cambios -para el historial del cliente-
+  var devoluciones = LS('ndevoluciones', []);
+  devoluciones.push({
+    id: Date.now(),
+    ventaId: v.id,
+    numFacturaOrigen: v.numFactura || null,
+    cid: v.cid,
+    cn: v.cn,
+    fecha: fechaHoyStr,
+    hora: horaHoyStr,
+    items: itemsDevueltos,
+    itemsNuevos: itemsNuevos,
+    esCambio: esCambio,
+    monto: totalDevuelto,
+    montoNuevo: totalNuevo,
+    diferencia: diferencia,
+    nota: nota,
+    tipoFacturaOrigen: v.tipo
+  });
+  SS('ndevoluciones', devoluciones);
+
+  var mensajeFinal = '';
+
+  if(!esCambio){
+    // Devolucion pura de dinero -sin cambio de producto-
+    if(v.tipo === 'credito'){
+      if(!v.pagosFactura) v.pagosFactura = [];
+      v.pagosFactura.push({ monto: totalDevuelto, fecha: fechaHoyStr, nota: '↩️ Devolución'+(nota?': '+nota:''), esDevolucion: true });
+      SS('nv', ventas);
+      mensajeFinal = 'El balance pendiente del cliente ya se redujo.';
+    } else {
+      mensajeFinal = 'Recuerda entregarle este monto al cliente.';
+    }
+  } else {
+    // Cambio de producto: se ajusta solo la diferencia de precio
+    if(Math.abs(diferencia) < 0.005){
+      mensajeFinal = 'Cambio exacto — no se debe nada de ningún lado.';
+    } else if(diferencia < 0){
+      var montoADevolver = Math.abs(diferencia);
+      if(v.tipo === 'credito'){
+        if(!v.pagosFactura) v.pagosFactura = [];
+        v.pagosFactura.push({ monto: montoADevolver, fecha: fechaHoyStr, nota: '↩️ Cambio de producto'+(nota?': '+nota:''), esDevolucion: true });
+        SS('nv', ventas);
+        mensajeFinal = 'Se le resta $'+fmtNum(montoADevolver)+' de lo que debe -o devuélveselo si ya está saldada-.';
+      } else {
+        mensajeFinal = 'Recuerda devolverle $'+fmtNum(montoADevolver)+' al cliente.';
+      }
+    } else {
+      if(v.tipo === 'contado'){
+        mensajeFinal = 'Cobra $'+fmtNum(diferencia)+' adicionales al cliente ahora mismo.';
+      } else {
+        ventas.push({
+          id: Date.now()+1,
+          numFactura: siguienteNumeroFactura(),
+          cid: v.cid, cn: v.cn, tipo: 'credito',
+          items: [{ nombre: 'Diferencia por cambio de producto (factura #'+(v.numFactura||'')+')', cant: 1, precio: diferencia, costo: 0, pid: null }],
+          subtotal: diferencia, total: diferencia, ganancia: diferencia,
+          fecha: fechaHoyStr, hora: horaHoyStr, pagosFactura: []
+        });
+        SS('nv', ventas);
+        mensajeFinal = 'Se creó una factura nueva #'+ventas[ventas.length-1].numFactura+' por la diferencia de $'+fmtNum(diferencia)+' que el cliente debe.';
+      }
+    }
+  }
+
+  window._cambioItems = [];
+  document.getElementById('devolucion-overlay').style.display = 'none';
+  alert('✅ '+(esCambio?'Cambio':'Devolución')+' registrado.\n\nEl inventario ya fue ajustado.\n\n'+mensajeFinal);
+  cerrarFacturaView();
+}
 function cerrarHistorial(){ var o=document.getElementById("historial-overlay"); if(o) o.style.display="none"; }
 
 function verHistorialCliente(cid, modo){
@@ -9230,10 +9764,71 @@ function verHistorialCliente(cid, modo){
     +'<div style="font-size:18px;font-weight:800;color:#2E7D32">$'+fmtNum(frecuencia>0?totalGastado/frecuencia:0)+'</div>'
     +'</div>'
     +'</div>'
+    +'</div>'
+    +(function(){
+      // ===== Seccion Programa VIP =====
+      if(!cl.vipActivo) return '';
+      var vip = calcVIP(cid);
+      var keys = Object.keys(vip);
+      if(!keys.length) return '<div style="background:#FCE4EC;border-radius:12px;padding:12px;margin-bottom:16px">'
+        +'<div style="font-size:12px;color:#AD1457;font-weight:700;margin-bottom:4px">⭐ PROGRAMA VIP</div>'
+        +'<div style="font-size:12px;color:#777">Inscrito, sin compras VIP registradas todavía.</div></div>';
+      return '<div style="background:#FCE4EC;border-radius:12px;padding:12px;margin-bottom:16px">'
+        +'<div style="font-size:12px;color:#AD1457;font-weight:700;margin-bottom:8px">⭐ PROGRAMA VIP</div>'
+        +keys.map(function(k){
+          var v = vip[k];
+          var pct = Math.min(100, Math.round((v.puntos/10)*100));
+          return '<div style="margin-bottom:6px">'
+            +'<div style="display:flex;justify-content:space-between;font-size:12px;color:#333;margin-bottom:3px"><span>'+v.nombre+'</span><span style="font-weight:700">'+v.puntos+'/10</span></div>'
+            +'<div style="height:6px;background:white;border-radius:3px;overflow:hidden"><div style="height:100%;width:'+pct+'%;background:#AD1457"></div></div>'
+            +'</div>';
+        }).join('')
+        +'</div>';
+    })()
+    +(function(){
+      // ===== Seccion Visitas (para clientes tipo Tienda con recordatorio de visita) =====
+      if(!cl.tipoNegocio || cl.tipoNegocio==='Barberia') return '';
+      var intervalo = cl.intervaloVisitaDias;
+      var ultima = cl.ultimaVisitaNegocio;
+      var infoVisita = '';
+      if(ultima){
+        var fUlt = parsearFechaVenta(ultima);
+        var dias = Math.floor((new Date() - fUlt) / (1000*60*60*24));
+        infoVisita = 'Última visita: '+ultima+' ('+dias+' día(s) atrás)';
+        if(intervalo){
+          var proxima = new Date(fUlt); proxima.setDate(proxima.getDate()+intervalo);
+          infoVisita += '<br>Próxima visita: '+proxima.toLocaleDateString('en-US')+(proxima<=new Date()?' <span style="color:#C62828;font-weight:700">— ¡ya toca!</span>':'');
+        }
+      } else {
+        infoVisita = 'Todavía no se ha registrado ninguna visita a este negocio.';
+      }
+      return '<div style="background:#E3F2FD;border-radius:12px;padding:12px;margin-bottom:16px">'
+        +'<div style="font-size:12px;color:#1565C0;font-weight:700;margin-bottom:6px">🗺️ VISITAS AL NEGOCIO</div>'
+        +'<div style="font-size:12px;color:#333;line-height:1.6">'+infoVisita+(intervalo?'<br>Recordatorio configurado: cada '+intervalo+' días':'')+'</div>'
+        +'</div>';
+    })()
     +(topProds.length?'<div style="background:#FFF8E1;border-radius:12px;padding:12px;margin-bottom:16px">'
     +'<div style="font-size:12px;color:#E65100;font-weight:700;margin-bottom:8px">⭐ PRODUCTOS FAVORITOS</div>'
     +topProds.map(function(p){ return '<div style="font-size:13px;color:#333;padding:4px 0">• '+p+' ('+prodCount[p]+' unidades)</div>'; }).join('')
     +'</div>':'')
+    +(function(){
+      // ===== Seccion Devoluciones =====
+      var devoluciones = LS('ndevoluciones', []).filter(function(d){ return String(d.cid)===String(cid); });
+      if(!devoluciones.length) return '';
+      devoluciones.sort(function(a,b){ return parsearFechaVenta(b.fecha)-parsearFechaVenta(a.fecha); });
+      var totalDev = devoluciones.reduce(function(s,d){ return s+d.monto; },0);
+      return '<div style="background:#FFF3E0;border-radius:12px;padding:12px;margin-bottom:16px">'
+        +'<div style="font-size:12px;color:#E65100;font-weight:700;margin-bottom:8px">↩️ DEVOLUCIONES ('+devoluciones.length+' · $'+fmtNum(totalDev)+' en total)</div>'
+        +devoluciones.map(function(d){
+          var itemsTxt = d.items.map(function(it){ return it.nombre+' x'+it.cant; }).join(', ');
+          return '<div style="background:white;border-radius:8px;padding:8px 10px;margin-bottom:6px">'
+            +'<div style="display:flex;justify-content:space-between"><span style="font-size:12px;font-weight:700">'+d.fecha+'</span><span style="font-size:12px;font-weight:700;color:#E65100">$'+fmtNum(d.monto)+'</span></div>'
+            +'<div style="font-size:11px;color:#777;margin-top:2px">'+itemsTxt+(d.nota?' · '+d.nota:'')+'</div>'
+            +(d.numFacturaOrigen?'<div style="font-size:10px;color:#aaa;margin-top:2px">De la factura #'+d.numFacturaOrigen+'</div>':'')
+            +'</div>';
+        }).join('')
+        +'</div>';
+    })()
     +'<div style="font-size:13px;font-weight:700;color:#1a237e;margin-bottom:8px">'+(modo==='abiertas'?'Facturas con saldo pendiente':'Historial completo de compras y pagos')+'</div>'
     +(!ventasCl.length ? '<p style="color:#aaa;text-align:center;padding:20px;font-size:13px">'+(modo==='abiertas'?'No hay facturas abiertas — todo está al día.':'Sin compras registradas.')+'</p>' : '')
     +ventasCl.map(function(v){
@@ -9242,6 +9837,7 @@ function verHistorialCliente(cid, modo){
         pagosHtml = '<div style="margin-top:6px;padding-top:6px;border-top:0.5px dashed #ddd">'
           +v.pagosFactura.filter(function(p){return p.monto>0;}).map(function(p){
             var detalle = (p.metodos && p.metodos.length) ? p.metodos.map(function(m){ return METODOS_PAGO_LABELS[m.tipo]+' $'+fmtNum(m.monto); }).join(' + ') : '';
+            if(p.esDevolucion) return '<div style="font-size:11px;color:#E65100;padding:2px 0">↩️ '+p.fecha+' — Devolución $'+fmtNum(p.monto)+(p.nota?' ('+p.nota.replace('↩️ Devolución: ','')+')':'')+'</div>';
             return '<div style="font-size:11px;color:#2E7D32;padding:2px 0">✓ '+p.fecha+' — Pagó $'+fmtNum(p.monto)+(detalle?' ('+detalle+')':'')+'</div>';
           }).join('')
           +'</div>';
@@ -9300,12 +9896,12 @@ function verHistorialCliente(cid, modo){
       <div style="border-top:1px solid #ddd;padding-top:8px">
         <div style="font-size:12px;color:#666;font-weight:700;margin-bottom:6px">DESCUENTO (opcional)</div>
         <div style="display:flex;gap:8px;align-items:center">
-          <select class="inp" id="vdesc-tipo" style="flex:1;margin:0;padding:10px" onchange="calcDesc()">
+          <select class="inp" id="vdesc-tipo" style="flex:1;margin:0;padding:10px" onchange="onDescTipoChange()">
             <option value="ninguno">Sin descuento</option>
             <option value="pct">Porcentaje (%)</option>
             <option value="monto">Monto fijo ($)</option>
           </select>
-          <input class="inp" id="vdesc-val" type="number" placeholder="0" step="0.01" min="0" style="flex:1;margin:0" oninput="calcDesc()" value="0">
+          <input class="inp" id="vdesc-val" type="text" inputmode="numeric" placeholder="0" style="flex:1;margin:0" oninput="onDescInput(this)" value="0">
         </div>
         <div id="vdesc-linea" style="display:none;display:flex;justify-content:space-between;margin-top:6px;font-size:13px;color:#E65100">
           <span id="vdesc-label">Descuento</span><span id="vdesc-amt">-$0.00</span>
@@ -9499,6 +10095,7 @@ function verHistorialCliente(cid, modo){
 <div id="p-facturas" class="pg">
   <div style="display:flex;gap:8px;margin-bottom:16px"><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="volverAtras()">← Atrás</button><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="ir('p-ped')">🏠 Inicio</button></div>
   <h2 style="font-size:20px;font-weight:700;color:#1a237e;margin-bottom:10px">🧾 Facturas</h2>
+  <button onclick="renumerarTodasLasFacturas()" style="width:100%;padding:10px;background:#F5F5F5;color:#555;border:none;border-radius:8px;font-size:12px;cursor:pointer;margin-bottom:10px">🔢 Renumerar todas las facturas (de la más vieja a la más nueva)</button>
   <input class="inp" id="fact-buscar" type="text" placeholder="Buscar por nombre, apodo, negocio, teléfono..." oninput="renderFacturas(this.value)" autocomplete="off" style="margin-bottom:8px">
 
   <div class="card" style="padding:12px;margin-bottom:10px">
@@ -9668,9 +10265,14 @@ function verHistorialCliente(cid, modo){
 
 <div id="p-cxc" class="pg">
   <div style="display:flex;gap:8px;margin-bottom:16px"><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="volverAtras()">← Atrás</button><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="ir('p-ped')">🏠 Inicio</button></div>
-  <h2 style="font-size:20px;font-weight:700;color:#1a237e;margin-bottom:10px">💳 Cuentas por Cobrar</h2>
-  <input class="inp" id="cxc-buscar" type="text" placeholder="Buscar por nombre o negocio..." oninput="renderCxC(this.value)" autocomplete="off" style="margin-bottom:10px">
+  <h2 style="font-size:20px;font-weight:700;color:#1a237e;margin-bottom:10px">💳 Cuentas por Cobrar / Facturas</h2>
+  <div style="display:flex;gap:8px;margin-bottom:10px">
+    <button id="cxc-tab-pendientes" onclick="cambiarPestanaCxC('pendientes')" style="flex:1;padding:10px;background:var(--nbs-gold);color:white;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">📋 Pendientes</button>
+    <button id="cxc-tab-saldadas" onclick="cambiarPestanaCxC('saldadas')" style="flex:1;padding:10px;background:#F0F0F2;color:var(--nbs-ink);border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">✅ Facturas Saldadas</button>
+  </div>
+  <input class="inp" id="cxc-buscar" type="text" placeholder="Buscar por nombre o negocio..." oninput="cxcBuscarActivo(this.value)" autocomplete="off" style="margin-bottom:10px">
   <div id="cxc-lista"></div>
+  <div id="cxc-saldadas-lista" style="display:none"></div>
   <div id="cxc-abono" style="display:none">
     <div class="card">
       <p style="font-size:26px;font-weight:700;margin-bottom:6px" id="cxc-nombre"></p>

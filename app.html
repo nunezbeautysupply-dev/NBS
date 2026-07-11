@@ -5460,7 +5460,10 @@ function convertirPedidoAVenta(idx){
   loadProds();
   iV = p.items.map(function(it){
     var prod = productos.find(function(x){ return String(x.id)===String(it.pid); });
-    return { pid: it.pid, nombre: it.nombre, cant: it.cant, precio: prod?prod.precio:it.precio, costo: prod?prod.costo:it.costo };
+    // El PRECIO siempre debe ser el que quedo guardado en el pedido -respetando cualquier
+    // ajuste manual que se le haya hecho-, NUNCA se debe sobreescribir con el precio del catalogo.
+    // El COSTO si conviene refrescarlo del catalogo, ya que no es algo que el usuario edite a mano.
+    return { pid: it.pid, nombre: it.nombre, cant: it.cant, precio: it.precio, costo: prod?prod.costo:it.costo };
   });
   ir('p-v');
   if(p.cid) document.getElementById('vcl').value = p.cid;

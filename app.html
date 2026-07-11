@@ -522,6 +522,7 @@ button:active{transform:scale(0.96);filter:brightness(0.93);}
       <div style="display:flex;gap:8px">
         <input class="inp" id="ep-sku" type="text" placeholder="Sin asignar" style="flex:1">
         <button type="button" onclick="document.getElementById('ep-sku-foto').click()" style="flex-shrink:0;background:#00838F;color:white;border:none;border-radius:8px;padding:0 16px;cursor:pointer;font-size:18px">📷</button>
+        <button type="button" onclick="iniciarEscaneoVivo('ep-sku')" style="flex-shrink:0;background:#6A1B9A;color:white;border:none;border-radius:8px;padding:0 16px;cursor:pointer;font-size:18px" title="Escaneo en vivo con la cámara">🎥</button>
         <input type="file" id="ep-sku-foto" accept="image/*" capture="environment" style="display:none" onchange="leerBarcodeDeFoto(this)">
       </div>
       <div class="r2">
@@ -3595,8 +3596,66 @@ function abrirEscanerSKU(){
   document.getElementById('ep-sku-foto').click();
 }
 
+var _escaneoVivoStream = null;
+var _escaneoVivoActivo = false;
+var _escaneoVivoInputDestino = null;
+
+function iniciarEscaneoVivo(inputDestinoId){
+  if(!('BarcodeDetector' in window)){
+    alert('Tu navegador no soporta el escaneo en vivo con cámara. Usa el botón 📷 para tomar una foto del código en su lugar.');
+    return;
+  }
+  _escaneoVivoInputDestino = inputDestinoId;
+  var overlay = document.getElementById('scanner-overlay');
+  var video = document.getElementById('scanner-video');
+  var msg = document.getElementById('scanner-msg');
+  msg.style.display = 'none';
+
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+    .then(function(stream){
+      _escaneoVivoStream = stream;
+      video.srcObject = stream;
+      overlay.style.display = 'block';
+      _escaneoVivoActivo = true;
+
+      var detector = new BarcodeDetector({ formats: ['ean_13','ean_8','upc_a','upc_e','code_128','code_39','codabar','qr_code','data_matrix','itf'] });
+
+      function ciclo(){
+        if(!_escaneoVivoActivo) return;
+        detector.detect(video).then(function(codes){
+          if(codes.length > 0 && _escaneoVivoActivo){
+            var codigo = codes[0].rawValue;
+            _escaneoVivoActivo = false;
+            var elDestino = document.getElementById(_escaneoVivoInputDestino);
+            if(elDestino) elDestino.value = codigo;
+            msg.textContent = '✓ Código leído: ' + codigo;
+            msg.style.display = 'block';
+            msg.style.color = '#69F0AE';
+            setTimeout(cerrarEscanerSKU, 700);
+          } else if(_escaneoVivoActivo){
+            requestAnimationFrame(ciclo);
+          }
+        }).catch(function(){
+          if(_escaneoVivoActivo) requestAnimationFrame(ciclo);
+        });
+      }
+      requestAnimationFrame(ciclo);
+    })
+    .catch(function(err){
+      alert('No se pudo acceder a la cámara. Revisa que le hayas dado permiso a la app, o usa el botón 📷 para tomar una foto en su lugar.');
+    });
+}
+
 function cerrarEscanerSKU(){
-  // ya no necesario con el nuevo método
+  _escaneoVivoActivo = false;
+  var overlay = document.getElementById('scanner-overlay');
+  var video = document.getElementById('scanner-video');
+  if(_escaneoVivoStream){
+    _escaneoVivoStream.getTracks().forEach(function(track){ track.stop(); });
+    _escaneoVivoStream = null;
+  }
+  video.srcObject = null;
+  overlay.style.display = 'none';
 }
 
 // Recortador de fotos reutilizable: muestra un cuadro donde se puede arrastrar y hacer zoom
@@ -9619,7 +9678,7 @@ function verHistorialCliente(cid, modo){
       <div id="cxc-facturas" style="margin-bottom:12px"></div>
       <button class="btn" style="background:#F0F0F2;color:var(--nbs-ink);font-weight:700" onclick="document.getElementById('cxc-abono').style.display='none';document.getElementById('cxc-lista').style.display='block'">←Volver a la lista</button>
 
-<div id="scanner-overlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:#000;z-index:9999">
+<div id="scanner-overlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:#000;z-index:99998">
   <video id="scanner-video" style="width:100%;height:100%;object-fit:cover" autoplay muted playsinline></video>
   <div style="position:absolute;top:0;left:0;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none">
     <div style="width:80%;max-width:320px;height:120px;border:3px solid #fff;border-radius:12px;box-shadow:0 0 0 2000px rgba(0,0,0,0.5)"></div>
@@ -9660,13 +9719,28 @@ function verHistorialCliente(cid, modo){
   <h2 style="font-size:20px;font-weight:700;color:var(--nbs-ink);margin-bottom:14px">📤 Cuentas por Pagar</h2>
   <div id="cxp-contenido"></div>
 </div>
-<button id="btn-subir-flotante" onclick="window.scrollTo({top:0,behavior:'smooth'})" style="display:none;position:fixed;bottom:20px;right:16px;z-index:99990;background:var(--nbs-gold);color:white;border:none;border-radius:50px;padding:12px 18px;font-size:14px;font-weight:700;box-shadow:0 4px 14px rgba(0,0,0,0.25);cursor:pointer;align-items:center;gap:6px">⬆️ Subir</button>
+<button id="btn-subir-flotante" style="display:none;position:fixed;bottom:20px;right:16px;z-index:999997;background:var(--nbs-gold);color:white;border:none;border-radius:50px;padding:12px 18px;font-size:14px;font-weight:700;box-shadow:0 4px 14px rgba(0,0,0,0.25);cursor:pointer;align-items:center;gap:6px">⬆️ Subir</button>
 <script>
 (function(){
   var btn = document.getElementById('btn-subir-flotante');
-  window.addEventListener('scroll', function(){
-    if(window.scrollY > 400){ btn.style.display = 'flex'; } else { btn.style.display = 'none'; }
-  });
+  var ultimoObjetivoScroll = window;
+  function alManejarScroll(e){
+    var objetivo = e.target;
+    var esVentana = (objetivo === document || objetivo === document.documentElement || objetivo === document.body);
+    var scrollActual = esVentana ? window.scrollY : objetivo.scrollTop;
+    ultimoObjetivoScroll = esVentana ? window : objetivo;
+    if(scrollActual > 400){ btn.style.display = 'flex'; } else { btn.style.display = 'none'; }
+  }
+  // Captura -tercer parametro true- para detectar scroll dentro de CUALQUIER ventana emergente
+  // de pantalla completa, no solo la pantalla principal, ya que los eventos de scroll no burbujean.
+  document.addEventListener('scroll', alManejarScroll, true);
+  btn.onclick = function(){
+    if(ultimoObjetivoScroll === window){
+      window.scrollTo({top:0,behavior:'smooth'});
+    } else {
+      ultimoObjetivoScroll.scrollTo({top:0,behavior:'smooth'});
+    }
+  };
 })();
 </script>
 </body>

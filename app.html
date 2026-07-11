@@ -2891,8 +2891,14 @@ function editarSuplidor(id){
   var titulo = document.createElement('div');
   titulo.style.cssText = 'font-size:17px;font-weight:800;color:#1a237e';
   titulo.textContent = '✏️ Editar Suplidor';
+  var iconoNBS1 = document.createElement('img');
+  iconoNBS1.src = 'icon-512.png';
+  iconoNBS1.style.cssText = 'width:32px;height:32px;margin-left:auto;border-radius:8px;cursor:pointer';
+  iconoNBS1.alt = 'NBS';
+  iconoNBS1.onclick = function(){ overlay.style.display='none'; ir('p-ped'); };
   header.appendChild(btnBack);
   header.appendChild(titulo);
+  header.appendChild(iconoNBS1);
   wrap.appendChild(header);
 
   var campos = [
@@ -7269,6 +7275,17 @@ function verFacturaProfesional(vid){
   overlay.appendChild(nota);
 
   // Botones de acción (no se imprimen)
+  var headerFactura = document.createElement('div');
+  headerFactura.className = 'no-print';
+  headerFactura.style.cssText = 'display:flex;justify-content:flex-end;margin-bottom:8px;max-width:400px;margin-left:auto;margin-right:auto';
+  var iconoNBS2 = document.createElement('img');
+  iconoNBS2.src = 'icon-512.png';
+  iconoNBS2.style.cssText = 'width:32px;height:32px;border-radius:8px;cursor:pointer';
+  iconoNBS2.alt = 'NBS';
+  iconoNBS2.onclick = function(){ overlay.style.display='none'; ir('p-ped'); };
+  headerFactura.appendChild(iconoNBS2);
+  overlay.appendChild(headerFactura);
+
   var actBtns = document.createElement('div');
   actBtns.className = 'no-print';
   actBtns.style.cssText = 'display:flex;gap:8px;margin-bottom:16px;max-width:400px;margin-left:auto;margin-right:auto';
@@ -7841,8 +7858,14 @@ function editarFactura(vid){
   var titulo = document.createElement('div');
   titulo.style.cssText = 'font-size:17px;font-weight:500;color:var(--nbs-ink)';
   titulo.textContent = 'Editar factura';
+  var iconoNBS3 = document.createElement('img');
+  iconoNBS3.src = 'icon-512.png';
+  iconoNBS3.style.cssText = 'width:32px;height:32px;margin-left:auto;border-radius:8px;cursor:pointer';
+  iconoNBS3.alt = 'NBS';
+  iconoNBS3.onclick = function(){ overlay.style.display='none'; ir('p-ped'); };
   header.appendChild(btnBack);
   header.appendChild(titulo);
+  header.appendChild(iconoNBS3);
   wrap.appendChild(header);
 
   var numFactEdit = String(v.id).slice(-6);
@@ -7996,6 +8019,9 @@ function guardarEdicionFactura(vid){
   if(idx < 0) return;
   if(!window._facturaEditItems || !window._facturaEditItems.length){ alert('La factura debe tener al menos un producto.'); return; }
 
+  var totalAntes = ventas[idx].total;
+  var tipoAntes = ventas[idx].tipo;
+
   ventas[idx].items = window._facturaEditItems.map(function(it){
     return { nombre: (it.nombre||'').trim(), cant: it.cant||1, precio: it.precio||0, pid: it.pid||null, costo: it.costo||0 };
   });
@@ -8005,14 +8031,32 @@ function guardarEdicionFactura(vid){
     var fparts = fechaEl.value.split('-'); // YYYY-MM-DD del input
     if(fparts.length === 3) ventas[idx].fecha = fparts[1]+'/'+fparts[2]+'/'+fparts[0]; // guardar como MM/DD/YYYY
   }
-  ventas[idx].total = ventas[idx].items.reduce(function(s,it){ return s+(it.cant*it.precio); },0);
+  var totalDespues = ventas[idx].items.reduce(function(s,it){ return s+(it.cant*it.precio); },0);
+  ventas[idx].total = totalDespues;
+
+  var mensajeExtra = '';
+  // Si la factura era de CONTADO -ya pagada por completo- y el total subio al agregar productos,
+  // NO se puede asumir que lo nuevo tambien esta pagado. Se convierte a credito, se registra el
+  // pago que realmente se hizo -el monto original-, y la diferencia queda como saldo pendiente real.
+  if(tipoAntes === 'contado' && totalDespues > totalAntes + 0.001){
+    var diferencia = totalDespues - totalAntes;
+    ventas[idx].tipo = 'credito';
+    if(!ventas[idx].pagosFactura) ventas[idx].pagosFactura = [];
+    ventas[idx].pagosFactura.push({
+      monto: totalAntes,
+      fecha: ventas[idx].fecha,
+      nota: 'Pago original antes de agregar producto(s)'
+    });
+    mensajeExtra = '\n\n⚠️ Como ya se habían pagado $'+fmtNum(totalAntes)+' de esta factura, el producto nuevo agregó $'+fmtNum(diferencia)+' que el cliente TODAVÍA DEBE. La factura ahora aparece como "a crédito" con ese saldo pendiente en Cuentas por Cobrar.';
+  }
+
   SS('nv', ventas);
   window._facturaEditItems = null;
   window._facturaEditVid = null;
   window._facturaEditResultados = null;
   document.getElementById('fact-edit-overlay').style.display = 'none';
   renderFacturas(document.getElementById('fact-buscar') ? document.getElementById('fact-buscar').value : '');
-  alert('✅ Factura actualizada.');
+  alert('✅ Factura actualizada.'+mensajeExtra);
 }
 
 
@@ -8358,12 +8402,19 @@ function abrirConfigImpresora(){
     document.body.appendChild(overlay);
   }
 
-  var config = LS('printer_config', {nombre:'MUNBYN IMP001', papel:'58mm', activa:true});
-  var impresoras = LS('impresoras_lista', [
-    {id:1, nombre:'MUNBYN IMP001', papel:'58mm', notas:'Principal'},
-    {id:2, nombre:'Impresora 2', papel:'58mm', notas:''},
-    {id:3, nombre:'Impresora 3', papel:'58mm', notas:''}
-  ]);
+  var impresoras = LS('impresoras_lista', null);
+  if(!impresoras || !impresoras.length){
+    impresoras = [
+      {id:1, nombre:'Epson TM-P20', papel:'58mm', notas:'Principal'}
+    ];
+    SS('impresoras_lista', impresoras);
+  }
+  var config = LS('printer_config', null);
+  if(!config || !config.activa_id || !impresoras.find(function(i){return i.id===config.activa_id;})){
+    // Si nunca se eligio una activa (o la que tenia guardada ya no existe), usar la primera de la lista
+    config = { activa_id: impresoras[0].id, nombre: impresoras[0].nombre };
+    SS('printer_config', config);
+  }
 
   overlay.innerHTML = '';
   var wrap = document.createElement('div');
@@ -8379,8 +8430,15 @@ function abrirConfigImpresora(){
   var titulo = document.createElement('div');
   titulo.innerHTML = '<div style="font-size:18px;font-weight:800;color:#1a237e">🖨️ Impresoras Bluetooth</div>'
     +'<div style="font-size:12px;color:#aaa;margin-top:2px">Gestiona tus impresoras portátiles</div>';
+  var iconoNBS = document.createElement('img');
+  iconoNBS.src = 'icon-512.png';
+  iconoNBS.style.cssText = 'width:32px;height:32px;margin-left:auto;border-radius:8px';
+  iconoNBS.alt = 'NBS';
+  iconoNBS.onclick = function(){ overlay.style.display='none'; ir('p-ped'); };
+  iconoNBS.style.cursor = 'pointer';
   header.appendChild(btnBack);
   header.appendChild(titulo);
+  header.appendChild(iconoNBS);
   wrap.appendChild(header);
 
   // Info del modelo actual
@@ -8389,7 +8447,7 @@ function abrirConfigImpresora(){
   infoDiv.innerHTML = '<div style="font-size:12px;color:#1a237e;font-weight:700;margin-bottom:6px">📋 CÓMO CONECTAR TU IMPRESORA</div>'
     +'<div style="font-size:12px;color:#555;line-height:1.6">'
     +'1. Enciende la impresora<br>'
-    +'2. Ve a Ajustes → Bluetooth en tu Samsung<br>'
+    +'2. Ve a Ajustes → Bluetooth en tu teléfono<br>'
     +'3. Busca y empareja la impresora<br>'
     +'4. Regresa a la app y toca 🖨️ Imprimir<br>'
     +'5. En el diálogo elige tu impresora<br>'
@@ -8402,49 +8460,95 @@ function abrirConfigImpresora(){
   listTitle.textContent = 'Mis impresoras registradas';
   wrap.appendChild(listTitle);
 
-  impresoras.forEach(function(imp, idx){
-    var activa = config.activa_id === imp.id;
-    var row = document.createElement('div');
-    row.style.cssText = 'background:white;border-radius:12px;padding:14px;margin-bottom:8px;border:2px solid '+(activa?'#1565C0':'#e5e7eb')+';display:flex;align-items:center;gap:12px';
-    
-    var info = document.createElement('div');
-    info.style.cssText = 'flex:1';
-    info.innerHTML = '<input type="text" value="'+imp.nombre+'" id="printer-nombre-'+idx+'" style="width:100%;border:none;font-size:15px;font-weight:700;color:#1a237e;padding:0;background:transparent;margin-bottom:2px" placeholder="Nombre de la impresora">'
-      +'<div style="font-size:12px;color:#aaa">Papel: '+imp.papel+' · '+(imp.notas||'')+'</div>'
-      +(activa?'<div style="font-size:11px;color:#1565C0;font-weight:700;margin-top:4px">✓ ACTIVA AHORA</div>':'');
+  var listaWrap = document.createElement('div');
+  listaWrap.id = 'printer-lista-wrap';
+  wrap.appendChild(listaWrap);
 
-    var btnSelDiv = document.createElement('div');
-    btnSelDiv.style.cssText = 'display:flex;flex-direction:column;gap:4px';
-    
-    var btnSel = document.createElement('button');
-    btnSel.textContent = activa ? '✓ Activa' : 'Usar esta';
-    btnSel.style.cssText = 'padding:6px 12px;background:'+(activa?'#1565C0':'#E8EAF6')+';color:'+(activa?'white':'#1a237e')+';border:none;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700';
-    btnSel.onclick = (function(i){ return function(){
-      var nombre = document.getElementById('printer-nombre-'+i).value.trim() || impresoras[i].nombre;
-      impresoras[i].nombre = nombre;
-      config.activa_id = impresoras[i].id;
-      config.nombre = nombre;
-      SS('printer_config', config);
-      SS('impresoras_lista', impresoras);
-      abrirConfigImpresora();
-    }; })(idx);
+  function renderListaImpresoras(){
+    listaWrap.innerHTML = '';
+    impresoras.forEach(function(imp, idx){
+      var activa = config.activa_id === imp.id;
+      var row = document.createElement('div');
+      row.style.cssText = 'background:white;border-radius:12px;padding:14px;margin-bottom:8px;border:2px solid '+(activa?'#1565C0':'#e5e7eb')+';display:flex;align-items:center;gap:12px';
 
-    var btnGuardar = document.createElement('button');
-    btnGuardar.textContent = '💾 Guardar';
-    btnGuardar.style.cssText = 'padding:5px 10px;background:#f5f5f5;color:#555;border:none;border-radius:8px;cursor:pointer;font-size:11px';
-    btnGuardar.onclick = (function(i){ return function(){
-      var nombre = document.getElementById('printer-nombre-'+i).value.trim() || impresoras[i].nombre;
-      impresoras[i].nombre = nombre;
-      SS('impresoras_lista', impresoras);
-      alert('✅ Guardado');
-    }; })(idx);
+      var info = document.createElement('div');
+      info.style.cssText = 'flex:1';
+      info.innerHTML = '<input type="text" value="'+imp.nombre+'" id="printer-nombre-'+idx+'" style="width:100%;border:none;font-size:15px;font-weight:700;color:#1a237e;padding:0;background:transparent;margin-bottom:2px" placeholder="Nombre de la impresora">'
+        +'<div style="font-size:12px;color:#aaa">Papel: '+imp.papel+(imp.notas?' · '+imp.notas:'')+'</div>'
+        +(activa?'<div style="font-size:11px;color:#1565C0;font-weight:700;margin-top:4px">✓ ACTIVA AHORA</div>':'');
 
-    btnSelDiv.appendChild(btnSel);
-    btnSelDiv.appendChild(btnGuardar);
-    row.appendChild(info);
-    row.appendChild(btnSelDiv);
-    wrap.appendChild(row);
-  });
+      var btnSelDiv = document.createElement('div');
+      btnSelDiv.style.cssText = 'display:flex;flex-direction:column;gap:4px';
+
+      var btnSel = document.createElement('button');
+      btnSel.textContent = activa ? '✓ Activa' : 'Usar esta';
+      btnSel.style.cssText = 'padding:6px 12px;background:'+(activa?'#1565C0':'#E8EAF6')+';color:'+(activa?'white':'#1a237e')+';border:none;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700';
+      btnSel.onclick = (function(i){ return function(){
+        var nombre = document.getElementById('printer-nombre-'+i).value.trim() || impresoras[i].nombre;
+        impresoras[i].nombre = nombre;
+        config.activa_id = impresoras[i].id;
+        config.nombre = nombre;
+        SS('printer_config', config);
+        SS('impresoras_lista', impresoras);
+        renderListaImpresoras();
+      }; })(idx);
+
+      var btnGuardar = document.createElement('button');
+      btnGuardar.textContent = '💾 Guardar';
+      btnGuardar.style.cssText = 'padding:5px 10px;background:#f5f5f5;color:#555;border:none;border-radius:8px;cursor:pointer;font-size:11px';
+      btnGuardar.onclick = (function(i){ return function(){
+        var nombre = document.getElementById('printer-nombre-'+i).value.trim() || impresoras[i].nombre;
+        impresoras[i].nombre = nombre;
+        if(config.activa_id === impresoras[i].id) config.nombre = nombre;
+        SS('impresoras_lista', impresoras);
+        SS('printer_config', config);
+        flash('printer-mk-'+i);
+      }; })(idx);
+
+      var btnEliminar = document.createElement('button');
+      btnEliminar.textContent = '🗑️ Eliminar';
+      btnEliminar.style.cssText = 'padding:5px 10px;background:var(--nbs-red-bg);color:var(--nbs-red-dark);border:none;border-radius:8px;cursor:pointer;font-size:11px';
+      btnEliminar.onclick = (function(i){ return function(){
+        if(impresoras.length <= 1){ alert('Debes tener al menos una impresora registrada. Agrega otra antes de eliminar esta.'); return; }
+        if(!confirm('¿Eliminar "'+impresoras[i].nombre+'" de tu lista? Esto no afecta la impresora física, solo la quita de este registro.')) return;
+        var eraActiva = config.activa_id === impresoras[i].id;
+        impresoras.splice(i, 1);
+        if(eraActiva){ config.activa_id = impresoras[0].id; config.nombre = impresoras[0].nombre; }
+        SS('impresoras_lista', impresoras);
+        SS('printer_config', config);
+        renderListaImpresoras();
+      }; })(idx);
+
+      var snkGuardado = document.createElement('div');
+      snkGuardado.className = 'snk';
+      snkGuardado.id = 'printer-mk-'+idx;
+      snkGuardado.textContent = 'Guardado';
+      snkGuardado.style.cssText += 'margin-top:6px;font-size:11px;padding:6px 8px';
+
+      btnSelDiv.appendChild(btnSel);
+      btnSelDiv.appendChild(btnGuardar);
+      btnSelDiv.appendChild(btnEliminar);
+      row.appendChild(info);
+      row.appendChild(btnSelDiv);
+      listaWrap.appendChild(row);
+      listaWrap.appendChild(snkGuardado);
+    });
+  }
+  renderListaImpresoras();
+
+  // Agregar nueva impresora
+  var btnAgregar = document.createElement('button');
+  btnAgregar.textContent = '+ Agregar otra impresora';
+  btnAgregar.style.cssText = 'width:100%;padding:12px;background:var(--nbs-gold-bg);color:var(--nbs-gold-dark);border:1px dashed var(--nbs-gold);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:8px;margin-top:4px';
+  btnAgregar.onclick = function(){
+    var nombreNueva = prompt('Nombre de la nueva impresora (ej: "La de repuesto", "Epson del carro"):', '');
+    if(nombreNueva === null || !nombreNueva.trim()) return;
+    var nuevoId = Date.now();
+    impresoras.push({ id: nuevoId, nombre: nombreNueva.trim(), papel: '58mm', notas: '' });
+    SS('impresoras_lista', impresoras);
+    renderListaImpresoras();
+  };
+  wrap.appendChild(btnAgregar);
 
   // Tip de batería
   var tip = document.createElement('div');
@@ -8455,7 +8559,7 @@ function abrirConfigImpresora(){
     +'1. Apaga esa impresora<br>'
     +'2. Enciende la impresora de repuesto<br>'
     +'3. En el diálogo de impresión selecciona la nueva<br>'
-    +'4. Ven aquí y marca cuál es la activa ahora<br>'
+    +'4. Ven aquí y toca "Usar esta" en la nueva<br>'
     +'</div>';
   wrap.appendChild(tip);
 
@@ -9041,7 +9145,10 @@ function verHistorialCliente(cid, modo){
     document.body.appendChild(overlay);
   }
 
-  overlay.innerHTML = '<button onclick="cerrarHistorial()" style="background:#E8EAF6;border:none;border-radius:8px;padding:10px 16px;cursor:pointer;font-size:14px;font-weight:600;color:#1a237e;margin-bottom:16px">← Volver</button>'
+  overlay.innerHTML = '<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">'
+    +'<button onclick="cerrarHistorial()" style="background:#E8EAF6;border:none;border-radius:8px;padding:10px 16px;cursor:pointer;font-size:14px;font-weight:600;color:#1a237e">← Volver</button>'
+    +'<img src="icon-512.png" alt="NBS" style="width:32px;height:32px;margin-left:auto;border-radius:8px;cursor:pointer" onclick="cerrarHistorial();ir(\'p-ped\')">'
+    +'</div>'
     +'<div style="background:linear-gradient(135deg,#1a237e,#283593);color:white;border-radius:12px;padding:16px;margin-bottom:16px">'
     +'<div style="font-size:18px;font-weight:800">'+nombreCl(cl)+'</div>'
     +'<div style="font-size:13px;opacity:0.8;margin-top:4px">🏪 '+(cl.negocio||'Sin barbería')+'</div>'

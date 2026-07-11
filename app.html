@@ -3008,7 +3008,7 @@ function verSup(id, modo){
     c._pagado = pagado;
     c._saldo = Math.max(0, c.total - pagado);
   });
-  var comprasS = modo==='abiertas' ? todasComprasS.filter(function(c){ return c.tipo==='credito' && c._saldo > 0; }) : todasComprasS;
+  var comprasS = modo==='abiertas' ? todasComprasS.filter(function(c){ return c.tipo==='credito' && esSaldoPendiente(c._saldo); }) : todasComprasS;
 
   var totalComprado = todasComprasS.reduce(function(sum,c){ return sum+c.total; },0);
   var totalPagado = todasComprasS.filter(function(c){ return c.tipo==='credito'; }).reduce(function(sum,c){ return sum+c._pagado; },0);
@@ -3063,7 +3063,7 @@ function verSup(id, modo){
       var card = document.createElement('div');
       card.className = 'card';
       card.style.cursor = 'pointer';
-      card.style.borderLeft = '4px solid ' + (c.tipo==='credito' ? (saldo>0?'#C62828':'#2E7D32') : '#1565C0');
+      card.style.borderLeft = '4px solid ' + (c.tipo==='credito' ? (esSaldoPendiente(saldo)?'#C62828':'#2E7D32') : '#1565C0');
       var pagosHtml = '';
       if(modo==='completo' && c.tipo==='credito' && c.pagosFactura && c.pagosFactura.length){
         pagosHtml = '<div style="margin-top:6px;padding-top:6px;border-top:0.5px dashed #ddd">'
@@ -3078,7 +3078,7 @@ function verSup(id, modo){
         +'<div style="font-size:12px;color:#aaa;margin-top:2px">'+c.items.length+' producto(s)</div>'
         +'<div style="margin-top:4px"><span style="font-size:13px;padding:3px 9px;border-radius:10px;font-weight:500;'+(c.tipo==='credito'?'background:#FFF8E1;color:#E65100':'background:#E8F5E9;color:#2E7D32')+'">'+(c.tipo==='credito'?'a credito':'contado')+'</span></div></div>'
         +'<div style="text-align:right"><div style="font-size:18px;font-weight:700;color:#1565C0">$'+fmtNum(c.total)+'</div>'
-        +(c.tipo==='credito'?'<div style="font-size:12px;color:'+(saldo>0?'#C62828':'#2E7D32')+'">'+(saldo>0?'Debo: $'+fmtNum(saldo):'Pagado')+'</div>':'')
+        +(c.tipo==='credito'?'<div style="font-size:12px;color:'+(esSaldoPendiente(saldo)?'#C62828':'#2E7D32')+'">'+(esSaldoPendiente(saldo)?'Debo: $'+fmtNum(saldo):'Pagado')+'</div>':'')
         +'</div></div>'
         +pagosHtml;
       card.onclick = (function(compra){ return function(){ verFacturaCompra(compra, id); }; })(c);
@@ -3116,7 +3116,7 @@ function verFacturaCompra(c, sid){
       '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f0f0f0">'
       +'<span style="color:#777">Total pagado</span><span style="font-weight:700;color:#2E7D32">$'+fmtNum(pagado)+'</span></div>'
       +'<div style="display:flex;justify-content:space-between;padding:8px 0">'
-      +'<span style="color:#777">Saldo pendiente</span><span style="font-weight:700;color:'+(saldo>0?'#C62828':'#2E7D32')+'">$'+fmtNum(saldo)+'</span></div>'
+      +'<span style="color:#777">Saldo pendiente</span><span style="font-weight:700;color:'+(esSaldoPendiente(saldo)?'#C62828':'#2E7D32')+'">$'+fmtNum(saldo)+'</span></div>'
       : '');
   el.appendChild(header);
 
@@ -3147,7 +3147,7 @@ function verFacturaCompra(c, sid){
     el.appendChild(pagCard);
   }
 
-  if(c.tipo==='credito' && saldo > 0){
+  if(c.tipo==='credito' && esSaldoPendiente(saldo)){
     var payCard = document.createElement('div');
     payCard.className = 'card';
     payCard.innerHTML = '<div style="font-size:13px;font-weight:700;color:#5D4037;margin-bottom:8px">APLICAR PAGO A ESTA FACTURA</div>'
@@ -3529,6 +3529,13 @@ function renderCatalogo(q){
 
 var productoEditandoId = null;
 
+
+// Debido a como las computadoras manejan los decimales, una resta como 19.99 - 19.99
+// a veces no da exactamente 0 -puede dar un residuo minusculo como 0.000000000000002-.
+// Esta funcion evita que ese residuo haga parecer que una factura pagada todavia debe algo.
+function esSaldoPendiente(saldo){
+  return saldo > 0.005;
+}
 
 function fmtNum(n){
   if(n===undefined||n===null) return '0.00';
@@ -5502,14 +5509,14 @@ function verCl(id){
           +'<div style="margin-top:4px"><span style="font-size:13px;padding:3px 9px;border-radius:10px;font-weight:600;background:#FFEBEE;color:#B71C1C">🚫 Cancelada</span></div></div>'
           +'<div style="text-align:right"><div style="font-size:18px;font-weight:700;color:#aaa;text-decoration:line-through">$'+fmtNum(v.total)+'</div></div></div>';
       } else {
-        card.style.borderLeft='4px solid '+(v.tipo==='credito'?(saldo>0?'#C62828':'#2E7D32'):'#1565C0');
+        card.style.borderLeft='4px solid '+(v.tipo==='credito'?(esSaldoPendiente(saldo)?'#C62828':'#2E7D32'):'#1565C0');
         card.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center">'
           +'<div><div style="font-size:14px;font-weight:700">'+v.fecha+' - '+v.hora+'</div>'
           +'<div style="font-size:12px;color:#aaa;margin-top:2px">'+v.items.length+' producto(s)'+(v.modificada?' · <span style="color:#E65100">Modificada</span>':'')+'</div>'
           +'<div style="margin-top:4px"><span style="font-size:16px;padding:4px 11px;border-radius:10px;font-weight:600;'+(v.tipo==='credito'?'background:#FFF8E1;color:#E65100':'background:#E8F5E9;color:#2E7D32')+'">'+(v.tipo==='credito'?'a credito':v.tipo)+'</span></div></div>'
           +'<div style="text-align:right">'
           +'<div style="font-size:18px;font-weight:700;color:#1565C0">$'+fmtNum(v.total)+'</div>'
-          +(v.tipo==='credito'?'<div style="font-size:12px;color:'+(saldo>0?'#C62828':'#2E7D32')+'">'+(saldo>0?'Debe: $'+fmtNum(saldo):'Pagado')+'</div>':'')
+          +(v.tipo==='credito'?'<div style="font-size:12px;color:'+(esSaldoPendiente(saldo)?'#C62828':'#2E7D32')+'">'+(esSaldoPendiente(saldo)?'Debe: $'+fmtNum(saldo):'Pagado')+'</div>':'')
           +'</div></div>';
       }
       card.onclick=(function(venta){return function(){verFacturaProfesional(venta.id);};})(v);
@@ -5545,7 +5552,7 @@ function verFactura(v){
     card.innerHTML+='<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f0f0f0">'
       +'<span style="color:#777">Total pagado</span><span style="font-weight:700;color:#2E7D32">$'+fmtNum(pagado)+'</span></div>'
       +'<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f0f0f0">'
-      +'<span style="color:#777">Balance pendiente</span><span style="font-weight:700;color:'+(saldo>0?'#C62828':'#2E7D32')+'">$'+fmtNum(saldo)+'</span></div>';
+      +'<span style="color:#777">Balance pendiente</span><span style="font-weight:700;color:'+(esSaldoPendiente(saldo)?'#C62828':'#2E7D32')+'">$'+fmtNum(saldo)+'</span></div>';
   }
   el.appendChild(card);
 
@@ -5576,7 +5583,7 @@ function verFactura(v){
     el.appendChild(pagCard);
   }
 
-  if(v.tipo==='credito' && saldo > 0){
+  if(v.tipo==='credito' && esSaldoPendiente(saldo)){
     var payCard=document.createElement('div');payCard.className='card';
     payCard.innerHTML='<div style="font-size:13px;font-weight:700;color:#1a237e;margin-bottom:8px">APLICAR PAGO A ESTA FACTURA</div>'
       +'<div style="font-size:12px;color:#aaa;margin-bottom:8px">Saldo pendiente: $'+fmtNum(saldo)+'</div>'
@@ -6814,7 +6821,7 @@ function renderCxC(q){
     var b = balancesPorCliente[k];
     var cl = clientes.find(function(c){ return String(c.id)===String(b.cid); });
     return {cid:b.cid, cn:b.cn, total:b.total, saldo:Math.max(0,b.total-b.pagado), negocio: cl ? (cl.negocio||'') : ''};
-  }).filter(function(b){ return b.saldo > 0; });
+  }).filter(function(b){ return esSaldoPendiente(b.saldo); });
 
   // Filtrar por búsqueda (nombre, negocio, apodo, teléfono, o dirección del cliente)
   if(q && q.trim()){
@@ -6953,12 +6960,12 @@ function abrirAbono(cid){
       if(saldoFactura < 0) saldoFactura = 0;
 
       var card = document.createElement('div');
-      card.style.cssText = 'background:#F8F4FF;border-radius:10px;padding:12px;margin-bottom:8px;border-left:3px solid '+(saldoFactura>0?'#C62828':'#2E7D32');
+      card.style.cssText = 'background:#F8F4FF;border-radius:10px;padding:12px;margin-bottom:8px;border-left:3px solid '+(esSaldoPendiente(saldoFactura)?'#C62828':'#2E7D32');
       card.innerHTML = '<div style="display:flex;justify-content:space-between;margin-bottom:6px">'
         +'<div><div style="font-size:13px;font-weight:700">Factura '+(v.numFactura?'#'+v.numFactura+' · ':'')+v.fecha+' - '+v.hora+'</div>'
         +'<div style="font-size:11px;color:#aaa">Total factura: $'+fmtNum(v.total)+'</div></div>'
-        +'<div style="text-align:right"><div style="font-size:16px;font-weight:700;color:'+(saldoFactura>0?'#C62828':'#2E7D32')+'">$'+fmtNum(saldoFactura)+'</div>'
-        +'<div style="font-size:11px;color:#aaa">'+(saldoFactura>0?'pendiente':'pagado')+'</div></div></div>'
+        +'<div style="text-align:right"><div style="font-size:16px;font-weight:700;color:'+(esSaldoPendiente(saldoFactura)?'#C62828':'#2E7D32')+'">$'+fmtNum(saldoFactura)+'</div>'
+        +'<div style="font-size:11px;color:#aaa">'+(esSaldoPendiente(saldoFactura)?'pendiente':'pagado')+'</div></div></div>'
         +'<button type="button" onclick="verFacturaProfesional(\''+v.id+'\')" style="width:100%;padding:8px;background:#E8EAF6;color:#1a237e;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;margin-bottom:8px">👁️ Ver factura completa / Editar productos y pagos</button>';
 
       // Items of the invoice
@@ -7028,7 +7035,7 @@ function abrirAbono(cid){
       }
 
       // Button to apply payment to THIS invoice (con soporte para varias formas de pago a la vez)
-      if(saldoFactura > 0){
+      if(esSaldoPendiente(saldoFactura)){
         if(!window._pagoMetodos) window._pagoMetodos = {};
         window._pagoMetodos[v.id] = [{tipo:'efectivo', monto:0}];
 
@@ -7395,7 +7402,7 @@ function crearTarjetaFactura(v){
       +'<div style="text-align:right">'
       +'<div style="font-size:17px;font-weight:500;color:var(--nbs-ink)">$'+fmtNum(v.total)+'</div>'
       +'<div style="font-size:11px;font-weight:500;margin-top:4px;color:'+(v.tipo==='credito'?'var(--nbs-gold)':'var(--nbs-green-text)')+';background:'+(v.tipo==='credito'?'var(--nbs-gold-bg)':'var(--nbs-green-bg)')+';padding:2px 8px;border-radius:20px;display:inline-block">'+(v.tipo==='credito'?'A crédito':'Contado')+'</div>'
-      +(saldo>0?'<div style="font-size:11px;color:var(--nbs-red-text);font-weight:500;margin-top:4px">Saldo: $'+fmtNum(saldo)+'</div>':'<div style="font-size:11px;color:var(--nbs-green-text);font-weight:500;margin-top:4px;display:flex;align-items:center;gap:3px;justify-content:flex-end">✓Pagado</div>')
+      +(esSaldoPendiente(saldo)?'<div style="font-size:11px;color:var(--nbs-red-text);font-weight:500;margin-top:4px">Saldo: $'+fmtNum(saldo)+'</div>':'<div style="font-size:11px;color:var(--nbs-green-text);font-weight:500;margin-top:4px;display:flex;align-items:center;gap:3px;justify-content:flex-end">✓Pagado</div>')
       +'</div></div>';
 
     // Items resumidos
@@ -7550,10 +7557,10 @@ function verFacturaProfesional(vid){
       +'<div style="display:flex;justify-content:space-between;padding-top:6px;font-size:13px;font-weight:700">'
       +'<span style="color:#2E7D32">Total abonado:</span><span style="color:#2E7D32">$'+fmtNum(pagado)+'</span>'
       +'</div></div>' : '')
-    +(saldo>0?'<div style="display:flex;justify-content:space-between;margin-top:8px;background:#FFEBEE;padding:8px;border-radius:8px"><span style="font-size:14px;font-weight:700;color:#C62828">Balance pendiente:</span><span style="font-size:16px;font-weight:800;color:#C62828">$'+fmtNum(saldo)+'</span></div>':'<div style="text-align:center;margin-top:8px;background:#E8F5E9;padding:8px;border-radius:8px;font-size:13px;font-weight:700;color:#2E7D32">✓ PAGADO COMPLETO</div>')
+    +(esSaldoPendiente(saldo)?'<div style="display:flex;justify-content:space-between;margin-top:8px;background:#FFEBEE;padding:8px;border-radius:8px"><span style="font-size:14px;font-weight:700;color:#C62828">Balance pendiente:</span><span style="font-size:16px;font-weight:800;color:#C62828">$'+fmtNum(saldo)+'</span></div>':'<div style="text-align:center;margin-top:8px;background:#E8F5E9;padding:8px;border-radius:8px;font-size:13px;font-weight:700;color:#2E7D32">✓ PAGADO COMPLETO</div>')
     +'<div style="display:flex;justify-content:space-between;margin-top:6px;padding:6px 8px;border-radius:8px;background:#f5f5f5">'
     +'<span style="font-size:13px;font-weight:700;color:#555">Balance:</span>'
-    +'<span style="font-size:14px;font-weight:800;color:'+(saldo>0?'#C62828':'#2E7D32')+'">$'+fmtNum(saldo)+'</span>'
+    +'<span style="font-size:14px;font-weight:800;color:'+(esSaldoPendiente(saldo)?'#C62828':'#2E7D32')+'">$'+fmtNum(saldo)+'</span>'
     +'</div>'
     +'</div>'
     +'<div style="text-align:center;margin-top:16px;font-size:11px;color:#aaa;border-top:0.5px solid #f0f0f0;padding-top:12px">Gracias por su preferencia · Nunez Beauty Supply</div>'
@@ -7864,7 +7871,7 @@ function dibujarContenidoFactura(ctx, W, pad, v, cl, pagado, saldo, numFact, abo
       y += 16;
     }
 
-    if(saldo>0){
+    if(esSaldoPendiente(saldo)){
       var bt = y - 18;
       ctx.fillStyle = '#FFEBEE';
       ctx.fillRect(pad-6, bt, W-2*pad+12, 26);
@@ -7898,7 +7905,7 @@ function dibujarContenidoFactura(ctx, W, pad, v, cl, pagado, saldo, numFact, abo
 
     // Linea 3: BALANCE PENDIENTE $00.00 -o $0.00 si esta saldada-
     ctx.font='bold '+fs.pago+'px sans-serif';
-    ctx.fillStyle = saldo>0 ? '#000' : '#000';
+    ctx.fillStyle = esSaldoPendiente(saldo) ? '#000' : '#000';
     ctx.textAlign='left'; ctx.fillText('BALANCE PENDIENTE', pad, y);
     ctx.textAlign='right'; ctx.fillText('$'+fmtNum(saldo), W-pad, y);
     y += 34;
@@ -8014,7 +8021,7 @@ function compartirFactura(vid){
         v.items.forEach(function(it){ lineas.push(it.nombre); lineas.push('  '+it.cant+' x $'+fmtNum(it.precio)+' = $'+fmtNum(it.cant*it.precio)); });
         lineas.push('------------------------');
         lineas.push('TOTAL: $'+fmtNum(v.total));
-        lineas.push(saldo>0?'Balance pendiente: $'+fmtNum(saldo):'PAGADO COMPLETO');
+        lineas.push(esSaldoPendiente(saldo)?'Balance pendiente: $'+fmtNum(saldo):'PAGADO COMPLETO');
         lineas.push('------------------------');
         lineas.push('Gracias por su preferencia');
         var texto = lineas.join('\n');
@@ -8494,7 +8501,7 @@ function imprimirFactura(v){
     +'<tbody>'+items+'</tbody></table>'
     +'<div style="border-top:2px solid #1a237e;padding-top:12px">'
     +'<div style="display:flex;justify-content:space-between;font-size:18px;font-weight:800"><span>Total Factura</span><span style="color:#1565C0">$'+fmtNum(v.total)+'</span></div>'
-    +(saldo>0 ? '<div style="display:flex;justify-content:space-between;margin-top:8px;color:#C62828;font-weight:700"><span>Balance Pendiente</span><span>$'+fmtNum(saldo)+'</span></div>' : '<div style="text-align:center;margin-top:8px;color:#2E7D32;font-weight:700;background:#E8F5E9;padding:8px;border-radius:6px">✓ PAGADO COMPLETO</div>')
+    +(esSaldoPendiente(saldo) ? '<div style="display:flex;justify-content:space-between;margin-top:8px;color:#C62828;font-weight:700"><span>Balance Pendiente</span><span>$'+fmtNum(saldo)+'</span></div>' : '<div style="text-align:center;margin-top:8px;color:#2E7D32;font-weight:700;background:#E8F5E9;padding:8px;border-radius:6px">✓ PAGADO COMPLETO</div>')
     +'</div>'
     +'<div style="text-align:center;margin-top:20px;font-size:11px;color:#aaa">Gracias por su preferencia · Nunez Beauty Supply</div>'
     +'</div></div>';
@@ -9736,7 +9743,7 @@ function verHistorialCliente(cid, modo){
     v._saldo = Math.max(0, v.total - pagado);
   });
 
-  var ventasCl = modo==='abiertas' ? todasVentasCl.filter(function(v){ return v.tipo==='credito' && v._saldo > 0; }) : todasVentasCl;
+  var ventasCl = modo==='abiertas' ? todasVentasCl.filter(function(v){ return v.tipo==='credito' && esSaldoPendiente(v._saldo); }) : todasVentasCl;
 
   var totalGastado = todasVentasCl.reduce(function(s,v){ return s+v.total; },0);
   var frecuencia = todasVentasCl.length;
@@ -9863,13 +9870,13 @@ function verHistorialCliente(cid, modo){
           }).join('')
           +'</div>';
       }
-      return '<div style="background:white;border-radius:10px;padding:12px;margin-bottom:6px;border:0.5px solid #e5e7eb;border-left:3px solid '+(v.tipo==='credito'&&v._saldo>0?'#C62828':'#2E7D32')+'">'
+      return '<div style="background:white;border-radius:10px;padding:12px;margin-bottom:6px;border:0.5px solid #e5e7eb;border-left:3px solid '+(v.tipo==='credito'&&esSaldoPendiente(v._saldo)?'#C62828':'#2E7D32')+'">'
         +'<div style="display:flex;justify-content:space-between">'
         +'<span style="font-size:13px;font-weight:700;color:#1a237e">'+v.fecha+' <span style="font-size:10px;color:#aaa;font-weight:400">('+(v.tipo==='credito'?'crédito':'contado')+')</span></span>'
         +'<span style="font-size:14px;font-weight:800;color:#1565C0">$'+fmtNum(v.total)+'</span>'
         +'</div>'
         +'<div style="font-size:11px;color:#aaa;margin-top:4px">'+v.items.map(function(it){ return it.nombre+' x'+it.cant; }).join(', ')+'</div>'
-        +(v.tipo==='credito' ? '<div style="font-size:11px;font-weight:700;margin-top:4px;color:'+(v._saldo>0?'#C62828':'#2E7D32')+'">'+(v._saldo>0?'Saldo pendiente: $'+fmtNum(v._saldo):'✓ Pagada completa')+'</div>' : '')
+        +(v.tipo==='credito' ? '<div style="font-size:11px;font-weight:700;margin-top:4px;color:'+(esSaldoPendiente(v._saldo)?'#C62828':'#2E7D32')+'">'+(esSaldoPendiente(v._saldo)?'Saldo pendiente: $'+fmtNum(v._saldo):'✓ Pagada completa')+'</div>' : '')
         +pagosHtml
         +'</div>';
     }).join('');

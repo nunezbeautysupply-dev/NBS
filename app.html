@@ -524,8 +524,8 @@ button:active{transform:scale(0.96);filter:brightness(0.93);}
         <input type="file" id="ep-sku-foto" accept="image/*" capture="environment" style="display:none" onchange="leerBarcodeDeFoto(this)">
       </div>
       <div class="r2">
-        <div><label class="lbl">Costo ($)</label><input class="inp" id="ep-costo" type="text" inputmode="numeric" value="0.00" oninput="formatoMoneda(this)"></div>
-        <div><label class="lbl">Precio ($)</label><input class="inp" id="ep-precio" type="text" inputmode="numeric" value="0.00" oninput="formatoMoneda(this)"></div>
+        <div><label class="lbl">Costo ($)</label><input class="inp" id="ep-costo" type="text" inputmode="numeric" value="0.00" onfocus="this.select()" oninput="formatoMoneda(this)"></div>
+        <div><label class="lbl">Precio ($)</label><input class="inp" id="ep-precio" type="text" inputmode="numeric" value="0.00" onfocus="this.select()" oninput="formatoMoneda(this)"></div>
       </div>
       <div class="r2">
         <div><label class="lbl">Stock actual</label><input class="inp" id="ep-stock" type="number"></div>
@@ -637,7 +637,7 @@ button:active{transform:scale(0.96);filter:brightness(0.93);}
         <div style="font-size:12px;font-weight:700;color:#6A1B9A;margin-bottom:6px">💰 BALANCE INICIAL (opcional)</div>
         <div style="font-size:11px;color:#aaa;margin-bottom:8px">Si el cliente viene de otro sistema con un balance pendiente, agrégalo aquí.</div>
         <label class="lbl">Monto pendiente ($)</label>
-        <input class="inp" id="cbi-monto" type="text" inputmode="numeric" value="0.00" oninput="formatoMoneda(this)">
+        <input class="inp" id="cbi-monto" type="text" inputmode="numeric" value="0.00" onfocus="this.select()" oninput="formatoMoneda(this)">
         <label class="lbl">Fecha del balance</label>
         <input class="inp" id="cbi-fecha" type="date" lang="en-US">
         <label class="lbl">Descripción</label>
@@ -2043,6 +2043,90 @@ function selGcatSelect(val){
   document.getElementById('gcat-otro').style.display = val === 'Otro' ? 'block' : 'none';
 }
 
+function cargarFotoGasto(input){
+  var file = input.files[0];
+  if(!file) return;
+  var reader = new FileReader();
+  reader.onload = function(e){
+    abrirRecortarFoto(e.target.result, function(dataFinal){
+      document.getElementById('gasto-foto-data').value = dataFinal;
+      var prev = document.getElementById('gasto-foto-preview');
+      prev.innerHTML = '<img src="'+dataFinal+'" style="width:100%;height:100%;object-fit:cover">';
+      prev.style.background = '#f0f0f0';
+      prev.style.border = 'none';
+    });
+  };
+  reader.readAsDataURL(file);
+  input.value = '';
+}
+
+function quitarFotoGasto(){
+  document.getElementById('gasto-foto-data').value = '';
+  var prev = document.getElementById('gasto-foto-preview');
+  prev.innerHTML = '📷';
+  prev.style.background = 'var(--nbs-gold-bg)';
+  prev.style.border = '2px dashed var(--nbs-gold)';
+}
+
+function abrirOpcionesFotoGasto(){
+  var tieneFoto = !!(document.getElementById('gasto-foto-data').value);
+  var overlay = document.getElementById('foto-acciones-overlay');
+  if(!overlay){
+    overlay = document.createElement('div');
+    overlay.id = 'foto-acciones-overlay';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:99998;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:flex;align-items:flex-end';
+    document.body.appendChild(overlay);
+  }
+  overlay.innerHTML = '';
+  overlay.onclick = function(e){ if(e.target === overlay) overlay.style.display = 'none'; };
+
+  var sheet = document.createElement('div');
+  sheet.style.cssText = 'background:white;width:100%;max-width:480px;margin:0 auto;border-radius:16px 16px 0 0;padding:16px;box-shadow:0 -4px 20px rgba(0,0,0,0.15)';
+
+  var titulo = document.createElement('div');
+  titulo.style.cssText = 'text-align:center;font-size:13px;color:#aaa;font-weight:700;text-transform:uppercase;margin-bottom:12px';
+  titulo.textContent = 'Foto del recibo o factura';
+  sheet.appendChild(titulo);
+
+  var opciones = [
+    ['📷 Tomar foto', 'var(--nbs-ink)', function(){ recrearInputFoto('gasto-foto-camara', cargarFotoGasto).click(); }],
+    ['🖼️ Elegir de galería', 'var(--nbs-ink)', function(){ recrearInputFoto('gasto-foto-galeria', cargarFotoGasto).click(); }]
+  ];
+  if(tieneFoto){
+    opciones.push(['🗑️ Quitar foto', 'var(--nbs-red-text)', function(){ quitarFotoGasto(); }]);
+  }
+  opciones.forEach(function(op){
+    var btn = document.createElement('button');
+    btn.textContent = op[0];
+    btn.style.cssText = 'display:block;width:100%;text-align:left;padding:14px 16px;background:#f5f5f5;color:'+op[1]+';border:none;border-radius:10px;margin-bottom:8px;font-size:15px;font-weight:700;cursor:pointer';
+    btn.onclick = function(){ overlay.style.display = 'none'; op[2](); };
+    sheet.appendChild(btn);
+  });
+
+  var btnCancelar = document.createElement('button');
+  btnCancelar.textContent = 'Cancelar';
+  btnCancelar.style.cssText = 'display:block;width:100%;text-align:center;padding:14px 16px;background:none;color:#999;border:none;font-size:15px;cursor:pointer';
+  btnCancelar.onclick = function(){ overlay.style.display = 'none'; };
+  sheet.appendChild(btnCancelar);
+
+  overlay.appendChild(sheet);
+  overlay.style.display = 'flex';
+}
+
+function verFotoGasto(dataUrl){
+  var overlay = document.getElementById('foto-visor-overlay');
+  if(!overlay){
+    overlay = document.createElement('div');
+    overlay.id = 'foto-visor-overlay';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.92);z-index:999998;display:flex;align-items:center;justify-content:center;padding:20px';
+    overlay.onclick = function(){ overlay.style.display = 'none'; };
+    document.body.appendChild(overlay);
+  }
+  overlay.innerHTML = '<img src="'+dataUrl+'" style="max-width:100%;max-height:100%;border-radius:8px">'
+    +'<button onclick="document.getElementById(\'foto-visor-overlay\').style.display=\'none\'" style="position:fixed;top:16px;right:16px;background:white;border:none;border-radius:50%;width:40px;height:40px;font-size:20px;cursor:pointer">✕</button>';
+  overlay.style.display = 'flex';
+}
+
 function saveGasto(){
   var cat = document.getElementById('gcat').value;
   if(!cat){ alert('Selecciona una categoría'); return; }
@@ -2073,8 +2157,9 @@ function saveGasto(){
   if(!confirm('¿Registrar este gasto?\n\nCategoría: '+cat+'\nMonto: $'+fmtNum(monto)+'\nFecha: '+fecha)) return;
 
   var gastos = LS('ngastos', []);
+  var fotoGasto = document.getElementById('gasto-foto-data').value || null;
   gastos.push({ id: Date.now(), cat: cat, monto: monto, fecha: fecha, nota: nota,
-    comidaTipo: comidaTipo, comidaDesc: comidaDesc, comidaLugar: comidaLugar });
+    comidaTipo: comidaTipo, comidaDesc: comidaDesc, comidaLugar: comidaLugar, foto: fotoGasto });
   SS('ngastos', gastos);
 
   // Reset form
@@ -2088,6 +2173,7 @@ function saveGasto(){
   document.getElementById('gcomida-tipo').value = '';
   document.getElementById('gcomida-desc').value = '';
   document.getElementById('gcomida-lugar').value = '';
+  quitarFotoGasto();
   Object.values(GCAT_BTNS).forEach(function(id){
     var b = document.getElementById(id);
     if(b){ b.style.background='white'; b.style.borderColor='#ddd'; b.style.color='#222'; }
@@ -2162,7 +2248,7 @@ function renderGastos(){
   filt.slice().sort(function(a,b){ return new Date(b.fecha)-new Date(a.fecha); }).forEach(function(g){
     var row = document.createElement('div');
     row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #f0f0f0;cursor:pointer';
-    row.innerHTML = '<div><div style="font-size:13px;font-weight:600">'+g.cat+'</div>'
+    row.innerHTML = '<div><div style="font-size:13px;font-weight:600">'+g.cat+(g.foto?' 📷':'')+'</div>'
       +'<div style="font-size:11px;color:#aaa">'+g.fecha+'</div></div>'
       +'<div style="display:flex;align-items:center;gap:10px">'
       +'<span style="font-weight:700;color:#C62828">$'+fmtNum(g.monto)+'</span>'
@@ -2200,11 +2286,23 @@ function verDetalleGasto(g){
     +'<div style="color:#777;font-size:13px;margin-bottom:4px">Notas</div>'
     +'<div style="font-size:13px">'+g.nota+'</div></div>';
 
+  if(g.foto){
+    card.innerHTML += '<div style="padding:10px 0;border-bottom:1px solid #f0f0f0">'
+      +'<div style="color:#777;font-size:13px;margin-bottom:6px">📷 Foto del recibo</div>'
+      +'<div id="gasto-foto-thumb" style="width:100px;height:100px;border-radius:8px;overflow:hidden;cursor:pointer;background:#f0f0f0"></div></div>';
+  }
+
   card.innerHTML += '<div style="display:flex;gap:8px;margin-top:14px">'
     +'<button id="btn-editar-gasto" style="flex:1;padding:12px;background:#1565C0;color:white;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600">✏️ Editar</button>'
     +'<button id="btn-eliminar-gasto" style="flex:1;padding:12px;background:#B71C1C;color:white;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600">🗑️ Eliminar</button>'
     +'</div>';
   el.appendChild(card);
+
+  if(g.foto){
+    var thumb = document.getElementById('gasto-foto-thumb');
+    thumb.innerHTML = '<img src="'+g.foto+'" style="width:100%;height:100%;object-fit:cover">';
+    thumb.onclick = function(){ verFotoGasto(g.foto); };
+  }
 
   document.getElementById('btn-editar-gasto').onclick = function(){ editarGasto(g); };
   document.getElementById('btn-eliminar-gasto').onclick = function(){ eliminarGasto(g.id); };
@@ -2225,7 +2323,7 @@ function editarGasto(g){
     +'<label class="lbl">Categoría</label>'
     +'<input class="inp" id="eg-cat" type="text" value="'+g.cat+'">'
     +'<label class="lbl">Monto ($)</label>'
-    +'<input class="inp" id="eg-monto" type="text" inputmode="numeric" value="'+g.monto.toFixed(2)+'" oninput="formatoMoneda(this)">'
+    +'<input class="inp" id="eg-monto" type="text" inputmode="numeric" value="'+g.monto.toFixed(2)+'" onfocus="this.select()" oninput="formatoMoneda(this)">'
     +'<label class="lbl">Fecha</label>'
     +'<input class="inp" id="eg-fecha" type="date" value="'+g.fecha+'">'
     +(esComida ?
@@ -2614,8 +2712,8 @@ function abrirFormTarjeta(id){
     +'<label class="lbl">Banco (opcional)</label>'
     +'<input class="inp" id="cxpt-banco" type="text" placeholder="Ej: Chase, Bank of America" value="'+(t&&t.banco?t.banco.replace(/"/g,"'"):'')+'">'
     +'<div class="r2">'
-    +'<div><label class="lbl">Balance actual ($)</label><input class="inp" id="cxpt-balance" type="text" inputmode="numeric" oninput="formatoMoneda(this)" value="'+(t?t.balance.toFixed(2):'0.00')+'"></div>'
-    +'<div><label class="lbl">Límite (opcional)</label><input class="inp" id="cxpt-limite" type="text" inputmode="numeric" oninput="formatoMoneda(this)" value="'+(t&&t.limite?t.limite.toFixed(2):'0.00')+'"></div>'
+    +'<div><label class="lbl">Balance actual ($)</label><input class="inp" id="cxpt-balance" type="text" inputmode="numeric" onfocus="this.select()" oninput="formatoMoneda(this)" value="'+(t?t.balance.toFixed(2):'0.00')+'"></div>'
+    +'<div><label class="lbl">Límite (opcional)</label><input class="inp" id="cxpt-limite" type="text" inputmode="numeric" onfocus="this.select()" oninput="formatoMoneda(this)" value="'+(t&&t.limite?t.limite.toFixed(2):'0.00')+'"></div>'
     +'</div>'
     +'<button class="btn" style="background:var(--nbs-gold);color:white" onclick="guardarTarjeta('+(t?t.id:'null')+')">✓ '+(t?'Guardar cambios':'Agregar tarjeta')+'</button>'
     +'<button class="btn" style="background:#F0F0F2;color:var(--nbs-ink)" onclick="document.getElementById(\'cxp-form-overlay\').style.display=\'none\'">Cancelar</button>'
@@ -2687,7 +2785,7 @@ function abrirFormOtraDeuda(id){
     +'<label class="lbl">Tipo</label>'
     +'<select class="inp" id="cxpd-tipo">'+tipos.map(function(tp){ return '<option value="'+tp+'"'+(d&&d.tipo===tp?' selected':'')+'>'+tp+'</option>'; }).join('')+'</select>'
     +'<label class="lbl">Balance pendiente ($)</label>'
-    +'<input class="inp" id="cxpd-balance" type="text" inputmode="numeric" oninput="formatoMoneda(this)" value="'+(d?d.balance.toFixed(2):'0.00')+'">'
+    +'<input class="inp" id="cxpd-balance" type="text" inputmode="numeric" onfocus="this.select()" oninput="formatoMoneda(this)" value="'+(d?d.balance.toFixed(2):'0.00')+'">'
     +'<label class="lbl">Notas (opcional)</label>'
     +'<input class="inp" id="cxpd-notas" type="text" placeholder="Ej: pago mensual $250" value="'+(d&&d.notas?d.notas.replace(/"/g,"'"):'')+'">'
     +'<button class="btn" style="background:var(--nbs-gold);color:white" onclick="guardarOtraDeuda('+(d?d.id:'null')+')">✓ '+(d?'Guardar cambios':'Agregar deuda')+'</button>'
@@ -2851,7 +2949,7 @@ function agregarBalanceInicialSuplidor(id){
     +'<div style="font-size:13px;font-weight:600;color:#6A1B9A">Suplidor: '+s.nombre+'</div>'
     +'</div>'
     +'<label class="lbl">Monto del balance pendiente ($) *</label>'
-    +'<input class="inp" id="bis-monto" type="text" inputmode="numeric" value="0.00" oninput="formatoMoneda(this)">'
+    +'<input class="inp" id="bis-monto" type="text" inputmode="numeric" value="0.00" onfocus="this.select()" oninput="formatoMoneda(this)">'
     +'<label class="lbl">Descripción</label>'
     +'<input class="inp" id="bis-nota" type="text" value="Balance inicial traído de sistema anterior" placeholder="Descripción del balance">'
     +'<label class="lbl">Fecha</label>'
@@ -3156,7 +3254,7 @@ function verFacturaCompra(c, sid){
     payCard.innerHTML = '<div style="font-size:13px;font-weight:700;color:#5D4037;margin-bottom:8px">APLICAR PAGO A ESTA FACTURA</div>'
       +'<div style="font-size:12px;color:#aaa;margin-bottom:8px">Saldo pendiente: $'+fmtNum(saldo)+'</div>'
       +'<div style="display:flex;gap:8px;align-items:center">'
-      +'<input type="text" inputmode="numeric" placeholder="0.00" id="pagocompra-'+c.id+'" value="0.00" style="flex:1;padding:6px 10px;font-size:13px;border:1px solid #ddd;border-radius:6px;outline:none;font-family:sans-serif" oninput="formatoMoneda(this)">'
+      +'<input type="text" inputmode="numeric" placeholder="0.00" id="pagocompra-'+c.id+'" value="0.00" style="flex:1;padding:6px 10px;font-size:13px;border:1px solid #ddd;border-radius:6px;outline:none;font-family:sans-serif" onfocus="this.select()" oninput="formatoMoneda(this)">'
       +'<button id="btnpagocompra-'+c.id+'" style="padding:10px 14px;background:#5D4037;color:white;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600">✓ Pagar</button>'
       +'</div>';
     el.appendChild(payCard);
@@ -5142,7 +5240,7 @@ function renderPedItems(){
       +'</div>'
       +'<div>'
       +'<label style="font-size:9px;color:#999;display:block;margin-bottom:2px">PRECIO $</label>'
-      +'<input type="text" inputmode="decimal" value="'+it.precio.toFixed(2)+'" oninput="formatoMoneda(this);actualizarPedItem('+i+',\'precio\',parseFloat(this.value)||0);actualizarSubtotalPed('+i+')" style="width:68px;padding:6px 4px;border:0.5px solid #ddd;border-radius:6px;font-size:13px;text-align:center">'
+      +'<input type="text" inputmode="decimal" value="'+it.precio.toFixed(2)+'" onfocus="this.select()" oninput="formatoMoneda(this);actualizarPedItem('+i+',\'precio\',parseFloat(this.value)||0);actualizarSubtotalPed('+i+')" style="width:68px;padding:6px 4px;border:0.5px solid #ddd;border-radius:6px;font-size:13px;text-align:center">'
       +'</div>'
       +'<span id="ped-subtotal-'+i+'" style="flex:1;text-align:right;font-size:14px;font-weight:700;color:var(--nbs-green-text)">$'+fmtNum(subtotal)+'</span>'
       +'</div>';
@@ -5591,7 +5689,7 @@ function verFactura(v){
     payCard.innerHTML='<div style="font-size:13px;font-weight:700;color:#1a237e;margin-bottom:8px">APLICAR PAGO A ESTA FACTURA</div>'
       +'<div style="font-size:12px;color:#aaa;margin-bottom:8px">Saldo pendiente: $'+fmtNum(saldo)+'</div>'
       +'<div style="display:flex;gap:8px;align-items:center">'
-      +'<input type="text" inputmode="numeric" placeholder="0.00" id="pagofactura-'+v.id+'" value="0.00" style="flex:1;padding:6px 10px;font-size:13px;border:1px solid #ddd;border-radius:6px;outline:none;font-family:sans-serif" oninput="formatoMoneda(this)">'
+      +'<input type="text" inputmode="numeric" placeholder="0.00" id="pagofactura-'+v.id+'" value="0.00" style="flex:1;padding:6px 10px;font-size:13px;border:1px solid #ddd;border-radius:6px;outline:none;font-family:sans-serif" onfocus="this.select()" oninput="formatoMoneda(this)">'
       +'<button id="btnpagofactura-'+v.id+'" style="padding:10px 14px;background:#1565C0;color:white;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600">✓ Pagar</button>'
       +'</div>';
     el.appendChild(payCard);
@@ -5955,8 +6053,8 @@ function abrirEditarProductosDeMarca(){
       +'<input class="inp" id="epml-cat-'+i+'" type="text" placeholder="Escribe la categoría nueva" value="'+(catEnLista?'':catActual.replace(/"/g,"'"))+'" style="display:'+(catEnLista?'none':'block')+'">'
       +'</div>'
       +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">'
-      +'<div><label class="lbl">Costo ($)</label><input class="inp" id="epml-costo-'+i+'" type="text" inputmode="decimal" value="'+(p.costo||0).toFixed(2)+'" oninput="formatoMoneda(this)"></div>'
-      +'<div><label class="lbl">Precio ($)</label><input class="inp" id="epml-precio-'+i+'" type="text" inputmode="decimal" value="'+(p.precio||0).toFixed(2)+'" oninput="formatoMoneda(this)"></div>'
+      +'<div><label class="lbl">Costo ($)</label><input class="inp" id="epml-costo-'+i+'" type="text" inputmode="decimal" value="'+(p.costo||0).toFixed(2)+'" onfocus="this.select()" oninput="formatoMoneda(this)"></div>'
+      +'<div><label class="lbl">Precio ($)</label><input class="inp" id="epml-precio-'+i+'" type="text" inputmode="decimal" value="'+(p.precio||0).toFixed(2)+'" onfocus="this.select()" oninput="formatoMoneda(this)"></div>'
       +'</div>'
       +'<label class="lbl">Proveedor</label>'
       +'<select class="inp" id="epml-suplidor-'+i+'">'+opcionesProveedor+'</select>'
@@ -6137,7 +6235,7 @@ function modificarFactura(v){
           +'<input type="number" min="1" value="'+it.cant+'" id="edit-cant-'+i+'" style="width:100%;padding:8px;border:1.5px solid #ddd;border-radius:8px;font-size:14px;font-family:sans-serif" oninput="actualizarItemEdit('+i+')">'
           +'</div>'
           +'<div><div style="font-size:11px;color:#aaa;margin-bottom:4px">PRECIO UNIT. ($)</div>'
-          +'<input type="text" inputmode="numeric" value="'+it.precio.toFixed(2)+'" id="edit-precio-'+i+'" style="width:100%;padding:8px;border:1.5px solid #ddd;border-radius:8px;font-size:14px;font-family:sans-serif" oninput="formatoMonedaEdit(this,'+i+')">'
+          +'<input type="text" inputmode="numeric" value="'+it.precio.toFixed(2)+'" id="edit-precio-'+i+'" style="width:100%;padding:8px;border:1.5px solid #ddd;border-radius:8px;font-size:14px;font-family:sans-serif" onfocus="this.select()" oninput="formatoMonedaEdit(this,'+i+')">'
           +'</div>'
           +'<div style="text-align:center"><div style="font-size:11px;color:#aaa;margin-bottom:4px">TOTAL</div>'
           +'<div id="edit-tot-'+i+'" style="font-weight:700;color:#1565C0;font-size:14px">$'+fmtNum((it.cant*it.precio))+'</div>'
@@ -6238,7 +6336,7 @@ function agregarBalanceInicial(id){
     +(cl.negocio?'<div style="font-size:12px;color:#aaa">'+cl.negocio+'</div>':'')
     +'</div>'
     +'<label class="lbl">Monto del balance pendiente ($) *</label>'
-    +'<input class="inp" id="bi-monto" type="text" inputmode="numeric" value="0.00" oninput="formatoMoneda(this)">'
+    +'<input class="inp" id="bi-monto" type="text" inputmode="numeric" value="0.00" onfocus="this.select()" oninput="formatoMoneda(this)">'
     +'<label class="lbl">Descripción</label>'
     +'<input class="inp" id="bi-nota" type="text" value="Balance inicial traído de sistema anterior" placeholder="Descripción del balance">'
     +'<label class="lbl">Fecha</label>'
@@ -7075,7 +7173,7 @@ function renderMetodosPago(vid){
       +'<select onchange="actualizarMetodoPago(\''+vid+'\','+i+',\'tipo\',this.value)" style="flex:1.2;padding:8px 6px;border:1px solid #ddd;border-radius:6px;font-size:12px">'
       +Object.keys(METODOS_PAGO_LABELS).map(function(k){ return '<option value="'+k+'"'+(m.tipo===k?' selected':'')+'>'+METODOS_PAGO_LABELS[k]+'</option>'; }).join('')
       +'</select>'
-      +'<input type="text" inputmode="numeric" value="'+m.monto.toFixed(2)+'" oninput="formatoMoneda(this);actualizarMetodoPago(\''+vid+'\','+i+',\'monto\',parseFloat(this.value)||0)" style="width:80px;padding:8px 6px;border:1px solid #ddd;border-radius:6px;font-size:12px;text-align:center">'
+      +'<input type="text" inputmode="numeric" value="'+m.monto.toFixed(2)+'" onfocus="this.select()" oninput="formatoMoneda(this);actualizarMetodoPago(\''+vid+'\','+i+',\'monto\',parseFloat(this.value)||0)" style="width:80px;padding:8px 6px;border:1px solid #ddd;border-radius:6px;font-size:12px;text-align:center">'
       +(filas.length>1 ? '<button type="button" onclick="quitarMetodoPago(\''+vid+'\','+i+')" style="background:var(--nbs-red-bg);color:var(--nbs-red-dark);border:none;border-radius:6px;width:28px;height:32px;cursor:pointer;font-size:12px">✕</button>' : '')
       +'</div>';
   }).join('');
@@ -8165,7 +8263,7 @@ function renderItemsFacturaEdit(){
       +'<div><label style="font-size:11px;color:var(--nbs-muted);font-weight:500;display:block;margin-bottom:4px">Cantidad</label>'
       +'<input type="number" value="'+it.cant+'" id="fact-item-cant-'+i+'" oninput="actualizarItemFacturaEdit('+i+',\'cant\',parseInt(this.value)||1)" style="width:100%;padding:9px 10px;border:0.5px solid #d8d8dc;border-radius:8px;font-size:14px;text-align:center;box-sizing:border-box;color:var(--nbs-ink)"></div>'
       +'<div><label style="font-size:11px;color:var(--nbs-muted);font-weight:500;display:block;margin-bottom:4px">Precio ($)</label>'
-      +'<input type="text" inputmode="decimal" value="'+it.precio.toFixed(2)+'" id="fact-item-precio-'+i+'" oninput="formatoMoneda(this);actualizarItemFacturaEdit('+i+',\'precio\',parseFloat(this.value)||0)" style="width:100%;padding:9px 10px;border:0.5px solid #d8d8dc;border-radius:8px;font-size:14px;text-align:center;box-sizing:border-box;color:var(--nbs-ink)"></div>'
+      +'<input type="text" inputmode="decimal" value="'+it.precio.toFixed(2)+'" id="fact-item-precio-'+i+'" onfocus="this.select()" oninput="formatoMoneda(this);actualizarItemFacturaEdit('+i+',\'precio\',parseFloat(this.value)||0)" style="width:100%;padding:9px 10px;border:0.5px solid #d8d8dc;border-radius:8px;font-size:14px;text-align:center;box-sizing:border-box;color:var(--nbs-ink)"></div>'
       +'</div>';
     itemsWrap.appendChild(row);
   });
@@ -9556,7 +9654,7 @@ function renderItemsCambio(vid){
       +'</div>'
       +'<div style="display:flex;gap:8px">'
       +'<div style="flex:1"><label class="lbl" style="margin-bottom:2px">Cantidad</label><input class="inp" type="number" min="1" value="'+it.cant+'" style="margin-bottom:0;text-align:center" onchange="cambiarCantCambioItem('+i+',this.value,\''+vid+'\')"></div>'
-      +'<div style="flex:1.4"><label class="lbl" style="margin-bottom:2px">Precio c/u (puedes ajustarlo)</label><input class="inp" type="text" inputmode="numeric" value="'+fmtNum(it.precio)+'" style="margin-bottom:0;text-align:center" oninput="formatoMoneda(this)" onchange="cambiarPrecioCambioItem('+i+',this.value,\''+vid+'\')"></div>'
+      +'<div style="flex:1.4"><label class="lbl" style="margin-bottom:2px">Precio c/u (puedes ajustarlo)</label><input class="inp" type="text" inputmode="numeric" value="'+fmtNum(it.precio)+'" style="margin-bottom:0;text-align:center" onfocus="this.select()" oninput="formatoMoneda(this)" onchange="cambiarPrecioCambioItem('+i+',this.value,\''+vid+'\')"></div>'
       +'</div>'
       +'</div>';
   }).join('');
@@ -9926,8 +10024,8 @@ function verHistorialCliente(cid, modo){
       <label class="lbl">Nombre del producto *</label><input class="inp" id="vnp-nombre" type="text" placeholder="Ej: Roja Cortada, Colonia Venom" autocomplete="off" oninput="onNombreProductoInput('vnp-nombre')" onblur="ocultarDropdown('vnp-nombre')">
       <label class="lbl">Categoría</label><input class="inp" id="vnp-cat" type="text" placeholder="Ej: Pomadas, Navajas..." autocomplete="off" oninput="onCategoriaInput('vnp-cat')" onblur="ocultarDropdown('vnp-cat')">
       <div class="r2">
-        <div><label class="lbl">Costo ($)</label><input class="inp" id="vnp-costo" type="text" inputmode="numeric" value="0.00" oninput="formatoMoneda(this)"></div>
-        <div><label class="lbl">Precio ($)</label><input class="inp" id="vnp-precio" type="text" inputmode="numeric" value="0.00" oninput="formatoMoneda(this)"></div>
+        <div><label class="lbl">Costo ($)</label><input class="inp" id="vnp-costo" type="text" inputmode="numeric" value="0.00" onfocus="this.select()" oninput="formatoMoneda(this)"></div>
+        <div><label class="lbl">Precio ($)</label><input class="inp" id="vnp-precio" type="text" inputmode="numeric" value="0.00" onfocus="this.select()" oninput="formatoMoneda(this)"></div>
       </div>
       <label class="lbl">Stock inicial</label><input class="inp" id="vnp-stock" type="number" value="0" min="0">
       <div style="display:flex;gap:8px">
@@ -10049,8 +10147,8 @@ function verHistorialCliente(cid, modo){
         <label class="lbl">Nombre del producto *</label><input class="inp" id="pednp-nombre" type="text" placeholder="Ej: Roja Cortada, Colonia Venom" autocomplete="off" oninput="onNombreProductoInput('pednp-nombre')" onblur="ocultarDropdown('pednp-nombre')">
         <label class="lbl">Categoría</label><input class="inp" id="pednp-cat" type="text" placeholder="Ej: Pomadas, Navajas..." autocomplete="off" oninput="onCategoriaInput('pednp-cat')" onblur="ocultarDropdown('pednp-cat')">
         <div class="r2">
-          <div><label class="lbl">Costo ($)</label><input class="inp" id="pednp-costo" type="text" inputmode="numeric" value="0.00" oninput="formatoMoneda(this)"></div>
-          <div><label class="lbl">Precio ($)</label><input class="inp" id="pednp-precio" type="text" inputmode="numeric" value="0.00" oninput="formatoMoneda(this)"></div>
+          <div><label class="lbl">Costo ($)</label><input class="inp" id="pednp-costo" type="text" inputmode="numeric" value="0.00" onfocus="this.select()" oninput="formatoMoneda(this)"></div>
+          <div><label class="lbl">Precio ($)</label><input class="inp" id="pednp-precio" type="text" inputmode="numeric" value="0.00" onfocus="this.select()" oninput="formatoMoneda(this)"></div>
         </div>
         <label class="lbl">Stock inicial</label><input class="inp" id="pednp-stock" type="number" value="0" min="0">
         <div style="display:flex;gap:8px">
@@ -10093,8 +10191,8 @@ function verHistorialCliente(cid, modo){
     </div>
     <div style="display:grid;grid-template-columns:0.7fr 1fr 1fr;gap:8px">
       <div><label class="lbl">Cant.</label><input class="inp" id="cccant" type="number" value="1" min="1" style="text-align:center;padding:10px 4px"></div>
-      <div><label class="lbl">Costo ($)</label><input class="inp" id="cccosto" type="text" inputmode="numeric" value="0.00" oninput="formatoMoneda(this)" style="text-align:center;padding:10px 4px"></div>
-      <div><label class="lbl">Precio venta ($)</label><input class="inp" id="ccprecio" type="text" inputmode="numeric" value="0.00" oninput="formatoMoneda(this)" style="text-align:center;padding:10px 4px"></div>
+      <div><label class="lbl">Costo ($)</label><input class="inp" id="cccosto" type="text" inputmode="numeric" value="0.00" onfocus="this.select()" oninput="formatoMoneda(this)" style="text-align:center;padding:10px 4px"></div>
+      <div><label class="lbl">Precio venta ($)</label><input class="inp" id="ccprecio" type="text" inputmode="numeric" value="0.00" onfocus="this.select()" oninput="formatoMoneda(this)" style="text-align:center;padding:10px 4px"></div>
     </div>
     <p style="font-size:11px;color:#aaa;margin:-4px 0 8px">El precio de venta solo aplica si es producto nuevo.</p>
     <button class="btn" style="background:#546E7A;color:white" onclick="addCC()">+ Agregar producto a la compra</button>
@@ -10237,11 +10335,19 @@ function verHistorialCliente(cid, modo){
           <input class="inp" id="gcat-desc" type="text" placeholder="Ej: Honorarios contador...">
         </div>
         <label class="lbl">Monto ($) *</label>
-        <input class="inp" id="gmonto" type="text" inputmode="numeric" value="0.00" oninput="formatoMoneda(this)">
+        <input class="inp" id="gmonto" type="text" inputmode="numeric" value="0.00" onfocus="this.select()" oninput="formatoMoneda(this)">
         <label class="lbl">Fecha</label>
         <input class="inp" id="gfecha" type="date" lang="en-US">
         <label class="lbl">Descripción / Notas</label>
         <input class="inp" id="gnota" type="text" placeholder="Opcional - detalle del gasto">
+        <label class="lbl">Foto del recibo o factura (opcional)</label>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+          <div id="gasto-foto-preview" onclick="abrirOpcionesFotoGasto()" style="width:56px;height:56px;border-radius:10px;background:var(--nbs-gold-bg);border:2px dashed var(--nbs-gold);display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0;overflow:hidden;cursor:pointer">📷</div>
+          <div style="font-size:12px;color:#aaa;flex:1">Toca para tomar una foto o elegir de la galería — así tienes constancia del gasto</div>
+        </div>
+        <input type="hidden" id="gasto-foto-data">
+        <input type="file" id="gasto-foto-camara" accept="image/*" capture="camera" style="display:none" onchange="cargarFotoGasto(this)">
+        <input type="file" id="gasto-foto-galeria" accept="image/jpeg,image/png,image/gif,image/webp" style="display:none" onchange="cargarFotoGasto(this)">
         <button class="btn" style="background:#C62828;color:white" onclick="saveGasto()">✓ Registrar gasto</button>
         <button class="btn" style="background:#546E7A;color:white" onclick="document.getElementById('gastos-n').style.display='none';document.getElementById('gastos-l').style.display='block'">← Volver a la lista</button>
         <div class="snk" id="mk-gasto">Gasto registrado</div>

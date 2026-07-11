@@ -9769,6 +9769,10 @@ function verHistorialCliente(cid, modo){
     document.body.appendChild(overlay);
   }
 
+  var abiertasCount = todasVentasCl.filter(function(v){ return v.tipo==='credito' && esSaldoPendiente(v._saldo); }).length;
+  var totalPagado = todasVentasCl.reduce(function(s,v){ return s+(v._pagado||0); }, 0);
+  var gananciaTotal = todasVentasCl.reduce(function(s,v){ return s+(v.ganancia||0); }, 0);
+
   overlay.innerHTML = '<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">'
     +'<button onclick="cerrarHistorial()" style="background:#E8EAF6;border:none;border-radius:8px;padding:10px 16px;cursor:pointer;font-size:14px;font-weight:600;color:#1a237e">← Volver</button>'
     +'<img src="icon-512.png" alt="NBS" style="width:32px;height:32px;margin-left:auto;border-radius:8px;cursor:pointer" onclick="cerrarHistorial();ir(\'p-ped\')">'
@@ -9778,12 +9782,22 @@ function verHistorialCliente(cid, modo){
     +'<div style="font-size:13px;opacity:0.8;margin-top:4px">🏪 '+(cl.negocio||'Sin barbería')+'</div>'
     +'</div>'
     +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">'
-    +'<button onclick="verHistorialCliente(\''+cid+'\',\'abiertas\')" style="padding:12px;background:'+(modo==='abiertas'?'var(--nbs-gold)':'#F0F0F2')+';color:'+(modo==='abiertas'?'white':'var(--nbs-ink)')+';border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer">📂 Facturas abiertas</button>'
-    +'<button onclick="verHistorialCliente(\''+cid+'\',\'completo\')" style="padding:12px;background:'+(modo==='completo'?'var(--nbs-gold)':'#F0F0F2')+';color:'+(modo==='completo'?'white':'var(--nbs-ink)')+';border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer">📋 Historial completo</button>'
+    +'<button onclick="verHistorialCliente(\''+cid+'\',\'abiertas\')" style="padding:12px;background:'+(modo==='abiertas'?'var(--nbs-gold)':'#F0F0F2')+';color:'+(modo==='abiertas'?'white':'var(--nbs-ink)')+';border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer">📂 Facturas abiertas ('+abiertasCount+')</button>'
+    +'<button onclick="verHistorialCliente(\''+cid+'\',\'completo\')" style="padding:12px;background:'+(modo==='completo'?'var(--nbs-gold)':'#F0F0F2')+';color:'+(modo==='completo'?'white':'var(--nbs-ink)')+';border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer">📋 Historial completo ('+todasVentasCl.length+')</button>'
+    +'</div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">'
+    +'<div style="background:#E3F2FD;border-radius:10px;padding:12px;border:0.5px solid #BBDEFB;text-align:center">'
+    +'<div style="font-size:10px;color:#1565C0;font-weight:700">TOTAL PAGADO</div>'
+    +'<div style="font-size:18px;font-weight:800;color:#1565C0">$'+fmtNum(totalPagado)+'</div>'
+    +'</div>'
+    +'<div style="background:#E8F5E9;border-radius:10px;padding:12px;border:0.5px solid #C8E6C9;text-align:center">'
+    +'<div style="font-size:10px;color:#2E7D32;font-weight:700">GANANCIA QUE TE HA DEJADO</div>'
+    +'<div style="font-size:18px;font-weight:800;color:#2E7D32">$'+fmtNum(gananciaTotal)+'</div>'
+    +'</div>'
     +'</div>'
     +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px">'
     +'<div style="background:white;border-radius:10px;padding:12px;border:0.5px solid #e5e7eb;text-align:center">'
-    +'<div style="font-size:10px;color:#aaa;font-weight:600">TOTAL GASTADO</div>'
+    +'<div style="font-size:10px;color:#aaa;font-weight:600">TOTAL COMPRADO</div>'
     +'<div style="font-size:18px;font-weight:800;color:#1565C0">$'+fmtNum(totalGastado)+'</div>'
     +'</div>'
     +'<div style="background:white;border-radius:10px;padding:12px;border:0.5px solid #e5e7eb;text-align:center">'

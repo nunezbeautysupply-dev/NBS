@@ -572,7 +572,7 @@ button:active{transform:scale(0.96);filter:brightness(0.93);}
     <button class="btn" style="background:#6A1B9A;color:white" onclick="eliminarDuplicadosClientes()">🔍 Eliminar clientes duplicados</button>
   </div>
   <div id="cl-l">
-    <input class="inp" id="cl-buscar-input" type="text" placeholder="Buscar cliente..." oninput="renderCl(this.value)">
+    <input class="inp" id="cl-buscar-input" type="text" placeholder="Buscar cliente..." oninput="window._clUltimaBusqueda=this.value;renderCl(this.value)">
     <div id="cl-filtro-tipos" style="display:flex;overflow-x:auto;gap:6px;margin-bottom:12px;padding-bottom:2px"></div>
     <div id="lcl"><p style="color:#aaa;font-size:13px;text-align:center;padding:20px">Sin clientes</p></div>
   </div>
@@ -1518,7 +1518,10 @@ function ir(id, sinHistorial){
     var clL = document.getElementById('cl-l');
     if(clN) clN.style.display = 'none';
     if(clL) clL.style.display = 'block';
-    renderCl(''); llenarDataLists();
+    var busquedaGuardada = window._clUltimaBusqueda || '';
+    var elBuscarCl = document.getElementById('cl-buscar-input');
+    if(elBuscarCl) elBuscarCl.value = busquedaGuardada;
+    renderCl(busquedaGuardada); llenarDataLists();
   }
   if(id==='p-v'){
     syncVcl();
@@ -1528,6 +1531,8 @@ function ir(id, sinHistorial){
     window._pagoMetodos['vini'] = [{tipo:'efectivo', monto:0}];
     renderMetodosPago('vini');
     actualizarLabelPagoVenta();
+    var btnCancConv = document.getElementById('btn-cancelar-conversion-pedido');
+    if(btnCancConv) btnCancConv.style.display = 'none';
   }
   if(id==='p-rpt') document.getElementById('rto').value=fechaHoyISO();
   if(id==='p-cxc'){ var bc=document.getElementById('cxc-buscar'); if(bc) bc.value=''; window._cxcTabActiva='pendientes'; cambiarPestanaCxC('pendientes'); }
@@ -4260,7 +4265,49 @@ function onNegocioInput(inputId){
   var matches = Object.keys(negocios).filter(function(n){ return n.toLowerCase().indexOf(q) >= 0; });
   mostrarDropdown(inputId+'-drop', matches, inputId, function(neg){
     document.getElementById(inputId).value = neg;
+    // Si esta barberia ya tiene otro barbero registrado con su direccion, se copia automaticamente
+    // -para no tener que escribirla de nuevo cada vez que se agrega otro barbero del mismo lugar-.
+    autocompletarDireccionDeNegocio(inputId, neg);
   });
+}
+
+// Copia la direccion -de un cliente que ya tenga registrada esa misma barberia- a los campos
+// de direccion del formulario correspondiente. Solo llena los campos que esten vacios, para no
+// pisar algo que el usuario ya haya escrito a mano.
+function autocompletarDireccionDeNegocio(inputIdNegocio, nombreNegocio){
+  clientes = LS('ncl', []);
+  var conEsaDireccion = clientes.find(function(c){
+    return (c.negocio||'').trim().toLowerCase() === nombreNegocio.trim().toLowerCase() && (c.dir || c.ciudad);
+  });
+  if(!conEsaDireccion) return;
+
+  // Mapa de que campos de direccion usar segun el formulario -nuevo cliente vs editar cliente-
+  var mapaCampos = inputIdNegocio === 'cne'
+    ? { dir:'cd', ciudad:'ccity', estado:'cstate', zip:'czip' }
+    : { dir:'ecl-d', ciudad:'ecl-ci', estado:'ecl-st', zip:'ecl-z' };
+
+  var huboAutocompletado = false;
+  Object.keys(mapaCampos).forEach(function(campo){
+    var el = document.getElementById(mapaCampos[campo]);
+    if(el && !el.value && conEsaDireccion[campo]){
+      el.value = conEsaDireccion[campo];
+      huboAutocompletado = true;
+    }
+  });
+  if(huboAutocompletado){
+    var avisoId = inputIdNegocio === 'cne' ? 'c-aviso-direccion-auto' : 'ecl-aviso-direccion-auto';
+    var aviso = document.getElementById(avisoId);
+    if(!aviso){
+      aviso = document.createElement('div');
+      aviso.id = avisoId;
+      aviso.style.cssText = 'background:#E8F5E9;color:#2E7D32;border-radius:8px;padding:8px 10px;font-size:11px;margin:-4px 0 8px';
+      var campoNegocio = document.getElementById(inputIdNegocio);
+      campoNegocio.parentNode.insertBefore(aviso, campoNegocio.nextSibling);
+    }
+    aviso.textContent = '✓ Dirección copiada automáticamente de otro barbero de "'+nombreNegocio+'" — puedes cambiarla si hace falta.';
+    aviso.style.display = 'block';
+    setTimeout(function(){ if(aviso) aviso.style.display = 'none'; }, 6000);
+  }
 }
 
 function onMarcaInput(inputId){
@@ -4534,12 +4581,47 @@ function renderIV(){
   iV.forEach(function(it,i){
     subtot += it.cant * it.precio;
     var row = document.createElement('div');
-    row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #f0f0f0;font-size:13px';
-    row.innerHTML = '<span style="font-weight:500">'+it.nombre+' x'+it.cant+'</span>'
-      +'<div style="display:flex;align-items:center;gap:8px"><span style="font-weight:700;color:#1565C0">$'+fmtNum((it.cant*it.precio))+'</span>'
-      +'<button onclick="rmIV('+i+')" style="background:none;border:none;cursor:pointer;color:#D32F2F;font-size:18px">✕</button></div>';
+    row.style.cssText = 'padding:8px 0;border-bottom:1px solid #f0f0f0';
+    row.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">'
+      +'<span style="font-weight:600;font-size:13px;flex:1">'+it.nombre+'</span>'
+      +'<span style="font-weight:700;color:#1565C0;font-size:13px;margin-left:8px">$'+fmtNum((it.cant*it.precio))+'</span>'
+      +'<button onclick="rmIV('+i+')" style="background:none;border:none;cursor:pointer;color:#D32F2F;font-size:18px;padding:0 0 0 8px">✕</button>'
+      +'</div>'
+      +'<div style="display:flex;gap:8px;align-items:center">'
+      +'<div style="display:flex;align-items:center;gap:4px">'
+      +'<button onclick="cambiarCantIV('+i+',-1)" style="width:28px;height:28px;background:var(--nbs-red-bg);color:var(--nbs-red-dark);border:none;border-radius:6px;cursor:pointer;font-size:14px;font-weight:700">−</button>'
+      +'<span style="width:26px;text-align:center;font-size:13px;font-weight:700">'+it.cant+'</span>'
+      +'<button onclick="cambiarCantIV('+i+',1)" style="width:28px;height:28px;background:var(--nbs-green-bg);color:var(--nbs-green-text);border:none;border-radius:6px;cursor:pointer;font-size:14px;font-weight:700">+</button>'
+      +'</div>'
+      +'<label style="font-size:11px;color:#aaa;margin-left:auto">Precio c/u:</label>'
+      +'<input type="text" inputmode="numeric" value="'+it.precio.toFixed(2)+'" onfocus="this.select()" oninput="formatoMoneda(this);actualizarPrecioIV('+i+',this.value)" style="width:70px;padding:5px 6px;border:1px solid #ddd;border-radius:6px;font-size:12px;text-align:center">'
+      +'</div>';
     el.appendChild(row);
   });
+  var st = document.getElementById('vsubtot');
+  if(st) st.textContent = '$' + fmtNum(subtot);
+  calcDesc();
+}
+
+function cambiarCantIV(i, delta){
+  if(!iV[i]) return;
+  var nueva = (iV[i].cant||1) + delta;
+  if(nueva < 1) nueva = 1;
+  iV[i].cant = nueva;
+  renderIV();
+}
+
+function actualizarPrecioIV(i, val){
+  if(!iV[i]) return;
+  iV[i].precio = parseFloat(val) || 0;
+  // No se vuelve a dibujar toda la lista aqui -perderias el foco del campo mientras escribes-,
+  // solo se actualiza el numero del total de esa linea y el subtotal general.
+  var el = document.getElementById('iv');
+  if(el && el.children[i]){
+    var totalLinea = el.children[i].querySelector('span:nth-child(2)');
+    if(totalLinea) totalLinea.textContent = '$'+fmtNum(iV[i].cant*iV[i].precio);
+  }
+  var subtot = iV.reduce(function(s,it){ return s+(it.cant*it.precio); },0);
   var st = document.getElementById('vsubtot');
   if(st) st.textContent = '$' + fmtNum(subtot);
   calcDesc();
@@ -4664,6 +4746,14 @@ function saveV(){
   // Volver automaticamente a la pantalla correcta segun de donde vino esta venta
   var destino = window._vendiendoDesde;
   if(destino){
+    // Si esta venta vino de convertir un pedido, AHORA SI se borra el pedido -ya se completo de verdad-
+    if(destino.tipo === 'pedido' && destino.pedidoId !== undefined){
+      var pedidosActuales = LS('npedidos', []);
+      var idxABorrar = pedidosActuales.findIndex(function(pp){ return pp.id === destino.pedidoId; });
+      if(idxABorrar >= 0){ pedidosActuales.splice(idxABorrar, 1); SS('npedidos', pedidosActuales); }
+    }
+    var btnCancelarConv2 = document.getElementById('btn-cancelar-conversion-pedido');
+    if(btnCancelarConv2) btnCancelarConv2.style.display = 'none';
     window._vendiendoDesde = null;
     setTimeout(function(){
       if(destino.tipo === 'cliente' && destino.cid){
@@ -5598,11 +5688,24 @@ function convertirPedidoAVenta(idx){
     return { pid: it.pid, nombre: it.nombre, cant: it.cant, precio: it.precio, costo: prod?prod.costo:it.costo };
   });
   ir('p-v');
-  window._vendiendoDesde = { tipo:'pedido' };
+  // IMPORTANTE: el pedido NO se borra todavia -se queda guardado tal cual- hasta que la venta
+  // se complete de verdad en saveV(). Asi, si el usuario cancela o algo interrumpe el proceso,
+  // el pedido sigue intacto en Pedidos Pendientes, sin perder nada.
+  window._vendiendoDesde = { tipo:'pedido', pedidoId: p.id };
   if(p.cid) document.getElementById('vcl').value = p.cid;
   renderIV();
-  pedidos.splice(idx, 1);
-  SS('npedidos', pedidos);
+  var btnCancelarConv = document.getElementById('btn-cancelar-conversion-pedido');
+  if(btnCancelarConv) btnCancelarConv.style.display = 'block';
+}
+
+function cancelarConversionPedido(){
+  if(!confirm('¿Cancelar esto y volver a Pedidos Pendientes?\n\nEl pedido sigue guardado tal cual, no se pierde nada.')) return;
+  iV = [];
+  renderIV();
+  window._vendiendoDesde = null;
+  var btnCancelarConv = document.getElementById('btn-cancelar-conversion-pedido');
+  if(btnCancelarConv) btnCancelarConv.style.display = 'none';
+  ir('p-ped');
 }
 
 // ===== PROGRAMA DE FIDELIDAD GENERAL (independiente de VIP) =====
@@ -9592,14 +9695,123 @@ function verHistorialCostoSuplidor(pid){
 
 function navegarANegocio(nombreNegocio){
   clientes = LS('ncl', []);
-  var cl = clientes.find(function(c){ return (c.negocio||'').trim() === nombreNegocio; });
-  if(!cl || (!cl.dir && !cl.ciudad)){
+  // Buscar TODOS los clientes de ese negocio -no solo el primero-, sin importar mayusculas/minusculas
+  var todosDelNegocio = clientes.filter(function(c){
+    return (c.negocio||'').trim().toLowerCase() === nombreNegocio.trim().toLowerCase();
+  });
+  var conDireccion = todosDelNegocio.filter(function(c){ return c.dir || c.ciudad; });
+
+  if(!conDireccion.length){
     alert('No hay una dirección guardada para "'+nombreNegocio+'" todavía.\n\nPuedes agregarla desde el perfil de un cliente de ese negocio -Editar cliente-.');
     return;
   }
+
+  // Revisar si hay direcciones DISTINTAS entre los barberos de este mismo negocio -eso indicaria
+  // un dato mal cargado en alguno de ellos, y por eso el mapa podria llevar al lugar equivocado-.
+  var direccionesUnicas = {};
+  conDireccion.forEach(function(c){
+    var dirCompleta = [c.dir, c.ciudad, c.estado, c.zip].filter(Boolean).join(', ').toLowerCase();
+    direccionesUnicas[dirCompleta] = (direccionesUnicas[dirCompleta]||[]).concat(nombreCl(c));
+  });
+  var listaDirecciones = Object.keys(direccionesUnicas);
+
+  if(listaDirecciones.length > 1){
+    // Hay direcciones que NO coinciden entre los barberos de la misma barberia -avisar claramente
+    // en vez de adivinar cual usar, para no llevar al lugar equivocado otra vez-.
+    var mensaje = '⚠️ "'+nombreNegocio+'" tiene DIRECCIONES DISTINTAS guardadas entre sus barberos:\n\n';
+    listaDirecciones.forEach(function(dir, i){
+      mensaje += (i+1)+'. '+dir+'\n   -de: '+direccionesUnicas[dir].join(', ')+'\n\n';
+    });
+    mensaje += 'Corrige la dirección incorrecta desde el perfil de ese cliente -Editar cliente- para que el mapa lleve siempre al lugar correcto.';
+    alert(mensaje);
+    return;
+  }
+
+  var cl = conDireccion[0];
   var direccionCompleta = [cl.dir, cl.ciudad, cl.estado, cl.zip].filter(Boolean).join(', ');
   var url = 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(direccionCompleta);
   window.open(url, '_blank');
+}
+
+function revisarDireccionesDeNegocios(){
+  clientes = LS('ncl', []);
+  var porNegocio = {};
+  clientes.forEach(function(c){
+    var neg = (c.negocio||'').trim();
+    if(!neg) return;
+    var key = neg.toLowerCase();
+    if(!porNegocio[key]) porNegocio[key] = { nombreOriginal: neg, clientes: [] };
+    porNegocio[key].clientes.push(c);
+  });
+
+  var conflictos = [];
+  Object.keys(porNegocio).forEach(function(key){
+    var grupo = porNegocio[key];
+    var direcciones = {};
+    grupo.clientes.forEach(function(c){
+      if(!c.dir && !c.ciudad) return;
+      var dirCompleta = [c.dir, c.ciudad, c.estado, c.zip].filter(Boolean).join(', ');
+      direcciones[dirCompleta] = (direcciones[dirCompleta]||[]).concat(nombreCl(c));
+    });
+    if(Object.keys(direcciones).length > 1){
+      conflictos.push({ negocio: grupo.nombreOriginal, direcciones: direcciones });
+    }
+  });
+
+  var overlay = document.getElementById('diagnostico-direcciones-overlay');
+  if(!overlay){
+    overlay = document.createElement('div');
+    overlay.id = 'diagnostico-direcciones-overlay';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:white;z-index:99998;overflow-y:auto;padding:16px';
+    document.body.appendChild(overlay);
+  }
+  var wrap = document.createElement('div');
+  wrap.style.cssText = 'max-width:480px;margin:0 auto';
+
+  var header = document.createElement('div');
+  header.style.cssText = 'display:flex;align-items:center;gap:10px;margin-bottom:16px';
+  var btnBack = document.createElement('button');
+  btnBack.textContent = '← Volver';
+  btnBack.style.cssText = 'background:#E8EAF6;border:none;border-radius:8px;padding:10px 16px;cursor:pointer;font-size:14px;font-weight:600;color:#1a237e';
+  btnBack.onclick = function(){ overlay.style.display='none'; };
+  var iconoNBS = document.createElement('img');
+  iconoNBS.src = 'icon-512.png'; iconoNBS.alt = 'NBS';
+  iconoNBS.style.cssText = 'width:32px;height:32px;margin-left:auto;border-radius:8px;cursor:pointer';
+  iconoNBS.onclick = function(){ overlay.style.display='none'; ir('p-ped'); };
+  header.appendChild(btnBack); header.appendChild(iconoNBS);
+  wrap.appendChild(header);
+
+  var titulo = document.createElement('div');
+  titulo.innerHTML = '<div style="font-size:18px;font-weight:800;color:#C62828">🔍 Revisión de Direcciones</div>'
+    +'<div style="font-size:13px;color:#aaa;margin-top:2px">Negocios con direcciones distintas entre sus barberos</div>';
+  wrap.appendChild(titulo);
+
+  if(!conflictos.length){
+    var ok = document.createElement('div');
+    ok.style.cssText = 'background:#E8F5E9;border-radius:10px;padding:16px;margin-top:16px;text-align:center;color:#2E7D32;font-size:13px';
+    ok.textContent = '✅ No se encontró ningún negocio con direcciones que no coincidan entre sus barberos.';
+    wrap.appendChild(ok);
+  } else {
+    var avisoTop = document.createElement('div');
+    avisoTop.style.cssText = 'background:#FFEBEE;border-radius:10px;padding:12px;margin:14px 0;font-size:12px;color:#C62828';
+    avisoTop.textContent = conflictos.length+' negocio(s) tienen direcciones que no coinciden entre sus barberos — esto puede ser la causa de que el mapa lleve al lugar equivocado.';
+    wrap.appendChild(avisoTop);
+
+    conflictos.forEach(function(c){
+      var card = document.createElement('div');
+      card.style.cssText = 'background:#FAFAFA;border-radius:10px;padding:12px;margin-bottom:10px;border:1px solid #FFCDD2';
+      var html = '<div style="font-size:14px;font-weight:800;color:#1a237e;margin-bottom:8px">🏪 '+c.negocio+'</div>';
+      Object.keys(c.direcciones).forEach(function(dir){
+        html += '<div style="font-size:12px;color:#333;margin-bottom:4px">📍 '+dir+'<br><span style="color:#aaa;font-size:11px">de: '+c.direcciones[dir].join(', ')+'</span></div>';
+      });
+      card.innerHTML = html;
+      wrap.appendChild(card);
+    });
+  }
+
+  overlay.innerHTML = '';
+  overlay.appendChild(wrap);
+  overlay.style.display = 'block';
 }
 
 function renderRutaDia(diaKey){
@@ -10708,6 +10920,7 @@ function verHistorialCliente(cid, modo){
       </div>
     </div>
     <button class="btn" style="background:#2E7D32;color:white" onclick="saveV()">✓ Registrar venta</button>
+    <button id="btn-cancelar-conversion-pedido" style="display:none;width:100%;padding:10px;background:#FFEBEE;color:#C62828;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;margin-top:8px" onclick="cancelarConversionPedido()">✕ Cancelar y volver a Pedidos Pendientes -no se pierde nada-</button>
     <div class="snk" id="mk-v">Venta registrada</div>
   </div>
 </div>
@@ -11098,6 +11311,7 @@ function verHistorialCliente(cid, modo){
 <div id="p-rutas" class="pg">
   <div style="display:flex;gap:8px;margin-bottom:16px"><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="volverAtras()">← Atrás</button><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="ir('p-ped')">🏠 Inicio</button></div>
   <h2 style="font-size:24px;font-weight:800;color:#1a237e;margin-bottom:16px;text-align:center;padding-bottom:12px;border-bottom:2px solid #E8EAF6">🗺️ Ruta de Visitas</h2>
+  <button onclick="revisarDireccionesDeNegocios()" style="width:100%;padding:10px;background:#FFF3E0;color:#E65100;border:1px solid #FFCC80;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;margin-bottom:14px">🔍 Revisar si hay direcciones que no coinciden entre barberos del mismo negocio</button>
   <div id="rutas-contenido"></div>
 </div>
 

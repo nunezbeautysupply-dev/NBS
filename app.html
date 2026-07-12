@@ -3808,77 +3808,115 @@ function cerrarEscanerSKU(){
 // Recortador de fotos reutilizable: muestra un cuadro donde se puede arrastrar y hacer zoom
 // antes de confirmar. Al confirmar, llama a onConfirmar(dataUrlRecortado).
 function abrirRecortarFoto(dataUrlOriginal, onConfirmar){
-  var TAM = 280; // tamano del marco de recorte en pantalla
-  var SALIDA = 300; // resolucion final de la imagen recortada (cuadrada)
+  var MAXW = 320, MAXH = 420; // tamano maximo del area donde se ve la foto completa en pantalla
+  var SALIDA_MAX = 600; // resolucion maxima del lado mas largo de la imagen final recortada
+  var MIN_RECT = 40; // tamano minimo del recuadro de recorte, en pixeles de pantalla
 
   var overlay = document.getElementById('crop-foto-overlay');
   if(!overlay){
     overlay = document.createElement('div');
     overlay.id = 'crop-foto-overlay';
-    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:99999;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;box-sizing:border-box';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.9);z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;box-sizing:border-box';
     document.body.appendChild(overlay);
   }
   overlay.innerHTML = '';
 
   var titulo = document.createElement('div');
-  titulo.textContent = 'Ajusta la foto';
-  titulo.style.cssText = 'color:white;font-size:15px;font-weight:700;margin-bottom:14px';
+  titulo.textContent = 'Ajusta el recorte';
+  titulo.style.cssText = 'color:white;font-size:15px;font-weight:700;margin-bottom:6px';
   overlay.appendChild(titulo);
 
-  var marco = document.createElement('div');
-  marco.style.cssText = 'width:'+TAM+'px;height:'+TAM+'px;border-radius:14px;overflow:hidden;position:relative;background:#111;touch-action:none;border:2px solid white';
-  overlay.appendChild(marco);
-
-  var img = new Image();
-  img.style.cssText = 'position:absolute;top:0;left:0;transform-origin:top left;user-select:none;-webkit-user-drag:none';
-  marco.appendChild(img);
-
   var subtitulo = document.createElement('div');
-  subtitulo.textContent = 'Arrastra para mover · usa la barra para acercar';
-  subtitulo.style.cssText = 'color:#ccc;font-size:12px;margin-top:12px;text-align:center';
+  subtitulo.textContent = 'Arrastra cualquier borde para recortar ese lado — o el centro para mover todo';
+  subtitulo.style.cssText = 'color:#ccc;font-size:12px;margin-bottom:14px;text-align:center;max-width:300px';
   overlay.appendChild(subtitulo);
 
-  var slider = document.createElement('input');
-  slider.type = 'range';
-  slider.min = '100';
-  slider.max = '300';
-  slider.value = '100';
-  slider.style.cssText = 'width:'+TAM+'px;margin-top:10px';
-  overlay.appendChild(slider);
+  var lienzo = document.createElement('div');
+  lienzo.style.cssText = 'position:relative;background:#111;touch-action:none;user-select:none';
+  overlay.appendChild(lienzo);
+
+  var img = new Image();
+  img.style.cssText = 'display:block;position:absolute;top:0;left:0;user-select:none;-webkit-user-drag:none;pointer-events:none';
+  lienzo.appendChild(img);
+
+  // Capas oscuras fuera del recuadro de recorte -para resaltar que area va a quedar-
+  var sombras = {};
+  ['top','bottom','left','right'].forEach(function(lado){
+    var s = document.createElement('div');
+    s.style.cssText = 'position:absolute;background:rgba(0,0,0,0.6);pointer-events:none';
+    lienzo.appendChild(s);
+    sombras[lado] = s;
+  });
+
+  var recuadro = document.createElement('div');
+  recuadro.style.cssText = 'position:absolute;border:2px solid var(--nbs-gold);box-sizing:border-box;cursor:move';
+  lienzo.appendChild(recuadro);
+
+  // Manijas: una barra larga en cada lado, facil de agarrar con el dedo
+  var manijas = {};
+  var estiloManijaBase = 'position:absolute;background:var(--nbs-gold);border-radius:4px;touch-action:none';
+  ['top','bottom'].forEach(function(lado){
+    var m = document.createElement('div');
+    m.style.cssText = estiloManijaBase+';left:50%;transform:translateX(-50%);width:44px;height:10px;cursor:ns-resize';
+    lienzo.appendChild(m);
+    manijas[lado] = m;
+  });
+  ['left','right'].forEach(function(lado){
+    var m = document.createElement('div');
+    m.style.cssText = estiloManijaBase+';top:50%;transform:translateY(-50%);width:10px;height:44px;cursor:ew-resize';
+    lienzo.appendChild(m);
+    manijas[lado] = m;
+  });
 
   var botones = document.createElement('div');
-  botones.style.cssText = 'display:flex;gap:10px;margin-top:18px;width:'+TAM+'px';
+  botones.style.cssText = 'display:flex;gap:10px;margin-top:18px;width:100%;max-width:'+MAXW+'px';
   var btnCancelar = document.createElement('button');
   btnCancelar.textContent = 'Cancelar';
   btnCancelar.style.cssText = 'flex:1;padding:12px;background:#444;color:white;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer';
+  var btnReiniciar = document.createElement('button');
+  btnReiniciar.textContent = '↺ Reiniciar';
+  btnReiniciar.style.cssText = 'padding:12px 14px;background:#333;color:white;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer';
   var btnConfirmar = document.createElement('button');
-  btnConfirmar.textContent = '✓ Confirmar recorte';
+  btnConfirmar.textContent = '✓ Confirmar';
   btnConfirmar.style.cssText = 'flex:1;padding:12px;background:var(--nbs-gold);color:white;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer';
   botones.appendChild(btnCancelar);
+  botones.appendChild(btnReiniciar);
   botones.appendChild(btnConfirmar);
   overlay.appendChild(botones);
 
-  var iw, ih, scale0, scale, offX, offY, arrastrando = false, startX, startY, startOffX, startOffY;
+  var dispW, dispH; // tamano de la imagen tal como se muestra en pantalla
+  var rx, ry, rw, rh; // posicion y tamano del recuadro de recorte, en coordenadas de PANTALLA
 
-  function aplicarTransform(){
-    img.style.width = (iw*scale)+'px';
-    img.style.height = (ih*scale)+'px';
-    img.style.transform = 'translate('+offX+'px,'+offY+'px)';
+  function posicionInicialRecuadro(){
+    // Por defecto, casi toda la foto -con un margen chiquito- para no recortar de mas sin querer
+    var margen = 0.06;
+    rx = dispW*margen; ry = dispH*margen;
+    rw = dispW*(1-margen*2); rh = dispH*(1-margen*2);
   }
-  function limitarOffsets(){
-    var dw = iw*scale, dh = ih*scale;
-    offX = Math.min(0, Math.max(TAM-dw, offX));
-    offY = Math.min(0, Math.max(TAM-dh, offY));
+
+  function dibujar(){
+    recuadro.style.left = rx+'px'; recuadro.style.top = ry+'px';
+    recuadro.style.width = rw+'px'; recuadro.style.height = rh+'px';
+
+    sombras.top.style.cssText += ';left:0;top:0;width:'+dispW+'px;height:'+ry+'px';
+    sombras.bottom.style.cssText += ';left:0;top:'+(ry+rh)+'px;width:'+dispW+'px;height:'+(dispH-ry-rh)+'px';
+    sombras.left.style.cssText += ';left:0;top:'+ry+'px;width:'+rx+'px;height:'+rh+'px';
+    sombras.right.style.cssText += ';left:'+(rx+rw)+'px;top:'+ry+'px;width:'+(dispW-rx-rw)+'px;height:'+rh+'px';
+
+    manijas.top.style.left = (rx+rw/2)+'px'; manijas.top.style.top = (ry-5)+'px';
+    manijas.bottom.style.left = (rx+rw/2)+'px'; manijas.bottom.style.top = (ry+rh-5)+'px';
+    manijas.left.style.top = (ry+rh/2)+'px'; manijas.left.style.left = (rx-5)+'px';
+    manijas.right.style.top = (ry+rh/2)+'px'; manijas.right.style.left = (rx+rw-5)+'px';
   }
 
   img.onload = function(){
-    iw = img.naturalWidth; ih = img.naturalHeight;
-    scale0 = TAM / Math.min(iw, ih);
-    scale = scale0;
-    offX = (TAM - iw*scale)/2;
-    offY = (TAM - ih*scale)/2;
-    limitarOffsets();
-    aplicarTransform();
+    var natW = img.naturalWidth, natH = img.naturalHeight;
+    var escala = Math.min(MAXW/natW, MAXH/natH, 1);
+    dispW = Math.round(natW*escala); dispH = Math.round(natH*escala);
+    img.style.width = dispW+'px'; img.style.height = dispH+'px';
+    lienzo.style.width = dispW+'px'; lienzo.style.height = dispH+'px';
+    posicionInicialRecuadro();
+    dibujar();
   };
   img.src = dataUrlOriginal;
 
@@ -3886,57 +3924,80 @@ function abrirRecortarFoto(dataUrlOriginal, onConfirmar){
     if(e.touches && e.touches.length) return {x:e.touches[0].clientX, y:e.touches[0].clientY};
     return {x:e.clientX, y:e.clientY};
   }
-  function empezarArrastre(e){
-    arrastrando = true;
-    var p = posDe(e);
-    startX = p.x; startY = p.y;
-    startOffX = offX; startOffY = offY;
+
+  var modo = null; // 'mover' | 'top' | 'bottom' | 'left' | 'right'
+  var startX, startY, startRx, startRy, startRw, startRh;
+
+  function empezar(m){
+    return function(e){
+      e.preventDefault();
+      modo = m;
+      var p = posDe(e);
+      startX = p.x; startY = p.y;
+      startRx=rx; startRy=ry; startRw=rw; startRh=rh;
+    };
   }
-  function moverArrastre(e){
-    if(!arrastrando) return;
+  function alMover(e){
+    if(!modo) return;
     e.preventDefault();
     var p = posDe(e);
-    offX = startOffX + (p.x - startX);
-    offY = startOffY + (p.y - startY);
-    limitarOffsets();
-    aplicarTransform();
+    var dx = p.x-startX, dy = p.y-startY;
+
+    if(modo === 'mover'){
+      rx = Math.min(dispW-rw, Math.max(0, startRx+dx));
+      ry = Math.min(dispH-rh, Math.max(0, startRy+dy));
+    } else if(modo === 'top'){
+      var nuevoTop = Math.min(startRy+startRh-MIN_RECT, Math.max(0, startRy+dy));
+      rh = startRh - (nuevoTop-startRy);
+      ry = nuevoTop;
+    } else if(modo === 'bottom'){
+      rh = Math.min(dispH-startRy, Math.max(MIN_RECT, startRh+dy));
+    } else if(modo === 'left'){
+      var nuevoLeft = Math.min(startRx+startRw-MIN_RECT, Math.max(0, startRx+dx));
+      rw = startRw - (nuevoLeft-startRx);
+      rx = nuevoLeft;
+    } else if(modo === 'right'){
+      rw = Math.min(dispW-startRx, Math.max(MIN_RECT, startRw+dx));
+    }
+    dibujar();
   }
-  function terminarArrastre(){ arrastrando = false; }
+  function terminar(){ modo = null; }
 
-  marco.addEventListener('mousedown', empezarArrastre);
-  marco.addEventListener('touchstart', empezarArrastre, {passive:true});
-  window.addEventListener('mousemove', moverArrastre);
-  window.addEventListener('touchmove', moverArrastre, {passive:false});
-  window.addEventListener('mouseup', terminarArrastre);
-  window.addEventListener('touchend', terminarArrastre);
+  recuadro.addEventListener('mousedown', empezar('mover'));
+  recuadro.addEventListener('touchstart', empezar('mover'), {passive:false});
+  Object.keys(manijas).forEach(function(lado){
+    manijas[lado].addEventListener('mousedown', empezar(lado));
+    manijas[lado].addEventListener('touchstart', empezar(lado), {passive:false});
+  });
+  window.addEventListener('mousemove', alMover);
+  window.addEventListener('touchmove', alMover, {passive:false});
+  window.addEventListener('mouseup', terminar);
+  window.addEventListener('touchend', terminar);
 
-  slider.oninput = function(){
-    var centroXimg = (TAM/2 - offX) / scale;
-    var centroYimg = (TAM/2 - offY) / scale;
-    scale = scale0 * (slider.value/100);
-    offX = TAM/2 - centroXimg*scale;
-    offY = TAM/2 - centroYimg*scale;
-    limitarOffsets();
-    aplicarTransform();
-  };
+  btnReiniciar.onclick = function(){ posicionInicialRecuadro(); dibujar(); };
 
   function cerrar(){
     overlay.style.display = 'none';
-    window.removeEventListener('mousemove', moverArrastre);
-    window.removeEventListener('touchmove', moverArrastre);
-    window.removeEventListener('mouseup', terminarArrastre);
-    window.removeEventListener('touchend', terminarArrastre);
+    window.removeEventListener('mousemove', alMover);
+    window.removeEventListener('touchmove', alMover);
+    window.removeEventListener('mouseup', terminar);
+    window.removeEventListener('touchend', terminar);
   }
   btnCancelar.onclick = cerrar;
   btnConfirmar.onclick = function(){
+    var escalaNatural = img.naturalWidth / dispW;
+    var sx = rx*escalaNatural, sy = ry*escalaNatural;
+    var sw = rw*escalaNatural, sh = rh*escalaNatural;
+
+    var salidaW, salidaH;
+    if(sw >= sh){ salidaW = Math.min(SALIDA_MAX, sw); salidaH = salidaW*(sh/sw); }
+    else { salidaH = Math.min(SALIDA_MAX, sh); salidaW = salidaH*(sw/sh); }
+
     var canvas = document.createElement('canvas');
-    canvas.width = SALIDA; canvas.height = SALIDA;
+    canvas.width = Math.round(salidaW); canvas.height = Math.round(salidaH);
     var ctx = canvas.getContext('2d');
-    var sx = (0 - offX) / scale;
-    var sy = (0 - offY) / scale;
-    var sSize = TAM / scale;
-    ctx.drawImage(img, sx, sy, sSize, sSize, 0, 0, SALIDA, SALIDA);
-    var dataFinal = canvas.toDataURL('image/jpeg', 0.8);
+    ctx.drawImage(img, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+    var dataFinal = canvas.toDataURL('image/jpeg', 0.85);
     cerrar();
     onConfirmar(dataFinal);
   };
@@ -5203,8 +5264,11 @@ function filterPed(q){
   el.style.display = 'block';
   list.forEach(function(p){
     var d = document.createElement('div');
-    d.style.cssText = 'padding:12px;border-bottom:1px solid #f0f0f0;cursor:pointer;font-size:13px;background:'+(p.stock<=0?'#FFCDD2':p.stock<=p.min?'#FFF9C4':'white');
-    d.innerHTML = '<div style="font-weight:600">'+p.nombre+'</div><div style="color:#aaa;font-size:11px">'+p.cat+' · Stock:'+p.stock+' · $'+fmtNum(p.precio)+'</div>';
+    d.style.cssText = 'padding:10px 12px;border-bottom:1px solid #f0f0f0;cursor:pointer;font-size:13px;background:'+(p.stock<=0?'#FFCDD2':p.stock<=p.min?'#FFF9C4':'white')+';display:flex;align-items:center;gap:10px';
+    var fotoHtml = p.foto
+      ? '<img src="'+p.foto+'" style="width:38px;height:38px;border-radius:8px;object-fit:cover;flex-shrink:0">'
+      : '<div style="width:38px;height:38px;border-radius:8px;background:#eee;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;color:#bbb">📦</div>';
+    d.innerHTML = fotoHtml+'<div style="flex:1"><div style="font-weight:600">'+p.nombre+'</div><div style="color:#aaa;font-size:11px">'+p.cat+' · Stock:'+p.stock+' · $'+fmtNum(p.precio)+'</div></div>';
     d.onclick = (function(pid){ return function(){ selPed(pid); }; })(p.id);
     el.appendChild(d);
   });
@@ -5217,7 +5281,7 @@ function selPed(id){
   for(var j=0;j<pedItemsTemp.length;j++){
     if(String(pedItemsTemp[j].pid)===String(p.id)){ pedItemsTemp[j].cant += 1; encontrado = true; break; }
   }
-  if(!encontrado) pedItemsTemp.push({ pid: p.id, nombre: p.nombre, cant: 1, precio: p.precio, costo: p.costo });
+  if(!encontrado) pedItemsTemp.push({ pid: p.id, nombre: p.nombre, cant: 1, precio: p.precio, costo: p.costo, foto: p.foto||null });
   // Limpiar búsqueda y mostrar confirmación breve
   document.getElementById('pedsel').value = '';
   document.getElementById('pedchip').style.display = 'none';
@@ -5262,6 +5326,9 @@ function renderPedItems(){
     var row = document.createElement('div');
     row.style.cssText = 'padding:10px;margin-bottom:8px;border:0.5px solid var(--nbs-line);border-radius:10px;background:white';
     row.innerHTML = '<div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">'
+      +(it.foto
+        ? '<img src="'+it.foto+'" onclick="verFotoGasto(\''+it.foto+'\')" style="width:40px;height:40px;border-radius:8px;object-fit:cover;flex-shrink:0;cursor:pointer">'
+        : '<div style="width:40px;height:40px;border-radius:8px;background:#f0f0f0;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;color:#ccc">📦</div>')
       +'<input type="text" value="'+it.nombre.replace(/"/g,"'")+'" oninput="actualizarPedItem('+i+',\'nombre\',this.value)" style="flex:1;border:0.5px solid #ddd;border-radius:6px;padding:7px 8px;font-size:13px;font-weight:600;color:var(--nbs-ink)">'
       +'<button onclick="pedItemsTemp.splice('+i+',1);renderPedItems();" style="background:var(--nbs-red-bg);color:var(--nbs-red-dark);border:none;border-radius:8px;width:36px;height:36px;cursor:pointer;font-size:15px;flex-shrink:0">✕</button>'
       +'</div>'

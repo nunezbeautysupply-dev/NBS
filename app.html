@@ -21,7 +21,7 @@
   <link rel="manifest" href="manifest.json">
   <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
   <link rel="apple-touch-icon" href="icon-192.png">
-<title>NBS App v3.8</title>
+<title>NBS App v3.9</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
@@ -309,7 +309,7 @@ button:active{transform:scale(0.96);filter:brightness(0.93);}
     <img src="icon-512.png" style="width:40px;height:40px" alt="NBS">
     <div>
       <div style="font-size:15px;font-weight:700;color:var(--nbs-ink)">Nunez Beauty Supply</div>
-      <div style="font-size:11px;color:var(--nbs-muted)">Supply Manager v3.8</div>
+      <div style="font-size:11px;color:var(--nbs-muted)">Supply Manager v3.9</div>
     </div>
   </div>
   <div style="padding:10px 8px">
@@ -545,6 +545,7 @@ button:active{transform:scale(0.96);filter:brightness(0.93);}
       <label class="lbl">Descripción del producto</label>
       <textarea class="inp" id="ep-desc" rows="3" placeholder="Ej: Navaja de afeitar profesional, pack de 10 unidades, color rojo..." style="resize:vertical;font-size:14px"></textarea>
       <button class="btn" style="background:#1565C0;color:white" onclick="guardarEdicionProducto()">✓ Guardar cambios</button>
+      <button class="btn" style="background:#6A1B9A;color:white" onclick="verHistorialCostoSuplidor(productoEditandoId)">📊 Historial de costo por suplidor</button>
       <button class="btn" style="background:#546E7A;color:white" onclick="cerrarEdicionProducto()">← Volver al catalogo</button>
       <button class="btn" id="ep-btn-eliminar" style="background:#B71C1C;color:white" onclick="eliminarProductoCatalogo()">🗑️ Eliminar producto</button>
       <div class="snk" id="mk-ep">Producto actualizado</div>
@@ -1613,6 +1614,17 @@ function irProtegido(dest){
 var VIP_META = 10;
 var VIP_PRECIOS = [9.99, 10.00];
 var VIP_PRECIO_MITAD = 5.00; // 2 unidades de $5 = 1 punto VIP
+
+// Devuelve el precio que le corresponde a un cliente por un producto -su precio personalizado
+// si tiene uno guardado para ese producto, o el precio normal del catalogo si no-.
+function obtenerPrecioParaCliente(cid, pid, precioDefault){
+  if(!cid || !pid) return precioDefault;
+  var clientesLocal = LS('ncl', []);
+  var cl = clientesLocal.find(function(c){ return String(c.id)===String(cid); });
+  if(!cl || !cl.preciosPersonalizados) return precioDefault;
+  var especial = cl.preciosPersonalizados.find(function(pp){ return String(pp.pid)===String(pid); });
+  return especial ? especial.precio : precioDefault;
+}
 
 function esProductoVIP(precio){
   return VIP_PRECIOS.some(function(p){ return Math.abs(precio - p) < 0.02; })
@@ -4465,10 +4477,12 @@ function forzarAgregar(){
 
 function agregarProducto(pid, cant, prod){
   var encontrado = false;
+  var cidActual = document.getElementById('vcl') ? document.getElementById('vcl').value : null;
+  var precioAUsar = obtenerPrecioParaCliente(cidActual, prod.id, prod.precio);
   for(var j=0;j<iV.length;j++){
     if(String(iV[j].pid)===String(pid)){ iV[j].cant+=cant; encontrado=true; break; }
   }
-  if(!encontrado) iV.push({pid:prod.id,nombre:prod.nombre,cant:cant,precio:prod.precio,costo:prod.costo});
+  if(!encontrado) iV.push({pid:prod.id,nombre:prod.nombre,cant:cant,precio:precioAUsar,costo:prod.costo});
   document.getElementById('vcant').value=1;
   clearV();
   renderIV();
@@ -5290,10 +5304,11 @@ function selPed(id){
   var p = productos.find(function(x){ return String(x.id)===String(id); }); if(!p) return;
   // Agregar directamente al pedido sin pasos extra
   var encontrado = false;
+  var precioAUsar = obtenerPrecioParaCliente(pedBarberoCid, p.id, p.precio);
   for(var j=0;j<pedItemsTemp.length;j++){
     if(String(pedItemsTemp[j].pid)===String(p.id)){ pedItemsTemp[j].cant += 1; encontrado = true; break; }
   }
-  if(!encontrado) pedItemsTemp.push({ pid: p.id, nombre: p.nombre, cant: 1, precio: p.precio, costo: p.costo, foto: p.foto||null });
+  if(!encontrado) pedItemsTemp.push({ pid: p.id, nombre: p.nombre, cant: 1, precio: precioAUsar, costo: p.costo, foto: p.foto||null });
   // Limpiar búsqueda y mostrar confirmación breve
   document.getElementById('pedsel').value = '';
   document.getElementById('pedchip').style.display = 'none';
@@ -5688,7 +5703,8 @@ function verCl(id){
     +'</div>'
     +'<button class="btn" style="background:#6A1B9A;color:white" onclick="agregarBalanceInicial('+id+')">💰 Agregar balance inicial</button>'
     +'<button class="btn" id="btn-vip-cl" style="background:'+(c.vipActivo?'#AD1457':'#546E7A')+';color:white" data-clid="'+id+'" onclick="toggleVIPBtn(this)">'+(c.vipActivo?'⭐ Inscrito en VIP — Toca para retirar':'☆ Inscribir en programa VIP')+'</button>'
-    +'<button class="btn" style="background:#1a237e;color:white" onclick="verHistorialCliente('+id+',\'completo\')">📋 Ver historial completo -pagos, facturas, VIP, visitas</button>';
+    +'<button class="btn" style="background:#1a237e;color:white" onclick="verHistorialCliente('+id+',\'completo\')">📋 Ver historial completo -pagos, facturas, VIP, visitas</button>'
+    +'<button class="btn" style="background:#00695C;color:white" onclick="abrirPreciosPersonalizados('+id+')">💲 Precios especiales de este cliente</button>';
   el.appendChild(header);
 
   // Programa de Fidelidad (compras generales de productos menores a $30)
@@ -9483,6 +9499,108 @@ function renderRutas(){
   renderRutaDia(diaActual);
 }
 
+function verHistorialCostoSuplidor(pid){
+  if(pid === null || pid === undefined){ alert('No hay producto seleccionado.'); return; }
+  loadProds();
+  var prod = productos.find(function(x){ return String(x.id)===String(pid); });
+  if(!prod){ alert('Producto no encontrado.'); return; }
+
+  var compras = LS('nc', []);
+  var registros = [];
+  compras.forEach(function(c){
+    (c.items||[]).forEach(function(it){
+      if(String(it.pid)===String(pid)){
+        registros.push({ suplidor: c.sn || 'Suplidor', costo: it.costo, fecha: c.fecha, cant: it.cant });
+      }
+    });
+  });
+  registros.sort(function(a,b){ return parsearFechaVenta(b.fecha) - parsearFechaVenta(a.fecha); });
+
+  var overlay = document.getElementById('historial-costo-overlay');
+  if(!overlay){
+    overlay = document.createElement('div');
+    overlay.id = 'historial-costo-overlay';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:white;z-index:99998;overflow-y:auto;padding:16px';
+    document.body.appendChild(overlay);
+  }
+
+  var wrap = document.createElement('div');
+  wrap.style.cssText = 'max-width:480px;margin:0 auto';
+
+  var header = document.createElement('div');
+  header.style.cssText = 'display:flex;align-items:center;gap:10px;margin-bottom:16px';
+  var btnBack = document.createElement('button');
+  btnBack.textContent = '← Volver';
+  btnBack.style.cssText = 'background:#E8EAF6;border:none;border-radius:8px;padding:10px 16px;cursor:pointer;font-size:14px;font-weight:600;color:#1a237e';
+  btnBack.onclick = function(){ overlay.style.display='none'; };
+  var iconoNBS = document.createElement('img');
+  iconoNBS.src = 'icon-512.png'; iconoNBS.alt = 'NBS';
+  iconoNBS.style.cssText = 'width:32px;height:32px;margin-left:auto;border-radius:8px;cursor:pointer';
+  iconoNBS.onclick = function(){ overlay.style.display='none'; ir('p-ped'); };
+  header.appendChild(btnBack); header.appendChild(iconoNBS);
+  wrap.appendChild(header);
+
+  var titulo = document.createElement('div');
+  titulo.innerHTML = '<div style="font-size:18px;font-weight:800;color:#6A1B9A">📊 Historial de Costo</div>'
+    +'<div style="font-size:13px;color:#aaa;margin-top:2px">'+prod.nombre+' · Costo actual: $'+fmtNum(prod.costo)+'</div>';
+  wrap.appendChild(titulo);
+
+  if(!registros.length){
+    var vacio = document.createElement('div');
+    vacio.style.cssText = 'text-align:center;color:#ccc;padding:40px 20px;font-size:13px';
+    vacio.textContent = 'Todavía no hay compras registradas de este producto. En cuanto registres una Compra que lo incluya, va a aparecer aquí.';
+    wrap.appendChild(vacio);
+  } else {
+    // Resumen por suplidor: el costo mas reciente de cada uno, para comparar rapido
+    var porSuplidor = {};
+    registros.forEach(function(r){
+      if(!porSuplidor[r.suplidor] || parsearFechaVenta(r.fecha) > parsearFechaVenta(porSuplidor[r.suplidor].fecha)){
+        porSuplidor[r.suplidor] = r;
+      }
+    });
+    var nombresSuplidores = Object.keys(porSuplidor);
+    if(nombresSuplidores.length > 1){
+      var resumen = document.createElement('div');
+      resumen.style.cssText = 'background:#F3E5F5;border-radius:10px;padding:12px;margin:14px 0';
+      resumen.innerHTML = '<div style="font-size:11px;color:#6A1B9A;font-weight:700;margin-bottom:8px">ÚLTIMO PRECIO DE CADA SUPLIDOR -para comparar-</div>'
+        +nombresSuplidores.sort(function(a,b){ return porSuplidor[a].costo - porSuplidor[b].costo; }).map(function(s){
+          return '<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:13px"><span>'+s+'</span><span style="font-weight:700">$'+fmtNum(porSuplidor[s].costo)+'</span></div>';
+        }).join('');
+      wrap.appendChild(resumen);
+    }
+
+    var listaTitulo = document.createElement('div');
+    listaTitulo.style.cssText = 'font-size:11px;color:#aaa;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin:16px 0 8px';
+    listaTitulo.textContent = 'Historial completo de compras -más reciente primero-';
+    wrap.appendChild(listaTitulo);
+
+    registros.forEach(function(r){
+      var card = document.createElement('div');
+      card.style.cssText = 'background:#FAFAFA;border-radius:10px;padding:10px 12px;margin-bottom:6px;border:0.5px solid #eee;display:flex;justify-content:space-between;align-items:center';
+      card.innerHTML = '<div><div style="font-size:13px;font-weight:700">'+r.suplidor+'</div>'
+        +'<div style="font-size:11px;color:#aaa">'+r.fecha+' · '+r.cant+' unidad(es)</div></div>'
+        +'<div style="font-size:15px;font-weight:800;color:#6A1B9A">$'+fmtNum(r.costo)+'</div>';
+      wrap.appendChild(card);
+    });
+  }
+
+  overlay.innerHTML = '';
+  overlay.appendChild(wrap);
+  overlay.style.display = 'block';
+}
+
+function navegarANegocio(nombreNegocio){
+  clientes = LS('ncl', []);
+  var cl = clientes.find(function(c){ return (c.negocio||'').trim() === nombreNegocio; });
+  if(!cl || (!cl.dir && !cl.ciudad)){
+    alert('No hay una dirección guardada para "'+nombreNegocio+'" todavía.\n\nPuedes agregarla desde el perfil de un cliente de ese negocio -Editar cliente-.');
+    return;
+  }
+  var direccionCompleta = [cl.dir, cl.ciudad, cl.estado, cl.zip].filter(Boolean).join(', ');
+  var url = 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(direccionCompleta);
+  window.open(url, '_blank');
+}
+
 function renderRutaDia(diaKey){
   var el = document.getElementById('ruta-dia-contenido');
   if(!el) return;
@@ -9541,6 +9659,12 @@ function renderRutaDia(diaKey){
       btnVis.style.cssText = 'padding:6px 10px;background:'+(visitada?'#E8F5E9':'#1a237e')+';color:'+(visitada?'#2E7D32':'white')+';border:none;border-radius:8px;cursor:pointer;font-size:11px;font-weight:700';
       btnVis.onclick = (function(dk,n){ return function(){ toggleVisita(dk,n); }; })(diaKey, neg);
 
+      var btnNav = document.createElement('button');
+      btnNav.textContent = '🗺️';
+      btnNav.title = 'Navegar con Google Maps';
+      btnNav.style.cssText = 'background:#E3F2FD;color:#1565C0;border:none;border-radius:8px;width:32px;height:32px;cursor:pointer;font-size:15px;flex-shrink:0';
+      btnNav.onclick = (function(n){ return function(){ navegarANegocio(n); }; })(neg);
+
       var btnQuit = document.createElement('button');
       btnQuit.textContent = '✕';
       btnQuit.style.cssText = 'padding:6px 8px;background:#FFEBEE;color:#C62828;border:none;border-radius:8px;cursor:pointer;font-size:12px';
@@ -9549,6 +9673,7 @@ function renderRutaDia(diaKey){
       row.appendChild(btnUp);
       row.appendChild(numDiv);
       row.appendChild(nameDiv);
+      row.appendChild(btnNav);
       row.appendChild(btnVis);
       row.appendChild(btnQuit);
       el.appendChild(row);
@@ -10108,6 +10233,156 @@ function procesarDevolucion(vid){
   cerrarFacturaView();
 }
 function cerrarHistorial(){ var o=document.getElementById("historial-overlay"); if(o) o.style.display="none"; }
+
+function abrirPreciosPersonalizados(cid){
+  clientes = LS('ncl', []);
+  var cl = clientes.find(function(c){ return String(c.id)===String(cid); });
+  if(!cl) return;
+
+  var overlay = document.getElementById('precios-esp-overlay');
+  if(!overlay){
+    overlay = document.createElement('div');
+    overlay.id = 'precios-esp-overlay';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:white;z-index:99998;overflow-y:auto;padding:16px';
+    document.body.appendChild(overlay);
+  }
+
+  var wrap = document.createElement('div');
+  wrap.style.cssText = 'max-width:480px;margin:0 auto';
+
+  var header = document.createElement('div');
+  header.style.cssText = 'display:flex;align-items:center;gap:10px;margin-bottom:16px';
+  var btnBack = document.createElement('button');
+  btnBack.textContent = '← Volver';
+  btnBack.style.cssText = 'background:#E8EAF6;border:none;border-radius:8px;padding:10px 16px;cursor:pointer;font-size:14px;font-weight:600;color:#1a237e';
+  btnBack.onclick = function(){ overlay.style.display='none'; };
+  var iconoNBS = document.createElement('img');
+  iconoNBS.src = 'icon-512.png'; iconoNBS.alt = 'NBS';
+  iconoNBS.style.cssText = 'width:32px;height:32px;margin-left:auto;border-radius:8px;cursor:pointer';
+  iconoNBS.onclick = function(){ overlay.style.display='none'; ir('p-ped'); };
+  header.appendChild(btnBack); header.appendChild(iconoNBS);
+  wrap.appendChild(header);
+
+  var titulo = document.createElement('div');
+  titulo.innerHTML = '<div style="font-size:18px;font-weight:800;color:#00695C">💲 Precios Especiales</div>'
+    +'<div style="font-size:13px;color:#aaa;margin-top:2px">'+nombreCl(cl)+'</div>';
+  wrap.appendChild(titulo);
+
+  var aviso = document.createElement('div');
+  aviso.style.cssText = 'background:#E0F2F1;border-radius:10px;padding:10px;margin:12px 0;font-size:12px;color:#00695C;line-height:1.5';
+  aviso.textContent = 'Los precios que guardes aquí se llenan solos cada vez que le vendas ese producto a este cliente -en Vender o en Pedidos Rápidos-. Puedes seguir ajustándolos a mano en cada venta si hace falta.';
+  wrap.appendChild(aviso);
+
+  var listaTitulo = document.createElement('div');
+  listaTitulo.style.cssText = 'font-size:11px;color:#aaa;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin:12px 0 8px';
+  listaTitulo.textContent = 'Precios guardados';
+  wrap.appendChild(listaTitulo);
+
+  var listaWrap = document.createElement('div');
+  listaWrap.id = 'precios-esp-lista';
+  wrap.appendChild(listaWrap);
+
+  function renderListaPrecios(){
+    clientes = LS('ncl', []);
+    var clFresco = clientes.find(function(c){ return String(c.id)===String(cid); });
+    var precios = (clFresco && clFresco.preciosPersonalizados) ? clFresco.preciosPersonalizados : [];
+    if(!precios.length){
+      listaWrap.innerHTML = '<div style="text-align:center;color:#ccc;padding:20px;font-size:13px">Todavía no hay precios especiales guardados</div>';
+      return;
+    }
+    loadProds();
+    listaWrap.innerHTML = '';
+    precios.forEach(function(pp, i){
+      var prod = productos.find(function(x){ return String(x.id)===String(pp.pid); });
+      var precioNormal = prod ? prod.precio : null;
+      var card = document.createElement('div');
+      card.style.cssText = 'background:#FAFAFA;border-radius:10px;padding:12px;margin-bottom:8px;border:0.5px solid #eee;display:flex;justify-content:space-between;align-items:center;gap:10px';
+      card.innerHTML = '<div style="flex:1">'
+        +'<div style="font-size:13px;font-weight:700">'+(prod?prod.nombre:pp.nombreProducto||'Producto')+'</div>'
+        +(precioNormal!==null ? '<div style="font-size:11px;color:#aaa">Precio normal: $'+fmtNum(precioNormal)+'</div>' : '')
+        +'<div style="font-size:15px;font-weight:800;color:#00695C;margin-top:2px">$'+fmtNum(pp.precio)+' <span style="font-size:11px;font-weight:400;color:#00695C">precio especial</span></div>'
+        +'</div>'
+        +'<button style="background:var(--nbs-red-bg);color:var(--nbs-red-dark);border:none;border-radius:8px;width:36px;height:36px;cursor:pointer;font-size:15px;flex-shrink:0">✕</button>';
+      card.querySelector('button').onclick = function(){
+        if(!confirm('¿Quitar el precio especial de "'+(prod?prod.nombre:pp.nombreProducto)+'" para este cliente?')) return;
+        clientes = LS('ncl', []);
+        var c2 = clientes.find(function(x){ return String(x.id)===String(cid); });
+        c2.preciosPersonalizados.splice(i, 1);
+        SS('ncl', clientes);
+        renderListaPrecios();
+      };
+      listaWrap.appendChild(card);
+    });
+  }
+  renderListaPrecios();
+
+  var agregarTitulo = document.createElement('div');
+  agregarTitulo.style.cssText = 'font-size:11px;color:#aaa;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin:20px 0 8px';
+  agregarTitulo.textContent = 'Agregar un precio especial nuevo';
+  wrap.appendChild(agregarTitulo);
+
+  var buscarProd = document.createElement('input');
+  buscarProd.className = 'inp';
+  buscarProd.type = 'text';
+  buscarProd.placeholder = 'Buscar producto por nombre...';
+  buscarProd.autocomplete = 'off';
+  wrap.appendChild(buscarProd);
+
+  var resultadosBusqueda = document.createElement('div');
+  resultadosBusqueda.style.cssText = 'display:none;max-height:200px;overflow-y:auto;background:white;border:1px solid #ddd;border-radius:8px;margin-top:4px';
+  wrap.appendChild(resultadosBusqueda);
+
+  var formNuevoPrecio = document.createElement('div');
+  formNuevoPrecio.style.display = 'none';
+  formNuevoPrecio.style.marginTop = '10px';
+  wrap.appendChild(formNuevoPrecio);
+
+  var productoSeleccionado = null;
+
+  buscarProd.oninput = function(){
+    loadProds();
+    var q = buscarProd.value.trim().toLowerCase();
+    if(!q){ resultadosBusqueda.style.display='none'; return; }
+    var encontrados = productos.filter(function(p){ return (p.nombre||'').toLowerCase().indexOf(q)>=0; }).slice(0,8);
+    if(!encontrados.length){ resultadosBusqueda.innerHTML = '<div style="padding:10px;font-size:12px;color:#aaa">Sin resultados</div>'; resultadosBusqueda.style.display='block'; return; }
+    resultadosBusqueda.innerHTML = encontrados.map(function(p){
+      return '<div data-pid="'+p.id+'" style="padding:10px;border-bottom:1px solid #f0f0f0;cursor:pointer;font-size:13px">'
+        +'<div style="font-weight:600">'+p.nombre+'</div><div style="font-size:11px;color:#aaa">Precio normal: $'+fmtNum(p.precio)+'</div></div>';
+    }).join('');
+    resultadosBusqueda.style.display = 'block';
+    Array.from(resultadosBusqueda.children).forEach(function(el){
+      el.onclick = function(){
+        var pid = el.getAttribute('data-pid');
+        productoSeleccionado = productos.find(function(x){ return String(x.id)===String(pid); });
+        resultadosBusqueda.style.display = 'none';
+        buscarProd.value = productoSeleccionado.nombre;
+        formNuevoPrecio.style.display = 'block';
+        formNuevoPrecio.innerHTML = '<label class="lbl">Precio especial para '+productoSeleccionado.nombre+' -precio normal $'+fmtNum(productoSeleccionado.precio)+'-</label>'
+          +'<input class="inp" id="precio-esp-nuevo" type="text" inputmode="numeric" value="'+productoSeleccionado.precio.toFixed(2)+'" onfocus="this.select()" oninput="formatoMoneda(this)">'
+          +'<button style="width:100%;padding:12px;background:#00695C;color:white;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;margin-top:8px">✓ Guardar precio especial</button>';
+        formNuevoPrecio.querySelector('button').onclick = function(){
+          var nuevoPrecio = parseFloat(document.getElementById('precio-esp-nuevo').value) || 0;
+          clientes = LS('ncl', []);
+          var c2 = clientes.find(function(x){ return String(x.id)===String(cid); });
+          if(!c2.preciosPersonalizados) c2.preciosPersonalizados = [];
+          var idxExistente = c2.preciosPersonalizados.findIndex(function(pp){ return String(pp.pid)===String(productoSeleccionado.id); });
+          var entrada = { pid: productoSeleccionado.id, nombreProducto: productoSeleccionado.nombre, precio: nuevoPrecio };
+          if(idxExistente >= 0) c2.preciosPersonalizados[idxExistente] = entrada;
+          else c2.preciosPersonalizados.push(entrada);
+          SS('ncl', clientes);
+          buscarProd.value = '';
+          formNuevoPrecio.style.display = 'none';
+          productoSeleccionado = null;
+          renderListaPrecios();
+        };
+      };
+    });
+  };
+
+  overlay.innerHTML = '';
+  overlay.appendChild(wrap);
+  overlay.style.display = 'block';
+}
 
 function deshacerDevolucion(devId){
   var devoluciones = LS('ndevoluciones', []);

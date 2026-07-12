@@ -6705,6 +6705,7 @@ function guardarEdicionCl(id){
   var nombre = document.getElementById('ecl-n').value.trim();
   var apellido = document.getElementById('ecl-a').value.trim();
   if(!nombre || !apellido){ alert('Nombre y apellido son requeridos'); return; }
+  var negocioAnterior = (clientes[idx].negocio || '').trim();
   clientes[idx].nombre = nombre;
   clientes[idx].apellido = apellido;
   clientes[idx].negocio = document.getElementById('ecl-ne').value.trim();
@@ -6723,6 +6724,40 @@ function guardarEdicionCl(id){
   clientes[idx].zip = document.getElementById('ecl-z').value.trim();
   clientes[idx].estado = document.getElementById('ecl-st').value.trim();
   SS('ncl', clientes);
+
+  // Si el negocio de este cliente cambio de nombre -y ya nadie mas usa el nombre viejo-, es un
+  // renombre real de la barberia -no que el barbero se cambio a otro negocio distinto-. En ese caso,
+  // se actualiza el nombre viejo por el nuevo en la Ruta de Visitas, para que no se quede "huerfano".
+  var negocioNuevo = clientes[idx].negocio;
+  if(negocioAnterior && negocioAnterior !== negocioNuevo){
+    var siguenUsandoElViejo = clientes.some(function(c){ return String(c.id)!==String(id) && (c.negocio||'').trim()===negocioAnterior; });
+    if(!siguenUsandoElViejo){
+      var rutasPorDia2 = LS('rutas_por_dia', {});
+      var seActualizoAlgunDia = false;
+      Object.keys(rutasPorDia2).forEach(function(dk){
+        var ruta = rutasPorDia2[dk] || [];
+        var posicion = ruta.indexOf(negocioAnterior);
+        if(posicion >= 0){
+          if(negocioNuevo && ruta.indexOf(negocioNuevo) < 0){
+            ruta[posicion] = negocioNuevo; // renombrar en su mismo lugar en la ruta
+          } else {
+            ruta.splice(posicion, 1); // ya no tiene nombre nuevo -o ya estaba duplicado-, se quita
+          }
+          rutasPorDia2[dk] = ruta;
+          seActualizoAlgunDia = true;
+        }
+      });
+      if(seActualizoAlgunDia) SS('rutas_por_dia', rutasPorDia2);
+    }
+  }
+
+  // IMPORTANTE: a proposito NO se actualiza el nombre de negocio dentro de las ventas viejas
+  // -v.clienteData.negocio-. La historia de una venta debe quedar tal como paso en su momento:
+  // si el barbero vendio algo estando en la barberia "A" y despues se mudo a la barberia "B",
+  // esa venta vieja debe seguir mostrando "A" para siempre, sin importar donde este el barbero ahora.
+  // Solo la Ruta de Visitas -que es sobre a donde ir DE AHORA EN ADELANTE, no sobre el pasado- se
+  // actualiza arriba.
+
   // Actualizar nombre en todas las ventas de este cliente
   ventas = LS('nv', []);
   var nombreCompleto = nombre + ' ' + apellido;
@@ -9862,8 +9897,9 @@ function renderRutaDia(diaKey){
   } else {
     rutaHoy.forEach(function(neg, idx){
       var visitada = visitas.indexOf(neg) >= 0;
+      var esHuerfana = !barberias[neg]; // ya no hay ningun cliente con este nombre de negocio
       var row = document.createElement('div');
-      row.style.cssText = 'background:white;border-radius:12px;padding:12px 14px;margin-bottom:6px;border:0.5px solid '+(visitada?'#A5D6A7':'#e5e7eb')+';display:flex;align-items:center;gap:10px';
+      row.style.cssText = 'background:'+(esHuerfana?'#FFF3E0':'white')+';border-radius:12px;padding:12px 14px;margin-bottom:6px;border:0.5px solid '+(esHuerfana?'#FFCC80':visitada?'#A5D6A7':'#e5e7eb')+';display:flex;align-items:center;gap:10px';
 
       var btnUp = document.createElement('button');
       btnUp.textContent = '⬆️';
@@ -9875,8 +9911,8 @@ function renderRutaDia(diaKey){
       numDiv.textContent = idx+1;
 
       var nameDiv = document.createElement('div');
-      nameDiv.style.cssText = 'flex:1;font-size:14px;font-weight:700;color:'+(visitada?'#2E7D32':'#1a237e');
-      nameDiv.textContent = '🏪 '+neg;
+      nameDiv.style.cssText = 'flex:1;font-size:14px;font-weight:700;color:'+(esHuerfana?'#E65100':visitada?'#2E7D32':'#1a237e');
+      nameDiv.innerHTML = '🏪 '+neg+(esHuerfana?'<div style="font-size:10px;font-weight:600;color:#E65100;margin-top:2px">⚠️ Ya no hay ningún cliente con este negocio -¿se renombró o se eliminó?</div>':'');
 
       var btnVis = document.createElement('button');
       btnVis.textContent = visitada ? '✓ Visitada' : 'Marcar';

@@ -315,7 +315,7 @@ button:active{transform:scale(0.96);filter:brightness(0.93);}
   <div style="padding:10px 8px">
     <div style="font-size:10px;color:var(--nbs-muted-2);font-weight:700;letter-spacing:1px;padding:10px 8px 4px">PRINCIPAL</div>
     <button onclick="irMenu('p-ped')" class="mlb2"><span class="mlb2-icon"><span style="font-size:19px">⚡</span></span>Pedidos rápidos</button>
-    <button onclick="irMenu('p-v')" class="mlb2"><span class="mlb2-icon"><span style="font-size:19px">💵</span></span>Vender</button>
+    <button onclick="window._vendiendoDesde=null;irMenu('p-v')" class="mlb2"><span class="mlb2-icon"><span style="font-size:19px">💵</span></span>Vender</button>
     <button onclick="irMenu('p-cl')" class="mlb2"><span class="mlb2-icon"><span style="font-size:19px">👥</span></span>Clientes</button>
     <button onclick="irMenu('p-cxc')" class="mlb2" style="background:#EAF3E2;border-radius:10px;margin-bottom:8px"><span class="mlb2-icon" style="font-size:16px">💳</span><span style="color:#2E7D32;font-weight:700">Cuentas por Cobrar / Facturas</span></button>
     <button onclick="irMenu('p-vip')" class="mlb2"><span class="mlb2-icon"><span style="font-size:19px">⭐</span></span>Programa VIP</button>
@@ -372,7 +372,7 @@ button:active{transform:scale(0.96);filter:brightness(0.93);}
   <button class="mb2" onclick="ir('p-vip')"><span class="mb2-icon" style="background:#FBEAF2"><span style="font-size:10px;font-weight:800;color:#9D174D;letter-spacing:0.3px">VIP</span></span>Programa Lealtad VIP<span class="mb2-chev">›</span></button>
   <button class="mb2" id="btn-cat" onclick="irProtegido('p-cat')"><span class="mb2-icon" style="background:#E6F4F3"><span style="font-size:10px;font-weight:800;color:#0F766E;letter-spacing:0.3px">CA</span></span>Catálogo<span class="mb2-chev">›</span></button>
   <button class="mb2" onclick="ir('p-ped')"><span class="mb2-icon"><span style="font-size:10px;font-weight:800;color:var(--nbs-gold-dark);letter-spacing:0.3px">PR</span></span>Pedidos rápidos<span class="mb2-chev">›</span></button>
-  <button class="mb2" onclick="ir('p-v')"><span class="mb2-icon" style="background:#EAF3E2"><span style="font-size:10px;font-weight:800;color:#3B6D11;letter-spacing:0.3px">VE</span></span>Vender<span class="mb2-chev">›</span></button>
+  <button class="mb2" onclick="window._vendiendoDesde=null;ir('p-v')"><span class="mb2-icon" style="background:#EAF3E2"><span style="font-size:10px;font-weight:800;color:#3B6D11;letter-spacing:0.3px">VE</span></span>Vender<span class="mb2-chev">›</span></button>
   <button class="mb2" onclick="ir('p-cxc')"><span class="mb2-icon" style="background:#FBECEC"><span style="font-size:10px;font-weight:800;color:#993C1D;letter-spacing:0.3px">CC</span></span>Cuentas por Cobrar / Facturas<span class="mb2-chev">›</span></button>
   <button class="mb2" id="btn-gastos" onclick="irProtegido('p-gastos')"><span class="mb2-icon" style="background:#FDEEE3"><span style="font-size:10px;font-weight:800;color:#C2540C;letter-spacing:0.3px">GA</span></span>Gastos<span class="mb2-chev">›</span></button>
 
@@ -3315,7 +3315,6 @@ function marcarVisitaNegocio(id){
   c.ultimaVisitaNegocio = fechaHoy();
   SS('ncl', clientes);
   alert('✅ Visita registrada. El próximo recordatorio será en '+c.intervaloVisitaDias+' días.');
-  verCl(id);
 }
 
 function negociosParaVisitar(){
@@ -4646,6 +4645,19 @@ function saveV(){
     +'<button onclick="verFacturaProfesional(\''+ultV.id+'\')" style="flex:1;padding:12px;background:var(--nbs-gold);color:white;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:700">👁️ Ver factura</button>'
     +'</div>';
   ventaActual = ultV;
+
+  // Volver automaticamente a la pantalla correcta segun de donde vino esta venta
+  var destino = window._vendiendoDesde;
+  if(destino){
+    window._vendiendoDesde = null;
+    setTimeout(function(){
+      if(destino.tipo === 'cliente' && destino.cid){
+        verCl(destino.cid);
+      } else if(destino.tipo === 'pedido'){
+        ir('p-ped');
+      }
+    }, 900); // pequena pausa para que se alcance a ver la confirmacion de la venta guardada
+  }
 }
 
 function syncCCsup(){
@@ -5394,6 +5406,7 @@ function actualizarTotalPedGeneral(){
 function irAVenderCliente(id){
   clientes = LS('ncl', []);
   var cl = clientes.find(function(c){ return c.id===id; });
+  window._vendiendoDesde = { tipo:'cliente', cid:id };
   ir('p-v');
   if(cl){
     setTimeout(function(){
@@ -5569,6 +5582,7 @@ function convertirPedidoAVenta(idx){
     return { pid: it.pid, nombre: it.nombre, cant: it.cant, precio: it.precio, costo: prod?prod.costo:it.costo };
   });
   ir('p-v');
+  window._vendiendoDesde = { tipo:'pedido' };
   if(p.cid) document.getElementById('vcl').value = p.cid;
   renderIV();
   pedidos.splice(idx, 1);
@@ -5663,7 +5677,7 @@ function verCl(id){
     +'<div style="background:#f5f5f5;border-radius:8px;padding:10px"><div style="font-size:10px;color:#aaa;font-weight:700">TOTAL COMPRAS</div><div style="font-size:18px;font-weight:700;color:#1565C0;margin-top:2px">$'+fmtNum(totalCompras)+'</div></div>'
     +'<div style="background:'+(cr?'#FFEBEE':'#f5f5f5')+';border-radius:8px;padding:10px"><div style="font-size:10px;color:#aaa;font-weight:700">BALANCE PENDIENTE</div><div style="font-size:18px;font-weight:700;color:'+(cr?'#C62828':'#2E7D32')+';margin-top:2px">'+(cr?'$'+fmtNum(cr.saldo):'$0.00')+'</div></div>'
     +'</div>'
-    +(esNoBarberia && c.intervaloVisitaDias ? '<button class="btn" style="background:#1565C0;color:white;margin-bottom:8px" onclick="marcarVisitaNegocio('+id+')">✓ Marqué la visita de hoy</button>' : '')
+    +(esNoBarberia && c.intervaloVisitaDias ? '<button class="btn" style="background:#1565C0;color:white;margin-bottom:8px" onclick="marcarVisitaNegocio('+id+');verCl('+id+')">✓ Marqué la visita de hoy</button>' : '')
     +'<div style="display:flex;gap:8px">'
     +'<button class="btn" style="flex:1;background:#1565C0;color:white;margin:0" onclick="editarCl('+id+')">✏️ Editar cliente</button>'
     +'<button class="btn" style="flex:1;background:#D32F2F;color:white;margin:0" onclick="eliminarCl('+id+')">🗑️ Eliminar</button>'

@@ -2043,14 +2043,15 @@ function selGcatSelect(val){
   document.getElementById('gcat-otro').style.display = val === 'Otro' ? 'block' : 'none';
 }
 
-function cargarFotoGasto(input){
+function cargarFotoGasto(input, prefijo){
+  prefijo = prefijo || 'gasto';
   var file = input.files[0];
   if(!file) return;
   var reader = new FileReader();
   reader.onload = function(e){
     abrirRecortarFoto(e.target.result, function(dataFinal){
-      document.getElementById('gasto-foto-data').value = dataFinal;
-      var prev = document.getElementById('gasto-foto-preview');
+      document.getElementById(prefijo+'-foto-data').value = dataFinal;
+      var prev = document.getElementById(prefijo+'-foto-preview');
       prev.innerHTML = '<img src="'+dataFinal+'" style="width:100%;height:100%;object-fit:cover">';
       prev.style.background = '#f0f0f0';
       prev.style.border = 'none';
@@ -2060,16 +2061,18 @@ function cargarFotoGasto(input){
   input.value = '';
 }
 
-function quitarFotoGasto(){
-  document.getElementById('gasto-foto-data').value = '';
-  var prev = document.getElementById('gasto-foto-preview');
+function quitarFotoGasto(prefijo){
+  prefijo = prefijo || 'gasto';
+  document.getElementById(prefijo+'-foto-data').value = '';
+  var prev = document.getElementById(prefijo+'-foto-preview');
   prev.innerHTML = '📷';
   prev.style.background = 'var(--nbs-gold-bg)';
   prev.style.border = '2px dashed var(--nbs-gold)';
 }
 
-function abrirOpcionesFotoGasto(){
-  var tieneFoto = !!(document.getElementById('gasto-foto-data').value);
+function abrirOpcionesFotoGasto(prefijo){
+  prefijo = prefijo || 'gasto';
+  var tieneFoto = !!(document.getElementById(prefijo+'-foto-data').value);
   var overlay = document.getElementById('foto-acciones-overlay');
   if(!overlay){
     overlay = document.createElement('div');
@@ -2089,11 +2092,11 @@ function abrirOpcionesFotoGasto(){
   sheet.appendChild(titulo);
 
   var opciones = [
-    ['📷 Tomar foto', 'var(--nbs-ink)', function(){ recrearInputFoto('gasto-foto-camara', cargarFotoGasto).click(); }],
-    ['🖼️ Elegir de galería', 'var(--nbs-ink)', function(){ recrearInputFoto('gasto-foto-galeria', cargarFotoGasto).click(); }]
+    ['📷 Tomar foto', 'var(--nbs-ink)', function(){ recrearInputFoto(prefijo+'-foto-camara', function(input){ cargarFotoGasto(input, prefijo); }).click(); }],
+    ['🖼️ Elegir de galería', 'var(--nbs-ink)', function(){ recrearInputFoto(prefijo+'-foto-galeria', function(input){ cargarFotoGasto(input, prefijo); }).click(); }]
   ];
   if(tieneFoto){
-    opciones.push(['🗑️ Quitar foto', 'var(--nbs-red-text)', function(){ quitarFotoGasto(); }]);
+    opciones.push(['🗑️ Quitar foto', 'var(--nbs-red-text)', function(){ quitarFotoGasto(prefijo); }]);
   }
   opciones.forEach(function(op){
     var btn = document.createElement('button');
@@ -2346,6 +2349,14 @@ function editarGasto(g){
     : '')
     +'<label class="lbl">Notas</label>'
     +'<input class="inp" id="eg-nota" type="text" value="'+(g.nota||'')+'">'
+    +'<label class="lbl">Foto del recibo o factura (opcional)</label>'
+    +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">'
+    +'<div id="eg-foto-preview" onclick="abrirOpcionesFotoGasto(\'eg\')" style="width:56px;height:56px;border-radius:10px;background:'+(g.foto?'#f0f0f0':'var(--nbs-gold-bg)')+';border:'+(g.foto?'none':'2px dashed var(--nbs-gold)')+';display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0;overflow:hidden;cursor:pointer">'+(g.foto?'<img src="'+g.foto+'" style="width:100%;height:100%;object-fit:cover">':'📷')+'</div>'
+    +'<div style="font-size:12px;color:#aaa;flex:1">Toca para tomar una foto, elegir de la galería, o quitar la actual</div>'
+    +'</div>'
+    +'<input type="hidden" id="eg-foto-data" value="'+(g.foto||'')+'">'
+    +'<input type="file" id="eg-foto-camara" accept="image/*" capture="camera" style="display:none" onchange="cargarFotoGasto(this,\'eg\')">'
+    +'<input type="file" id="eg-foto-galeria" accept="image/jpeg,image/png,image/gif,image/webp" style="display:none" onchange="cargarFotoGasto(this,\'eg\')">'
     +'<button class="btn" style="background:#2E7D32;color:white" onclick="guardarEdicionGasto('+g.id+')">✓ Guardar cambios</button>';
   el.appendChild(card);
   window._gastoEditando = g;
@@ -2392,6 +2403,8 @@ function guardarEdicionGasto(id){
   gastos[idx].comidaTipo = comidaTipo;
   gastos[idx].comidaDesc = comidaDesc;
   gastos[idx].comidaLugar = comidaLugar;
+  var fotoEl = document.getElementById('eg-foto-data');
+  if(fotoEl) gastos[idx].foto = fotoEl.value || null;
   SS('ngastos', gastos);
   alert('✅ Gasto actualizado correctamente.');
   verDetalleGasto(gastos[idx]);
@@ -4515,6 +4528,28 @@ function saveV(){
     if(fparts.length === 3) fechaVenta = fparts[1]+'/'+fparts[2]+'/'+fparts[0];
   }
   if(ini > 0) pagosIniciales.push({monto:ini, fecha:fechaVenta, nota:'Pago inicial', metodos: metodosPagoV});
+
+  // Si el usuario eligio "Usar credito del cliente" como uno de los metodos de pago,
+  // se descuenta ese monto del credito a favor que tenia -nunca se aplica solo, sin que se elija-.
+  var creditoAplicadoMsg = '';
+  var metodoCredito = metodosPagoV.find(function(m){ return m.tipo === 'credito_cliente'; });
+  if(cid && metodoCredito && metodoCredito.monto > 0){
+    clientes = LS('ncl', []);
+    var clIdxCredito = clientes.findIndex(function(c){ return c.id===cid; });
+    if(clIdxCredito >= 0){
+      var creditoDisp = clientes[clIdxCredito].creditoAFavor||0;
+      var montoUsar = Math.min(creditoDisp, metodoCredito.monto);
+      if(montoUsar > 0.005){
+        clientes[clIdxCredito].creditoAFavor = creditoDisp - montoUsar;
+        SS('ncl', clientes);
+        creditoAplicadoMsg = '\n\n💳 Se usaron $'+fmtNum(montoUsar)+' del crédito a favor de este cliente.';
+      }
+      if(metodoCredito.monto > creditoDisp + 0.005){
+        alert('Aviso: el cliente solo tenía $'+fmtNum(creditoDisp)+' de crédito disponible, pero se marcaron $'+fmtNum(metodoCredito.monto)+'. Solo se aplicaron los $'+fmtNum(creditoDisp)+' reales.');
+      }
+    }
+  }
+
   ventas = LS('nv',[]);
   var clienteData = cl ? {negocio:cl.negocio||'',tel:cl.tel||'',email:cl.email||'',dir:cl.dir||'',ciudad:cl.ciudad||'',estado:cl.estado||'',zip:cl.zip||''} : null;
   var descInfo = descMonto > 0 ? {tipo:descTipo, valor:descVal, monto:descMonto} : null;
@@ -4536,7 +4571,8 @@ function saveV(){
   verificarVIPdespuesDeVenta(cid, iV.slice());
   verificarFidelidadDespuesDeVenta(cid);
   var ultV = ventas[ventas.length-1];
-  var msg = 'Venta registrada por $'+fmtNum(tot)+(tipo==='credito'?' - Saldo pendiente: $'+fmtNum((tot-ini)):'');
+  var pagadoTotalVenta = pagosIniciales.reduce(function(s,p){ return s+p.monto; }, 0);
+  var msg = 'Venta registrada por $'+fmtNum(tot)+(tipo==='credito'?' - Saldo pendiente: $'+fmtNum(Math.max(0,tot-pagadoTotalVenta)):'')+creditoAplicadoMsg;
   var accDiv = document.getElementById('venta-acciones');
   if(!accDiv){
     accDiv = document.createElement('div');
@@ -5227,15 +5263,15 @@ function renderPedItems(){
     row.style.cssText = 'padding:10px;margin-bottom:8px;border:0.5px solid var(--nbs-line);border-radius:10px;background:white';
     row.innerHTML = '<div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">'
       +'<input type="text" value="'+it.nombre.replace(/"/g,"'")+'" oninput="actualizarPedItem('+i+',\'nombre\',this.value)" style="flex:1;border:0.5px solid #ddd;border-radius:6px;padding:7px 8px;font-size:13px;font-weight:600;color:var(--nbs-ink)">'
-      +'<button onclick="pedItemsTemp.splice('+i+',1);renderPedItems();" style="background:var(--nbs-red-bg);color:var(--nbs-red-dark);border:none;border-radius:6px;width:30px;height:30px;cursor:pointer;font-size:14px;flex-shrink:0">✕</button>'
+      +'<button onclick="pedItemsTemp.splice('+i+',1);renderPedItems();" style="background:var(--nbs-red-bg);color:var(--nbs-red-dark);border:none;border-radius:8px;width:36px;height:36px;cursor:pointer;font-size:15px;flex-shrink:0">✕</button>'
       +'</div>'
       +'<div style="display:flex;align-items:center;gap:8px">'
       +'<div>'
       +'<label style="font-size:9px;color:#999;display:block;margin-bottom:2px">CANT</label>'
       +'<div style="display:flex;align-items:center;gap:3px">'
-      +'<button onclick="cambiarCantPedItem('+i+',-1)" style="width:26px;height:30px;background:var(--nbs-red-bg);color:var(--nbs-red-dark);border:none;border-radius:6px;cursor:pointer;font-size:16px;font-weight:700;line-height:1;flex-shrink:0">−</button>'
+      +'<button onclick="cambiarCantPedItem('+i+',-1)" style="width:36px;height:36px;background:var(--nbs-red-bg);color:var(--nbs-red-dark);border:none;border-radius:8px;cursor:pointer;font-size:18px;font-weight:700;line-height:1;flex-shrink:0">−</button>'
       +'<input type="number" min="1" value="'+it.cant+'" id="ped-cant-'+i+'" oninput="actualizarPedItem('+i+',\'cant\',parseInt(this.value)||1);actualizarSubtotalPed('+i+')" style="width:42px;padding:6px 2px;border:0.5px solid #ddd;border-radius:6px;font-size:13px;text-align:center">'
-      +'<button onclick="cambiarCantPedItem('+i+',1)" style="width:26px;height:30px;background:var(--nbs-green-bg);color:var(--nbs-green-text);border:none;border-radius:6px;cursor:pointer;font-size:16px;font-weight:700;line-height:1;flex-shrink:0">+</button>'
+      +'<button onclick="cambiarCantPedItem('+i+',1)" style="width:36px;height:36px;background:var(--nbs-green-bg);color:var(--nbs-green-text);border:none;border-radius:8px;cursor:pointer;font-size:18px;font-weight:700;line-height:1;flex-shrink:0">+</button>'
       +'</div>'
       +'</div>'
       +'<div>'
@@ -6457,7 +6493,6 @@ function guardarEdicionCl(id){
   var nombre = document.getElementById('ecl-n').value.trim();
   var apellido = document.getElementById('ecl-a').value.trim();
   if(!nombre || !apellido){ alert('Nombre y apellido son requeridos'); return; }
-  if(!confirm('¿Guardar los cambios para ' + nombre + ' ' + apellido + '?')) return;
   clientes[idx].nombre = nombre;
   clientes[idx].apellido = apellido;
   clientes[idx].negocio = document.getElementById('ecl-ne').value.trim();
@@ -6540,13 +6575,32 @@ function genRpt(){
   }
   var tv = filt.reduce(function(s,v){return s+v.total;},0);
   var tg = filt.reduce(function(s,v){return s+(v.ganancia||0);},0);
+
+  // Devoluciones dentro del mismo periodo -usando la fecha REAL de la devolucion, no la de la venta original-
+  var devolucionesLS = LS('ndevoluciones', []);
+  var devFiltradas = devolucionesLS.filter(function(d){
+    if(!desde && !hasta) return true;
+    try {
+      var dd2 = parsearFechaVenta(d.fecha);
+      if(desde){ var dp2=desde.split('-'); var df2=new Date(parseInt(dp2[0]),parseInt(dp2[1])-1,parseInt(dp2[2])); if(dd2<df2) return false; }
+      if(hasta){ var hp2=hasta.split('-'); var hf2=new Date(parseInt(hp2[0]),parseInt(hp2[1])-1,parseInt(hp2[2])); hf2.setHours(23,59,59,999); if(dd2>hf2) return false; }
+    } catch(e){ return true; }
+    return true;
+  });
+  var totalDevuelto = devFiltradas.reduce(function(s,d){ return s+d.monto; },0);
+  var gananciaPerdidaEnDev = devFiltradas.reduce(function(s,d){
+    return s + d.items.reduce(function(s2,it){ return s2+(it.cant*(it.precio-(it.costo||0))); },0);
+  },0);
+
   var card = document.createElement('div'); card.className='card';
   card.innerHTML = '<p style="font-size:15px;font-weight:700;margin-bottom:10px">Resumen</p>'
     +'<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f0f0f0"><span style="color:#777">Total ventas</span><span style="font-weight:700;color:#1565C0">$'+fmtNum(tv)+'</span></div>'
     +'<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f0f0f0"><span style="color:#777">Numero de ventas</span><span style="font-weight:700">'+filt.length+'</span></div>'
+    +(devFiltradas.length ? '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f0f0f0"><span style="color:#E65100">↩️ Devoluciones ('+devFiltradas.length+')</span><span style="font-weight:700;color:#E65100">-$'+fmtNum(totalDevuelto)+'</span></div>' : '')
     +'<div style="background:#E8F5E9;border-radius:8px;padding:14px;margin-top:10px;display:flex;justify-content:space-between;align-items:center">'
-    +'<span style="color:#2E7D32;font-weight:600">Ganancia total</span>'
-    +'<span style="font-size:22px;font-weight:700;color:#2E7D32">$'+fmtNum(tg)+'</span></div>';
+    +'<span style="color:#2E7D32;font-weight:600">Ganancia'+(devFiltradas.length?' neta':' total')+'</span>'
+    +'<span style="font-size:22px;font-weight:700;color:#2E7D32">$'+fmtNum(tg-gananciaPerdidaEnDev)+'</span></div>'
+    +(devFiltradas.length ? '<div style="font-size:11px;color:#aaa;text-align:right;margin-top:4px">Ganancia bruta $'+fmtNum(tg)+' − $'+fmtNum(gananciaPerdidaEnDev)+' de devoluciones</div>' : '');
   el.appendChild(card);
 
   if(tipo==='cliente'){
@@ -6920,12 +6974,21 @@ function renderCxC(q){
     var pf = v.pagosFactura ? v.pagosFactura.filter(function(p){return typeof p.monto==='number';}).reduce(function(s,p){return s+p.monto;},0) : 0;
     balancesPorCliente[key].pagado += pf;
   });
+  // Asegurar que tambien aparezcan los clientes que tienen credito a favor -por una devolucion-
+  // aunque no tengan ninguna factura a credito abierta -por ejemplo, si la devolucion fue de una venta de contado-.
+  clientes.filter(function(c){ return (c.creditoAFavor||0) > 0.005; }).forEach(function(c){
+    var key = String(c.id);
+    if(!balancesPorCliente[key]) balancesPorCliente[key] = {cid:c.id, cn:nombreCl(c), total:0, pagado:0};
+  });
 
   var pendientes = Object.keys(balancesPorCliente).map(function(k){
     var b = balancesPorCliente[k];
     var cl = clientes.find(function(c){ return String(c.id)===String(b.cid); });
-    return {cid:b.cid, cn:b.cn, total:b.total, saldo:Math.max(0,b.total-b.pagado), negocio: cl ? (cl.negocio||'') : ''};
-  }).filter(function(b){ return esSaldoPendiente(b.saldo); });
+    var creditoAFavor = cl ? (cl.creditoAFavor||0) : 0;
+    var saldoBruto = Math.max(0,b.total-b.pagado);
+    var saldoNeto = saldoBruto - creditoAFavor; // negativo = el negocio le debe al cliente
+    return {cid:b.cid, cn:b.cn, total:b.total, saldo:saldoNeto, saldoBruto:saldoBruto, creditoAFavor:creditoAFavor, negocio: cl ? (cl.negocio||'') : ''};
+  }).filter(function(b){ return Math.abs(b.saldo) > 0.005; });
 
   // Filtrar por búsqueda (nombre, negocio, apodo, teléfono, o dirección del cliente)
   if(q && q.trim()){
@@ -6945,12 +7008,16 @@ function renderCxC(q){
     return;
   }
 
-  var total = pendientes.reduce(function(s,c){ return s+c.saldo; }, 0);
+  var totalTeDeben = pendientes.filter(function(c){return c.saldo>0;}).reduce(function(s,c){ return s+c.saldo; }, 0);
+  var totalLeDebes = pendientes.filter(function(c){return c.saldo<0;}).reduce(function(s,c){ return s+Math.abs(c.saldo); }, 0);
   var resumen = document.createElement('div');
-  resumen.style.cssText = 'background:var(--nbs-red-bg);border-radius:12px;padding:14px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center';
-  resumen.innerHTML = '<div><div style="font-size:11px;color:var(--nbs-red-text);font-weight:500">Total por cobrar</div>'
-    +'<div style="font-size:13px;color:var(--nbs-red-text);margin-top:2px">'+pendientes.length+' cliente(s) con balance</div></div>'
-    +'<div style="font-size:22px;font-weight:700;color:var(--nbs-red-dark)">$'+fmtNum(total)+'</div>';
+  resumen.style.cssText = 'display:flex;gap:8px;margin-bottom:12px';
+  resumen.innerHTML = '<div style="flex:1;background:var(--nbs-red-bg);border-radius:12px;padding:14px">'
+    +'<div style="font-size:11px;color:var(--nbs-red-text);font-weight:500">Total por cobrar</div>'
+    +'<div style="font-size:20px;font-weight:700;color:var(--nbs-red-dark)">$'+fmtNum(totalTeDeben)+'</div></div>'
+    +(totalLeDebes>0.005 ? '<div style="flex:1;background:#FFF3E0;border-radius:12px;padding:14px">'
+    +'<div style="font-size:11px;color:#E65100;font-weight:500">Crédito a favor de clientes</div>'
+    +'<div style="font-size:20px;font-weight:700;color:#E65100">$'+fmtNum(totalLeDebes)+'</div></div>' : '');
   el.appendChild(resumen);
 
   var btnsAdmin = document.createElement('div');
@@ -6972,12 +7039,13 @@ function renderCxC(q){
   el.appendChild(btnsAdmin);
 
   pendientes.sort(function(a,b){ return b.saldo-a.saldo; }).forEach(function(c){
-    var pct = c.total>0 ? Math.round((1-c.saldo/c.total)*100) : 0;
+    var esFavorCliente = c.saldo < 0;
+    var pct = c.total>0 ? Math.round((1-c.saldoBruto/c.total)*100) : 0;
     var cl = clientes.find(function(x){ return String(x.id)===String(c.cid); });
     var negocio = cl && cl.negocio ? cl.negocio.trim() : '';
     var card = document.createElement('div');
     card.className = 'card';
-    card.style.cssText = 'cursor:pointer;border:0.5px solid var(--nbs-line);border-radius:12px;box-shadow:var(--nbs-shadow-card);background:white;padding:16px';
+    card.style.cssText = 'cursor:pointer;border:0.5px solid '+(esFavorCliente?'#FFCC80':'var(--nbs-line)')+';border-radius:12px;box-shadow:var(--nbs-shadow-card);background:'+(esFavorCliente?'#FFFBF5':'white')+';padding:16px';
     card.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">'
       +'<div style="display:flex;gap:10px">'
       +'<div style="width:38px;height:38px;border-radius:10px;background:var(--nbs-gold-bg);display:flex;align-items:center;justify-content:center;flex-shrink:0">'
@@ -6985,15 +7053,17 @@ function renderCxC(q){
       +'</div>'
       +'<div><div style="font-size:16px;font-weight:700;color:var(--nbs-ink)">'+(cl?nombreCl(cl):c.cn)+'</div>'
       +(negocio ? '<div style="font-size:12px;color:var(--nbs-muted);margin-top:1px;display:flex;align-items:center;gap:4px">🏪'+negocio+'</div>' : '')
-      +'<div style="font-size:11px;color:var(--nbs-muted-2);margin-top:3px">Total facturado: $'+fmtNum(c.total)+'</div></div>'
+      +'<div style="font-size:11px;color:var(--nbs-muted-2);margin-top:3px">'+(c.total>0?'Total facturado: $'+fmtNum(c.total):'Sin facturas abiertas')+'</div></div>'
       +'</div>'
-      +'<div style="text-align:right"><div style="font-size:18px;font-weight:700;color:var(--nbs-red-dark)">$'+fmtNum(c.saldo)+'</div>'
-      +'<div style="font-size:11px;color:var(--nbs-muted)">pendiente</div></div></div>'
-      +'<div style="height:6px;background:#F0F0F2;border-radius:3px;overflow:hidden;margin-bottom:8px">'
-      +'<div style="height:100%;width:'+pct+'%;background:var(--nbs-green-text);border-radius:3px"></div></div>'
-      +'<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--nbs-muted);margin-bottom:12px">'
-      +'<span>Pagado: '+pct+'%</span><span>Pendiente: '+(100-pct)+'%</span></div>'
-      +'<button style="width:100%;padding:10px;background:var(--nbs-gold);color:white;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px">💰Registrar pago</button>';
+      +'<div style="text-align:right"><div style="font-size:18px;font-weight:700;color:'+(esFavorCliente?'#E65100':'var(--nbs-red-dark)')+'">$'+fmtNum(Math.abs(c.saldo))+'</div>'
+      +'<div style="font-size:11px;color:'+(esFavorCliente?'#E65100':'var(--nbs-muted)')+';font-weight:'+(esFavorCliente?'700':'400')+'">'+(esFavorCliente?'↩️ le debes a él':'pendiente')+'</div></div></div>'
+      +(esFavorCliente
+        ? '<div style="background:#FFF3E0;border-radius:8px;padding:8px 10px;margin-bottom:12px;font-size:11px;color:#E65100">Este cliente tiene crédito a favor de una devolución. Se aplicará solo a su próxima compra, o le puedes devolver el dinero.</div>'
+        : '<div style="height:6px;background:#F0F0F2;border-radius:3px;overflow:hidden;margin-bottom:8px">'
+          +'<div style="height:100%;width:'+pct+'%;background:var(--nbs-green-text);border-radius:3px"></div></div>'
+          +'<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--nbs-muted);margin-bottom:12px">'
+          +'<span>Pagado: '+pct+'%</span><span>Pendiente: '+(100-pct)+'%</span></div>')
+      +'<button style="width:100%;padding:10px;background:'+(esFavorCliente?'#E65100':'var(--nbs-gold)')+';color:white;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px">'+(esFavorCliente?'👁️ Ver detalle':'💰Registrar pago')+'</button>';
     card.style.cursor='pointer';
     card.onclick=(function(cid){return function(){abrirAbono(cid);};})(c.cid);
     card.querySelector('button').onclick=(function(cid){return function(e){e.stopPropagation();abrirAbono(cid);};})(c.cid);
@@ -7165,19 +7235,38 @@ function abrirAbono(cid){
   }
 }
 
-var METODOS_PAGO_LABELS = { efectivo:'💵 Efectivo', tarjeta:'💳 Tarjeta de Crédito', cashapp:'📱 CashApp / Zelle' };
+var METODOS_PAGO_LABELS = { efectivo:'💵 Efectivo', tarjeta:'💳 Tarjeta de Crédito', cashapp:'📱 CashApp / Zelle', credito_cliente:'🎁 Crédito del cliente' };
+
+// Devuelve las opciones de metodo de pago para una fila especifica -incluye "usar credito del
+// cliente" SOLO si el cliente seleccionado en Vender tiene credito a favor disponible-.
+function obtenerOpcionesMetodoPago(vid){
+  var opciones = { efectivo: METODOS_PAGO_LABELS.efectivo, tarjeta: METODOS_PAGO_LABELS.tarjeta, cashapp: METODOS_PAGO_LABELS.cashapp };
+  if(vid === 'vini'){
+    var clEl = document.getElementById('vcl');
+    var cid = clEl ? parseInt(clEl.value) : null;
+    if(cid){
+      var clientesLocal = LS('ncl', []);
+      var cl = clientesLocal.find(function(c){ return c.id===cid; });
+      if(cl && (cl.creditoAFavor||0) > 0.005){
+        opciones.credito_cliente = '🎁 Usar crédito del cliente ($'+fmtNum(cl.creditoAFavor)+' disponible)';
+      }
+    }
+  }
+  return opciones;
+}
 
 function renderMetodosPago(vid){
   var cont = document.getElementById('pago-metodos-'+vid);
   if(!cont) return;
   var filas = window._pagoMetodos[vid] || [];
+  var opciones = obtenerOpcionesMetodoPago(vid);
   cont.innerHTML = filas.map(function(m, i){
     return '<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">'
       +'<select onchange="actualizarMetodoPago(\''+vid+'\','+i+',\'tipo\',this.value)" style="flex:1.2;padding:8px 6px;border:1px solid #ddd;border-radius:6px;font-size:12px">'
-      +Object.keys(METODOS_PAGO_LABELS).map(function(k){ return '<option value="'+k+'"'+(m.tipo===k?' selected':'')+'>'+METODOS_PAGO_LABELS[k]+'</option>'; }).join('')
+      +Object.keys(opciones).map(function(k){ return '<option value="'+k+'"'+(m.tipo===k?' selected':'')+'>'+opciones[k]+'</option>'; }).join('')
       +'</select>'
       +'<input type="text" inputmode="numeric" value="'+m.monto.toFixed(2)+'" onfocus="this.select()" oninput="formatoMoneda(this);actualizarMetodoPago(\''+vid+'\','+i+',\'monto\',parseFloat(this.value)||0)" style="width:80px;padding:8px 6px;border:1px solid #ddd;border-radius:6px;font-size:12px;text-align:center">'
-      +(filas.length>1 ? '<button type="button" onclick="quitarMetodoPago(\''+vid+'\','+i+')" style="background:var(--nbs-red-bg);color:var(--nbs-red-dark);border:none;border-radius:6px;width:28px;height:32px;cursor:pointer;font-size:12px">✕</button>' : '')
+      +(filas.length>1 ? '<button type="button" onclick="quitarMetodoPago(\''+vid+'\','+i+')" style="background:var(--nbs-red-bg);color:var(--nbs-red-dark);border:none;border-radius:8px;width:38px;height:38px;cursor:pointer;font-size:14px">✕</button>' : '')
       +'</div>';
   }).join('');
   actualizarTotalPago(vid);
@@ -8259,7 +8348,7 @@ function renderItemsFacturaEdit(){
     row.style.cssText = 'padding:14px;margin-bottom:10px;border:0.5px solid var(--nbs-line);border-radius:12px;box-shadow:var(--nbs-shadow-card)';
     row.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">'
       +'<span style="font-size:11px;color:var(--nbs-muted-2);font-weight:500">Producto '+(i+1)+'</span>'
-      +'<button onclick="quitarProductoDeFactura('+i+')" style="background:var(--nbs-red-bg);color:var(--nbs-red-dark);border:none;border-radius:6px;width:26px;height:26px;cursor:pointer;font-size:13px">✕</button>'
+      +'<button onclick="quitarProductoDeFactura('+i+')" style="background:var(--nbs-red-bg);color:var(--nbs-red-dark);border:none;border-radius:8px;width:36px;height:36px;cursor:pointer;font-size:15px;flex-shrink:0">✕</button>'
       +'</div>'
       +'<input type="text" value="'+it.nombre.replace(/"/g,"'")+'" id="fact-item-nombre-'+i+'" oninput="actualizarItemFacturaEdit('+i+',\'nombre\',this.value)" style="width:100%;padding:9px 10px;border:0.5px solid #d8d8dc;border-radius:8px;font-size:14px;margin-bottom:8px;box-sizing:border-box;color:var(--nbs-ink)">'
       +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'
@@ -8919,8 +9008,32 @@ function renderDashboard(){
   });
   var totalMes = ventasMes.reduce(function(s,v){ return s+v.total; },0);
   var gananciaMes = ventasMes.reduce(function(s,v){ return s+(v.ganancia||0); },0);
+  var ticketPromedio = ventasMes.length>0 ? totalMes/ventasMes.length : 0;
 
-  // CxC total pendiente
+  // Mes anterior, para comparar crecimiento
+  var fechaMesAnterior = new Date(); fechaMesAnterior.setDate(1); fechaMesAnterior.setMonth(fechaMesAnterior.getMonth()-1);
+  var mesAnteriorKey = String(fechaMesAnterior.getMonth()+1).padStart(2,'0')+'/'+fechaMesAnterior.getFullYear();
+  var ventasMesAnterior = ventas.filter(function(v){
+    if(v.cancelada||v.esBalanceInicial) return false;
+    var p = v.fecha.split('/');
+    return p[0]+'/'+p[2] === mesAnteriorKey;
+  });
+  var totalMesAnterior = ventasMesAnterior.reduce(function(s,v){ return s+v.total; },0);
+  var crecimientoPct = totalMesAnterior>0 ? Math.round(((totalMes-totalMesAnterior)/totalMesAnterior)*100) : null;
+
+  // Devoluciones de este mes
+  var devolucionesLS2 = LS('ndevoluciones', []);
+  var devolucionesMes = devolucionesLS2.filter(function(d){
+    var p = (d.fecha||'').split('/');
+    return p[0]+'/'+p[2] === mesActual;
+  });
+  var totalDevueltoMes = devolucionesMes.reduce(function(s,d){ return s+d.monto; },0);
+  var gananciaPerdidaMes = devolucionesMes.reduce(function(s,d){
+    return s + d.items.reduce(function(s2,it){ return s2+(it.cant*(it.precio-(it.costo||0))); },0);
+  },0);
+  gananciaMes = gananciaMes - gananciaPerdidaMes;
+
+  // CxC total pendiente -restando cualquier credito a favor que tengan los clientes-
   var balancesPorCliente = {};
   ventas.filter(function(v){ return v.tipo==='credito'&&!v.cancelada; }).forEach(function(v){
     var key = String(v.cid);
@@ -8929,9 +9042,30 @@ function renderDashboard(){
     var pf = v.pagosFactura ? v.pagosFactura.filter(function(p){return typeof p.monto==='number';}).reduce(function(s,p){return s+p.monto;},0):0;
     balancesPorCliente[key].pagado += pf;
   });
+  var totalCreditoAFavorTodos = clientes.reduce(function(s,c){ return s+(c.creditoAFavor||0); }, 0);
   var totalCxC = Object.keys(balancesPorCliente).reduce(function(s,k){
     return s + Math.max(0, balancesPorCliente[k].total - balancesPorCliente[k].pagado);
   },0);
+  totalCxC = Math.max(0, totalCxC - totalCreditoAFavorTodos);
+
+  // Cuentas vencidas -facturas a credito abiertas hace mas de 30 dias-
+  var hoyDate = new Date();
+  var cuentasVencidas = [];
+  Object.keys(balancesPorCliente).forEach(function(k){
+    var b = balancesPorCliente[k];
+    var saldoB = Math.max(0, b.total-b.pagado);
+    if(saldoB <= 0.005) return;
+    var facturasDelCliente = ventas.filter(function(v){ return String(v.cid)===k && v.tipo==='credito' && !v.cancelada; });
+    var masAntigua = facturasDelCliente.reduce(function(min,v){ var f=parsearFechaVenta(v.fecha); return (!min||f<min)?f:min; }, null);
+    if(masAntigua){
+      var dias = Math.floor((hoyDate-masAntigua)/(1000*60*60*24));
+      if(dias >= 30){
+        var clV = clientes.find(function(c){ return String(c.id)===k; });
+        cuentasVencidas.push({ nombre: clV?nombreCl(clV):'Cliente', dias: dias, saldo: saldoB, cid: k });
+      }
+    }
+  });
+  cuentasVencidas.sort(function(a,b){ return b.dias-a.dias; });
 
   // Cuentas por Pagar (suplidores + tarjetas de credito + otras deudas)
   compras = LS('nc', []);
@@ -8996,7 +9130,8 @@ function renderDashboard(){
   +'<div style="background:white;border-radius:12px;padding:14px;border:0.5px solid var(--nbs-line);box-shadow:var(--nbs-shadow-card)">'
   +'<div style="font-size:11px;color:var(--nbs-muted);font-weight:600;margin-bottom:6px">VENTAS MES</div>'
   +'<div style="font-size:20px;font-weight:700;color:var(--nbs-ink)" class="contador-animado" data-valor="'+totalMes+'">$0.00</div>'
-  +'<div style="font-size:11px;color:var(--nbs-green-text);margin-top:4px">Ganancia: $'+fmtNum(gananciaMes)+'</div>'
+  +'<div style="font-size:11px;color:var(--nbs-green-text);margin-top:4px">Ganancia'+(gananciaPerdidaMes>0.005?' neta':'')+': $'+fmtNum(gananciaMes)+'</div>'
+  +(crecimientoPct!==null ? '<div style="font-size:11px;color:'+(crecimientoPct>=0?'var(--nbs-green-text)':'var(--nbs-red-text)')+';margin-top:2px;font-weight:600">'+(crecimientoPct>=0?'↑ +':'↓ ')+crecimientoPct+'% vs. mes pasado</div>' : '')
   +'</div>'
   +'<div style="background:white;border-radius:12px;padding:14px;border:0.5px solid var(--nbs-line);box-shadow:var(--nbs-shadow-card)">'
   +'<div style="font-size:11px;color:var(--nbs-muted);font-weight:600;margin-bottom:6px">GASTOS MES</div>'
@@ -9005,12 +9140,32 @@ function renderDashboard(){
   +'</div>'
   +'</div>'
 
+  +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">'
+  +'<div style="background:white;border-radius:12px;padding:14px;border:0.5px solid var(--nbs-line);box-shadow:var(--nbs-shadow-card)">'
+  +'<div style="font-size:11px;color:var(--nbs-muted);font-weight:600;margin-bottom:6px">🎟️ TICKET PROMEDIO</div>'
+  +'<div style="font-size:18px;font-weight:700;color:var(--nbs-ink)">$'+fmtNum(ticketPromedio)+'</div>'
+  +'<div style="font-size:11px;color:var(--nbs-muted);margin-top:4px">'+ventasMes.length+' venta(s) este mes</div>'
+  +'</div>'
+  +(devolucionesMes.length>0 ? '<div style="background:#FFF3E0;border-radius:12px;padding:14px;border:0.5px solid #FFCC80">'
+    +'<div style="font-size:11px;color:#E65100;font-weight:600;margin-bottom:6px">↩️ DEVOLUCIONES MES</div>'
+    +'<div style="font-size:18px;font-weight:700;color:#E65100">$'+fmtNum(totalDevueltoMes)+'</div>'
+    +'<div style="font-size:11px;color:#E65100;margin-top:4px">'+devolucionesMes.length+' devolución(es)</div>'
+    +'</div>' : '<div></div>')
+  +'</div>'
+
   // CxC
   +'<div onclick="ir(\'p-cxc\')" style="background:var(--nbs-gold-bg);border-radius:12px;padding:14px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;cursor:pointer">'
   +'<div><div style="font-size:12px;color:var(--nbs-gold-dark);font-weight:600;display:flex;align-items:center;gap:5px">💳Cuentas por cobrar</div>'
   +'<div style="font-size:11px;color:var(--nbs-gold-dark);margin-top:2px">Dinero que te deben</div></div>'
   +'<div style="font-size:22px;font-weight:700;color:var(--nbs-gold-dark)" class="contador-animado" data-valor="'+totalCxC+'">$0.00</div>'
   +'</div>'
+
+  +(cuentasVencidas.length > 0 ?
+    '<div onclick="ir(\'p-cxc\')" style="background:#FFEBEE;border-radius:12px;padding:12px;margin-bottom:10px;cursor:pointer">'
+    +'<div style="font-size:12px;color:#C62828;font-weight:600;margin-bottom:6px;display:flex;align-items:center;gap:5px">⏰Cuentas vencidas hace 30+ días ('+cuentasVencidas.length+')</div>'
+    +cuentasVencidas.slice(0,3).map(function(c){ return '<div style="font-size:12px;color:var(--nbs-ink);padding:3px 0;display:flex;justify-content:space-between"><span>• '+c.nombre+' ('+c.dias+' días)</span><span style="font-weight:700">$'+fmtNum(c.saldo)+'</span></div>'; }).join('')
+    +(cuentasVencidas.length>3?'<div style="font-size:11px;color:var(--nbs-muted);margin-top:2px">...y '+(cuentasVencidas.length-3)+' más — toca para ver todas</div>':'')
+    +'</div>' : '')
 
   // CxP
   +'<div onclick="ir(\'p-cxp\')" style="background:#F5E6EA;border-radius:12px;padding:14px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;cursor:pointer">'
@@ -9780,46 +9935,81 @@ function procesarDevolucion(vid){
   });
   SS('ndevoluciones', devoluciones);
 
+  // Calcular cuanto de lo devuelto se puede aplicar directamente al SALDO PENDIENTE de esta
+  // factura especifica -si era a credito y todavia debia algo-, y cuanto queda como EXCEDENTE
+  // -que se convierte en credito a favor del cliente, aplicable a cualquier factura futura-.
+  var montoADevolverOAplicar = esCambio ? Math.max(0, -diferencia) : totalDevuelto;
+  var excedenteComoCreditoAFavor = montoADevolverOAplicar;
   var mensajeFinal = '';
 
-  if(!esCambio){
-    // Devolucion pura de dinero -sin cambio de producto-
+  if(montoADevolverOAplicar > 0.005){
     if(v.tipo === 'credito'){
-      if(!v.pagosFactura) v.pagosFactura = [];
-      v.pagosFactura.push({ monto: totalDevuelto, fecha: fechaHoyStr, nota: '↩️ Devolución'+(nota?': '+nota:''), esDevolucion: true });
-      SS('nv', ventas);
-      mensajeFinal = 'El balance pendiente del cliente ya se redujo.';
-    } else {
-      mensajeFinal = 'Recuerda entregarle este monto al cliente.';
+      var pagadoActual = (v.pagosFactura||[]).filter(function(p){return typeof p.monto==='number';}).reduce(function(s,p){return s+p.monto;},0);
+      var saldoActual = Math.max(0, v.total - pagadoActual);
+      var aplicaAEstaFactura = Math.min(saldoActual, montoADevolverOAplicar);
+      if(aplicaAEstaFactura > 0.005){
+        if(!v.pagosFactura) v.pagosFactura = [];
+        v.pagosFactura.push({ monto: aplicaAEstaFactura, fecha: fechaHoyStr, nota: '↩️ '+(esCambio?'Cambio de producto':'Devolución')+(nota?': '+nota:''), esDevolucion: true });
+        SS('nv', ventas);
+      }
+      excedenteComoCreditoAFavor = montoADevolverOAplicar - aplicaAEstaFactura;
+    }
+    // Si sobra dinero -la factura ya estaba saldada, o el excedente supera lo que debia, o era de contado-,
+    // se guarda como credito a favor del cliente para aplicarlo a cualquier factura futura.
+    if(excedenteComoCreditoAFavor > 0.005){
+      clientes = LS('ncl', []);
+      var clIdx = clientes.findIndex(function(c){ return String(c.id)===String(v.cid); });
+      if(clIdx >= 0){
+        clientes[clIdx].creditoAFavor = (clientes[clIdx].creditoAFavor||0) + excedenteComoCreditoAFavor;
+        SS('ncl', clientes);
+      }
+    }
+  }
+
+  if(!esCambio){
+    if(v.tipo === 'credito' && excedenteComoCreditoAFavor <= 0.005){
+      mensajeFinal = 'El balance pendiente de esta factura ya se redujo en $'+fmtNum(montoADevolverOAplicar)+'.';
+    } else if(excedenteComoCreditoAFavor > 0.005){
+      mensajeFinal = 'Como '+(v.tipo==='contado'?'la factura era de contado':'esta factura ya no debía tanto')+', se guardaron $'+fmtNum(excedenteComoCreditoAFavor)+' como CRÉDITO A FAVOR del cliente -se aplicará solo o parcial a su próxima compra-. Lo puedes ver en Cuentas por Cobrar o en su historial.';
     }
   } else {
     // Cambio de producto: se ajusta solo la diferencia de precio
     if(Math.abs(diferencia) < 0.005){
       mensajeFinal = 'Cambio exacto — no se debe nada de ningún lado.';
     } else if(diferencia < 0){
-      var montoADevolver = Math.abs(diferencia);
-      if(v.tipo === 'credito'){
-        if(!v.pagosFactura) v.pagosFactura = [];
-        v.pagosFactura.push({ monto: montoADevolver, fecha: fechaHoyStr, nota: '↩️ Cambio de producto'+(nota?': '+nota:''), esDevolucion: true });
-        SS('nv', ventas);
-        mensajeFinal = 'Se le resta $'+fmtNum(montoADevolver)+' de lo que debe -o devuélveselo si ya está saldada-.';
+      if(v.tipo === 'credito' && excedenteComoCreditoAFavor <= 0.005){
+        mensajeFinal = 'Se le restó $'+fmtNum(montoADevolverOAplicar)+' de lo que debía en esta factura.';
       } else {
-        mensajeFinal = 'Recuerda devolverle $'+fmtNum(montoADevolver)+' al cliente.';
+        mensajeFinal = 'Se guardaron $'+fmtNum(excedenteComoCreditoAFavor)+' como CRÉDITO A FAVOR del cliente -se aplicará a su próxima compra-.';
       }
     } else {
-      if(v.tipo === 'contado'){
-        mensajeFinal = 'Cobra $'+fmtNum(diferencia)+' adicionales al cliente ahora mismo.';
+      // El cliente debe pagar mas -el producto nuevo cuesta mas-. Si tiene credito a favor de antes, se aplica primero.
+      clientes = LS('ncl', []);
+      var clIdxDif = clientes.findIndex(function(c){ return String(c.id)===String(v.cid); });
+      var creditoDisponible = (clIdxDif>=0 && clientes[clIdxDif].creditoAFavor) ? clientes[clIdxDif].creditoAFavor : 0;
+      var aplicadoDeCredito = Math.min(creditoDisponible, diferencia);
+      var faltantePorCobrar = diferencia - aplicadoDeCredito;
+
+      if(aplicadoDeCredito > 0.005 && clIdxDif >= 0){
+        clientes[clIdxDif].creditoAFavor = creditoDisponible - aplicadoDeCredito;
+        SS('ncl', clientes);
+      }
+
+      if(faltantePorCobrar <= 0.005){
+        mensajeFinal = 'La diferencia de $'+fmtNum(diferencia)+' se cubrió completa con el crédito a favor que ya tenía el cliente. No debe nada.';
+      } else if(v.tipo === 'contado'){
+        mensajeFinal = (aplicadoDeCredito>0.005 ? 'Se aplicaron $'+fmtNum(aplicadoDeCredito)+' de su crédito a favor. ' : '')+'Cobra $'+fmtNum(faltantePorCobrar)+' adicionales al cliente ahora mismo.';
       } else {
         ventas.push({
           id: Date.now()+1,
           numFactura: siguienteNumeroFactura(),
           cid: v.cid, cn: v.cn, tipo: 'credito',
-          items: [{ nombre: 'Diferencia por cambio de producto (factura #'+(v.numFactura||'')+')', cant: 1, precio: diferencia, costo: 0, pid: null }],
-          subtotal: diferencia, total: diferencia, ganancia: diferencia,
+          items: [{ nombre: 'Diferencia por cambio de producto (factura #'+(v.numFactura||'')+')', cant: 1, precio: faltantePorCobrar, costo: 0, pid: null }],
+          subtotal: faltantePorCobrar, total: faltantePorCobrar, ganancia: faltantePorCobrar,
           fecha: fechaHoyStr, hora: horaHoyStr, pagosFactura: []
         });
         SS('nv', ventas);
-        mensajeFinal = 'Se creó una factura nueva #'+ventas[ventas.length-1].numFactura+' por la diferencia de $'+fmtNum(diferencia)+' que el cliente debe.';
+        mensajeFinal = (aplicadoDeCredito>0.005 ? 'Se aplicaron $'+fmtNum(aplicadoDeCredito)+' de su crédito a favor. ' : '')+'Se creó una factura nueva #'+ventas[ventas.length-1].numFactura+' por los $'+fmtNum(faltantePorCobrar)+' restantes que el cliente debe.';
       }
     }
   }
@@ -9957,6 +10147,10 @@ function verHistorialCliente(cid, modo){
     +'<div style="font-size:12px;color:#E65100;font-weight:700;margin-bottom:8px">⭐ PRODUCTOS FAVORITOS</div>'
     +topProds.map(function(p){ return '<div style="font-size:13px;color:#333;padding:4px 0">• '+p+' ('+prodCount[p]+' unidades)</div>'; }).join('')
     +'</div>':'')
+    +(cl.creditoAFavor && cl.creditoAFavor > 0.005 ? '<div style="background:#FFF3E0;border-radius:12px;padding:12px;margin-bottom:16px;border:1px solid #FFCC80">'
+      +'<div style="font-size:12px;color:#E65100;font-weight:700;margin-bottom:4px">💳 CRÉDITO A FAVOR DE ESTE CLIENTE</div>'
+      +'<div style="font-size:22px;font-weight:800;color:#E65100">$'+fmtNum(cl.creditoAFavor)+'</div>'
+      +'<div style="font-size:11px;color:#777;margin-top:2px">Se aplicará automáticamente a su próxima compra a crédito.</div></div>' : '')
     +(function(){
       // ===== Seccion Devoluciones =====
       var devoluciones = LS('ndevoluciones', []).filter(function(d){ return String(d.cid)===String(cid); });
@@ -10007,7 +10201,7 @@ function verHistorialCliente(cid, modo){
   <h2 style="font-size:20px;font-weight:700;color:#1a237e;margin-bottom:14px">🧾 Vender</h2>
   <div class="card">
     <label class="lbl">Cliente</label>
-    <select class="inp" id="vcl">
+    <select class="inp" id="vcl" onchange="renderMetodosPago('vini')">
       <option value="">-- Cliente general --</option>
     </select>
     <label class="lbl">Buscar producto</label>

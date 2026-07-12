@@ -567,7 +567,7 @@ button:active{transform:scale(0.96);filter:brightness(0.93);}
     </div>
   </div>
   <div style="display:flex;gap:8px;margin-bottom:12px">
-    <button class="btn" style="flex:1;background:#1565C0;color:white;margin:0" onclick="document.getElementById('cl-l').style.display='block';document.getElementById('cl-n').style.display='none'">Lista</button>
+    <button class="btn" style="flex:1;background:#1565C0;color:white;margin:0" onclick="verTodosLosClientes()">📋 Ver todos</button>
     <button class="btn" style="flex:1;background:#2E7D32;color:white;margin:0" onclick="document.getElementById('cl-n').style.display='block';document.getElementById('cl-l').style.display='none';document.getElementById('cbi-fecha').value=fechaHoyISO()">+ Nuevo</button>
     <button class="btn" style="background:#6A1B9A;color:white" onclick="eliminarDuplicadosClientes()">🔍 Eliminar clientes duplicados</button>
   </div>
@@ -2175,7 +2175,7 @@ function saveGasto(){
     nota = notaComida + (nota ? ' · ' + nota : '');
   }
 
-  if(!confirm('¿Registrar este gasto?\n\nCategoría: '+cat+'\nMonto: $'+fmtNum(monto)+'\nFecha: '+fecha)) return;
+  // -confirmacion redundante quitada, el boton de Guardar ya es la confirmacion-
 
   var gastos = LS('ngastos', []);
   var fotoGasto = document.getElementById('gasto-foto-data').value || null;
@@ -2398,7 +2398,7 @@ function guardarEdicionGasto(id){
   var nota = document.getElementById('eg-nota').value.trim();
   if(!cat){ alert('La categoría es requerida'); return; }
   if(monto <= 0){ alert('El monto debe ser mayor a $0.00'); return; }
-  if(!confirm('¿Guardar los cambios en este gasto?\n\nCategoría: '+cat+'\nMonto: $'+fmtNum(monto)+'\nFecha: '+fecha)) return;
+  // -confirmacion redundante quitada, el boton de Guardar ya es la confirmacion-
 
   var comidaTipo = document.getElementById('eg-comida-tipo') ? document.getElementById('eg-comida-tipo').value : '';
   var comidaDesc = document.getElementById('eg-comida-desc') ? document.getElementById('eg-comida-desc').value.trim() : '';
@@ -2907,7 +2907,7 @@ function nombreVentaClienteConNegocio(v){
 function saveSup(){
   var n = document.getElementById('sn').value.trim();
   if(!n){ alert('El nombre de la empresa es requerido'); return; }
-  if(!confirm('¿Guardar el suplidor "'+n+'"?')) return;
+  // -confirmacion redundante quitada, el boton de Guardar ya es la confirmacion-
   suplidores = LS('nsup', []);
   suplidores.push({
     id: Date.now(),
@@ -3003,7 +3003,7 @@ function guardarBalanceInicialSuplidor(id){
   var fecha = document.getElementById('bis-fecha').value || fechaHoyISO();
   var fechaFmt = fechaFormat(new Date(fecha+'T12:00:00'));
 
-  if(!confirm('¿Registrar balance inicial de $'+fmtNum(monto)+' para '+s.nombre+'?')) return;
+  // -confirmacion redundante quitada, el boton de Guardar ya es la confirmacion-
 
   compras = LS('nc', []);
   compras.push({
@@ -3410,7 +3410,6 @@ function saveCl(){
   var n=document.getElementById('cn').value.trim();
   var a=document.getElementById('ca').value.trim();
   if(!n||!a){alert('Nombre y apellido requeridos');return;}
-  if(!confirm('¿Guardar el cliente "'+n+' '+a+'"?')) return;
   var nuevoId = Date.now();
   var vipActivo = document.getElementById('cvip-activo').value === '1';
   var tipoSel = document.getElementById('ctipo').value;
@@ -3475,6 +3474,16 @@ function etiquetaTipoNegocio(c){
   return '🏪 Tienda — '+subtipoTiendaLabel(c);
 }
 
+function verTodosLosClientes(){
+  document.getElementById('cl-l').style.display = 'block';
+  document.getElementById('cl-n').style.display = 'none';
+  window._clUltimaBusqueda = '';
+  window._clFiltroTipo = 'todos';
+  var elBuscarCl = document.getElementById('cl-buscar-input');
+  if(elBuscarCl) elBuscarCl.value = '';
+  renderCl('');
+}
+
 function renderCl(q){
   clientes = LS('ncl', []);
   // Actualizar contadores
@@ -3527,9 +3536,11 @@ function renderCl(q){
     },0);
     var balance = Math.max(0, totalCred - totalPag);
     var d=document.createElement('div');d.className='clrow';
+    var direccionCorta = [c.dir, c.ciudad].filter(Boolean).join(', ');
     d.innerHTML='<div class="av">'+ini(c.nombre,c.apellido)+'</div>'
       +'<div style="flex:1"><div style="font-size:16px;font-weight:700;color:var(--nbs-ink)">'+c.nombre+' '+c.apellido+(c.apodo?' <span style="color:var(--nbs-gold-dark);font-weight:700">"'+c.apodo+'"</span>':'')+(c.vipActivo?' <span style="color:var(--nbs-red-text);font-size:13px">★</span>':'')+'</div>'
       +'<div style="font-size:12px;color:var(--nbs-muted)">'+(c.negocio||'Cliente')+' · '+(c.tel||'Sin tel.')+'</div>'
+      +(direccionCorta ? '<div style="font-size:11px;color:var(--nbs-muted-2);margin-top:1px">📍 '+direccionCorta+'</div>' : '')
       +'<div style="font-size:12px;font-weight:700;margin-top:2px;color:'+(balance>0?'var(--nbs-red-text)':'var(--nbs-muted-2)')+'">Balance: $'+fmtNum(balance)+'</div>'
       +'</div>'
       +'<span style="color:#ddd;font-size:20px">›</span>';
@@ -4373,7 +4384,7 @@ function guardarEdicionProducto(){
   var desc = document.getElementById('ep-desc').value.trim();
   var nombreCompleto = marca + ' ' + nombre;
 
-  if(!confirm('¿Guardar los cambios de "'+nombreCompleto+'"?')) return;
+  // -confirmacion redundante quitada, el boton de Guardar ya es la confirmacion-
 
   if(productoEditandoId === null){
     var nuevoId = 'custom_' + Date.now();
@@ -4652,7 +4663,7 @@ function saveV(){
   if(tipo==='contado' && ini < totalFinal){
     if(!confirm('Marcaste "Contado" pero el pago que registraste ($'+fmtNum(ini)+') no cubre el total ($'+fmtNum(totalFinal)+'). ¿Continuar de todas formas?')) return;
   }
-  if(!confirm('¿Registrar esta venta?\n\n' + resumen)) return;
+  // -confirmacion redundante "¿Registrar esta venta?" quitada, el boton de Guardar ya es la confirmacion-
 
   var subtot=0, gan=0;
   iV.forEach(function(it){
@@ -4893,7 +4904,7 @@ function saveCC(){
   if(tipo==='contado' && ini < tot){
     if(!confirm('Marcaste "Contado" pero el pago que registraste ($'+fmtNum(ini)+') no cubre el total ($'+fmtNum(tot)+'). ¿Continuar de todas formas?')) return;
   }
-  if(!confirm('¿Registrar esta compra?\n\nSuplidor: '+sn+'\n'+iCC.length+' producto(s)\nTotal: $'+fmtNum(tot)+'\nPago: '+(tipo==='credito'?'A crédito':'Contado'))) return;
+  // -confirmacion redundante "¿Registrar esta compra?" quitada, el boton de Guardar ya es la confirmacion-
 
   loadProds();
   var tot = 0;
@@ -5569,7 +5580,7 @@ function guardarNuevoProdVenta(){
   var costo = parseFloat(document.getElementById('vnp-costo').value) || 0;
   var precio = parseFloat(document.getElementById('vnp-precio').value) || 0;
   var stock = parseInt(document.getElementById('vnp-stock').value) || 0;
-  if(!confirm('¿Agregar "'+nombreCompleto+'" al catálogo y a la venta?')) return;
+  // -confirmacion redundante quitada, el boton ya es la confirmacion-
   var nuevoId = 'custom_' + Date.now();
   var nuevoProd = { id: nuevoId, marca: marca, nombreCorto: nombre, nombre: nombreCompleto, cat: cat, sku: '', costo: costo, precio: precio, stock: stock, min: 5 };
   productos.push(nuevoProd);
@@ -5606,7 +5617,7 @@ function guardarNuevoProdPed(){
   var costo = parseFloat(document.getElementById('pednp-costo').value) || 0;
   var precio = parseFloat(document.getElementById('pednp-precio').value) || 0;
   var stock = parseInt(document.getElementById('pednp-stock').value) || 0;
-  if(!confirm('¿Agregar "'+nombreCompleto+'" al catálogo y al pedido?')) return;
+  // -confirmacion redundante quitada, el boton ya es la confirmacion-
   var nuevoId = 'custom_' + Date.now();
   var nuevoProd = { id: nuevoId, marca: marca, nombreCorto: nombre, nombre: nombreCompleto, cat: cat, sku: '', costo: costo, precio: precio, stock: stock, min: 5 };
   productos.push(nuevoProd);
@@ -5637,7 +5648,7 @@ function savePedido(){
   if(!nombre) nombre = 'Cliente general';
   var totalItems = pedItemsTemp.reduce(function(s,it){ return s+it.cant; },0);
   var totalMonto = pedItemsTemp.reduce(function(s,it){ return s+(it.cant*it.precio); },0);
-  if(!confirm('¿Guardar pedido de '+nombre+'?\n'+(barberia?'Barbería: '+barberia+'\n':'')+pedItemsTemp.length+' producto(s) · '+totalItems+' unidad(es)\nTotal: $'+fmtNum(totalMonto))) return;
+  // -confirmacion redundante quitada, el boton de Guardar ya es la confirmacion-
 
   pedidos = LS('npedidos', []);
   if(pedidoEditandoIdx !== null && pedidos[pedidoEditandoIdx]){
@@ -6522,7 +6533,7 @@ function modificarFactura(v){
 
 window.guardarModificacionFactura = function(vid){
   if(!window._itemsEdit || !window._itemsEdit.length){ alert('Debe quedar al menos un producto'); return; }
-  if(!confirm('¿Guardar los cambios en esta factura?')) return;
+  // -confirmacion redundante quitada, el boton de Guardar ya es la confirmacion-
   loadProds();
   ventas = LS('nv', []);
   var ventaReal = ventas.find(function(x){ return x.id===vid; });
@@ -6599,7 +6610,7 @@ function guardarBalanceInicial(id){
   var fecha = document.getElementById('bi-fecha').value || fechaHoyISO();
   var fechaFmt = fechaFormat(new Date(fecha+'T12:00:00'));
 
-  if(!confirm('¿Registrar balance inicial de $'+fmtNum(monto)+' para '+nombreCl(cl)+'?')) return;
+  // -confirmacion redundante quitada, el boton de Guardar ya es la confirmacion-
 
   ventas = LS('nv', []);
   ventas.push({

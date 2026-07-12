@@ -1509,6 +1509,7 @@ function ir(id, sinHistorial){
     var actual = pantallaActual();
     if(actual && actual !== id) historialPantallas.push(actual);
   }
+  window.scrollTo(0, 0);
   var all = ['menu','p-cl','p-v','p-rpt','p-cxc','p-cl-perfil','p-cl-factura','p-cat','p-sup','p-comp','p-ped','p-gastos','p-vip','p-mas','p-facturas','p-dashboard','p-rutas','p-manual','p-cxp'];
   for(var i=0;i<all.length;i++) document.getElementById(all[i]).style.display='none';
   document.getElementById(id).style.display='block';
@@ -1969,7 +1970,7 @@ function mostrarPopupFidelidad(cid, fidelidad){
     +'<button id="fidpop-dar" style="width:100%;padding:13px;background:var(--nbs-gold);color:white;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:8px">🎁 Registrar el regalo ahora</button>'
     +'<button id="fidpop-luego" style="width:100%;padding:12px;background:none;color:var(--nbs-muted);border:none;font-size:13px;cursor:pointer">Recordármelo después</button>';
   overlay.appendChild(card);
-  overlay.style.display = 'flex';
+  overlay.style.display = 'flex'; overlay.scrollTop = 0;
   lanzarConfeti();
 
   document.getElementById('fidpop-dar').onclick = function(){
@@ -2125,7 +2126,7 @@ function abrirOpcionesFotoGasto(prefijo){
   sheet.appendChild(btnCancelar);
 
   overlay.appendChild(sheet);
-  overlay.style.display = 'flex';
+  overlay.style.display = 'flex'; overlay.scrollTop = 0;
 }
 
 function verFotoGasto(dataUrl){
@@ -2139,7 +2140,7 @@ function verFotoGasto(dataUrl){
   }
   overlay.innerHTML = '<img src="'+dataUrl+'" style="max-width:100%;max-height:100%;border-radius:8px">'
     +'<button onclick="document.getElementById(\'foto-visor-overlay\').style.display=\'none\'" style="position:fixed;top:16px;right:16px;background:white;border:none;border-radius:50%;width:40px;height:40px;font-size:20px;cursor:pointer">✕</button>';
-  overlay.style.display = 'flex';
+  overlay.style.display = 'flex'; overlay.scrollTop = 0;
 }
 
 function saveGasto(){
@@ -2743,7 +2744,7 @@ function abrirFormTarjeta(id){
     +'<button class="btn" style="background:var(--nbs-gold);color:white" onclick="guardarTarjeta('+(t?t.id:'null')+')">✓ '+(t?'Guardar cambios':'Agregar tarjeta')+'</button>'
     +'<button class="btn" style="background:#F0F0F2;color:var(--nbs-ink)" onclick="document.getElementById(\'cxp-form-overlay\').style.display=\'none\'">Cancelar</button>'
     +'</div>';
-  overlay.style.display = 'flex';
+  overlay.style.display = 'flex'; overlay.scrollTop = 0;
 }
 
 function guardarTarjeta(id){
@@ -2816,7 +2817,7 @@ function abrirFormOtraDeuda(id){
     +'<button class="btn" style="background:var(--nbs-gold);color:white" onclick="guardarOtraDeuda('+(d?d.id:'null')+')">✓ '+(d?'Guardar cambios':'Agregar deuda')+'</button>'
     +'<button class="btn" style="background:#F0F0F2;color:var(--nbs-ink)" onclick="document.getElementById(\'cxp-form-overlay\').style.display=\'none\'">Cancelar</button>'
     +'</div>';
-  overlay.style.display = 'flex';
+  overlay.style.display = 'flex'; overlay.scrollTop = 0;
 }
 
 function guardarOtraDeuda(id){
@@ -3118,7 +3119,7 @@ function editarSuplidor(id){
   wrap.appendChild(btnGuardar);
 
   overlay.appendChild(wrap);
-  overlay.style.display='block';
+  overlay.style.display='block'; overlay.scrollTop = 0;
 }
 
 function verSup(id, modo){
@@ -3773,7 +3774,7 @@ function iniciarEscaneoVivo(inputDestinoId){
     .then(function(stream){
       _escaneoVivoStream = stream;
       video.srcObject = stream;
-      overlay.style.display = 'block';
+      overlay.style.display = 'block'; overlay.scrollTop = 0;
       _escaneoVivoActivo = true;
 
       var detector = new BarcodeDetector({ formats: ['ean_13','ean_8','upc_a','upc_e','code_128','code_39','codabar','qr_code','data_matrix','itf'] });
@@ -4013,7 +4014,7 @@ function abrirRecortarFoto(dataUrlOriginal, onConfirmar){
     onConfirmar(dataFinal);
   };
 
-  overlay.style.display = 'flex';
+  overlay.style.display = 'flex'; overlay.scrollTop = 0;
 }
 
 function cargarFotoProducto(input){
@@ -4098,7 +4099,7 @@ function abrirOpcionesFotoProducto(){
   sheet.appendChild(btnCancelar);
 
   overlay.appendChild(sheet);
-  overlay.style.display = 'flex';
+  overlay.style.display = 'flex'; overlay.scrollTop = 0;
 }
 
 function duplicarProducto(p){
@@ -6059,7 +6060,7 @@ function abrirOpcionesFotoMarca(i){
   sheet.appendChild(btnCancelar);
 
   overlay.appendChild(sheet);
-  overlay.style.display = 'flex';
+  overlay.style.display = 'flex'; overlay.scrollTop = 0;
 }
 
 function cargarFotoProductoMarca(input, i){
@@ -7548,7 +7549,7 @@ function abrirMenuAccionesFactura(vid){
   sheet.appendChild(btnCancelar);
 
   overlay.appendChild(sheet);
-  overlay.style.display = 'flex';
+  overlay.style.display = 'flex'; overlay.scrollTop = 0;
 }
 
 function renderFacturas(q){
@@ -7863,7 +7864,7 @@ function verFacturaProfesional(vid){
     watermark.innerHTML = '<div style="font-size:42px;font-weight:900;color:rgba(198,40,40,0.35);transform:rotate(-25deg);white-space:nowrap;text-transform:uppercase;letter-spacing:2px;border:6px solid rgba(198,40,40,0.35);padding:10px 24px;border-radius:12px">FACTURA<br>CANCELADA</div>';
     factDiv.appendChild(watermark);
   }
-  overlay.style.display = 'block';
+  overlay.style.display = 'block'; overlay.scrollTop = 0;
 }
 
 
@@ -8437,7 +8438,7 @@ function editarFactura(vid){
   wrap.appendChild(btnsRow);
 
   overlay.appendChild(wrap);
-  overlay.style.display = 'block';
+  overlay.style.display = 'block'; overlay.scrollTop = 0;
   renderItemsFacturaEdit();
 }
 
@@ -8716,7 +8717,7 @@ function mostrarBackupTexto(json){
     +'</div>'
     +'<div style="font-size:11px;color:#aaa;text-align:center;margin-top:8px">Guarda este texto en un lugar seguro para poder restaurar tus datos</div>'
     +'</div>';
-  overlay.style.display = 'block';
+  overlay.style.display = 'block'; overlay.scrollTop = 0;
 }
 
 function emailBackup(){
@@ -8802,7 +8803,7 @@ function imprimirFactura(v){
     +'</div>'
     +'<div style="text-align:center;margin-top:20px;font-size:11px;color:#aaa">Gracias por su preferencia · Nunez Beauty Supply</div>'
     +'</div></div>';
-  overlay.style.display = 'block';
+  overlay.style.display = 'block'; overlay.scrollTop = 0;
 }
 
 
@@ -8838,7 +8839,7 @@ function abrirMenuLateral(){
   var menu = document.getElementById('menu-lateral');
   var overlay = document.getElementById('menu-lateral-overlay');
   menu.style.display = 'block';
-  overlay.style.display = 'block';
+  overlay.style.display = 'block'; overlay.scrollTop = 0;
   setTimeout(function(){ menu.style.transform = 'translateX(0)'; }, 10);
 }
 
@@ -9085,7 +9086,7 @@ function abrirConfigImpresora(){
   wrap.appendChild(tip);
 
   overlay.appendChild(wrap);
-  overlay.style.display = 'block';
+  overlay.style.display = 'block'; overlay.scrollTop = 0;
 }
 
 // ===== DASHBOARD FINANCIERO =====
@@ -9586,7 +9587,7 @@ function verHistorialCostoSuplidor(pid){
 
   overlay.innerHTML = '';
   overlay.appendChild(wrap);
-  overlay.style.display = 'block';
+  overlay.style.display = 'block'; overlay.scrollTop = 0;
 }
 
 function navegarANegocio(nombreNegocio){
@@ -9953,7 +9954,7 @@ function abrirDevolucion(vid){
 
   overlay.innerHTML = '';
   overlay.appendChild(wrap);
-  overlay.style.display = 'block';
+  overlay.style.display = 'block'; overlay.scrollTop = 0;
 }
 
 function calcularTotalDevolucion(vid){
@@ -10381,7 +10382,7 @@ function abrirPreciosPersonalizados(cid){
 
   overlay.innerHTML = '';
   overlay.appendChild(wrap);
-  overlay.style.display = 'block';
+  overlay.style.display = 'block'; overlay.scrollTop = 0;
 }
 
 function deshacerDevolucion(devId){
@@ -10631,7 +10632,7 @@ function verHistorialCliente(cid, modo){
         +pagosHtml
         +'</div>';
     }).join('');
-  overlay.style.display = 'block';
+  overlay.style.display = 'block'; overlay.scrollTop = 0;
 }
 </script>
 <input type="hidden" id="vsel">
@@ -11113,7 +11114,7 @@ function verHistorialCliente(cid, modo){
   <h2 style="font-size:20px;font-weight:700;color:var(--nbs-ink);margin-bottom:14px">📤 Cuentas por Pagar</h2>
   <div id="cxp-contenido"></div>
 </div>
-<button id="btn-subir-flotante" style="display:none;position:fixed;bottom:20px;right:16px;z-index:999997;background:var(--nbs-gold);color:white;border:none;border-radius:50px;padding:12px 18px;font-size:14px;font-weight:700;box-shadow:0 4px 14px rgba(0,0,0,0.25);cursor:pointer;align-items:center;gap:6px">⬆️ Subir</button>
+<button id="btn-subir-flotante" style="display:none;position:fixed;bottom:20px;left:16px;z-index:999997;background:var(--nbs-gold);color:white;border:none;border-radius:50px;padding:10px 16px;font-size:13px;font-weight:700;box-shadow:0 4px 14px rgba(0,0,0,0.25);cursor:pointer;align-items:center;gap:6px;opacity:0.92">⬆️ Subir</button>
 <script>
 (function(){
   var btn = document.getElementById('btn-subir-flotante');

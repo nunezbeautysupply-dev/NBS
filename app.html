@@ -7769,7 +7769,7 @@ function verFacturaProfesional(vid){
 
   var factDiv = document.createElement('div');
   factDiv.id = 'factura-imprimible';
-  factDiv.style.cssText = 'max-width:400px;margin:0 auto;font-family:sans-serif;box-shadow:0 2px 12px rgba(0,0,0,0.08);border-radius:12px';
+  factDiv.style.cssText = 'max-width:400px;margin:0 auto;font-family:sans-serif;box-shadow:0 2px 12px rgba(0,0,0,0.08);border-radius:12px;position:relative;overflow:hidden';
   factDiv.innerHTML = '<div style="background:white;padding:14px 20px 12px;text-align:center;border:0.5px solid #e5e7eb;border-bottom:none;border-radius:12px 12px 0 0">'
     +'<img src="'+LOGO_SRC_COLOR+'" style="height:70px;display:inline-block" alt="Nunez Beauty Supply">'
     +'<div style="font-size:12px;color:#888;font-weight:700;margin-top:14px">964 Atwells Ave, Providence, Rhode Island 02909</div>'
@@ -7826,6 +7826,13 @@ function verFacturaProfesional(vid){
     +'<div style="text-align:center;margin-top:16px;font-size:11px;color:#aaa;border-top:0.5px solid #f0f0f0;padding-top:12px">Gracias por su preferencia · Nunez Beauty Supply</div>'
     +'</div>';
   overlay.appendChild(factDiv);
+
+  if(v.cancelada){
+    var watermark = document.createElement('div');
+    watermark.style.cssText = 'position:absolute;top:0;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:5;overflow:hidden';
+    watermark.innerHTML = '<div style="font-size:42px;font-weight:900;color:rgba(198,40,40,0.35);transform:rotate(-25deg);white-space:nowrap;text-transform:uppercase;letter-spacing:2px;border:6px solid rgba(198,40,40,0.35);padding:10px 24px;border-radius:12px">FACTURA<br>CANCELADA</div>';
+    factDiv.appendChild(watermark);
+  }
   overlay.style.display = 'block';
 }
 
@@ -8151,11 +8158,11 @@ function dibujarContenidoFactura(ctx, W, pad, v, cl, pagado, saldo, numFact, abo
   } else {
     // ===== Formato nuevo y simple, SOLO para impresion termica =====
     // Linea 1: TOTAL ESTA FACTURA $00.00
-    ctx.font='bold '+fs.total+'px sans-serif';
+    ctx.font='bold '+fs.pago+'px sans-serif';
     ctx.fillStyle = '#000';
     ctx.textAlign='left'; ctx.fillText('TOTAL ESTA FACTURA', pad, y);
     ctx.textAlign='right'; ctx.fillText('$'+fmtNum(v.total), W-pad, y);
-    y += 36;
+    y += 32;
 
     // Linea 2: PAGO $00.00
     ctx.font='bold '+fs.pago+'px sans-serif';
@@ -10088,6 +10095,81 @@ function procesarDevolucion(vid){
 }
 function cerrarHistorial(){ var o=document.getElementById("historial-overlay"); if(o) o.style.display="none"; }
 
+function deshacerDevolucion(devId){
+  var devoluciones = LS('ndevoluciones', []);
+  var idx = devoluciones.findIndex(function(d){ return d.id === devId; });
+  if(idx < 0){ alert('No se encontró esa devolución -puede que ya se haya deshecho-.'); return; }
+  var d = devoluciones[idx];
+
+  var resumenItems = d.items.map(function(it){ return it.nombre+' x'+it.cant; }).join(', ');
+  var resumenCambio = d.esCambio && d.itemsNuevos && d.itemsNuevos.length
+    ? '\nProducto que se había entregado a cambio: '+d.itemsNuevos.map(function(it){ return it.nombre+' x'+it.cant; }).join(', ')
+    : '';
+  if(!confirm('¿Deshacer esta devolución del '+d.fecha+'?\n\nProducto(s) devuelto(s) en su momento: '+resumenItems+resumenCambio+'\nMonto: $'+fmtNum(d.monto)+'\n\nEsto va a: restaurar el inventario a como estaba antes de la devolución, y quitar el crédito o pago que se haya generado por ella.\n\n¿Continuar?')) return;
+
+  loadProds();
+  // Revertir el inventario: lo que se habia restaurado -por ser devuelto- se vuelve a descontar;
+  // lo que se habia descontado -por ser el producto nuevo de un cambio- se vuelve a restaurar.
+  d.items.forEach(function(it){
+    if(it.pid){
+      var p = productos.find(function(x){ return String(x.id)===String(it.pid); });
+      if(p) p.stock = Math.max(0, (p.stock||0) - it.cant);
+    }
+  });
+  if(d.esCambio && d.itemsNuevos){
+    d.itemsNuevos.forEach(function(it){
+      if(it.pid){
+        var p = productos.find(function(x){ return String(x.id)===String(it.pid); });
+        if(p) p.stock = (p.stock||0) + it.cant;
+      }
+    });
+  }
+  SS('np', productos);
+
+  // Revertir el dinero: primero buscar si esta devolucion dejo un pago -abono- en la factura de origen
+  var montoRevertidoDeFactura = 0;
+  ventas = LS('nv', []);
+  var ventaOrigen = ventas.find(function(v){ return String(v.id)===String(d.ventaId); });
+  if(ventaOrigen && ventaOrigen.pagosFactura){
+    var idxPago = ventaOrigen.pagosFactura.findIndex(function(p){ return p.esDevolucion && p.fecha === d.fecha; });
+    if(idxPago >= 0){
+      montoRevertidoDeFactura = ventaOrigen.pagosFactura[idxPago].monto;
+      ventaOrigen.pagosFactura.splice(idxPago, 1);
+      SS('nv', ventas);
+    }
+  }
+
+  // Si sobra monto de la devolucion que no estaba en la factura, es porque se habia ido a credito a favor del cliente
+  var restante = Math.max(0, d.monto - montoRevertidoDeFactura);
+  var avisoCredito = '';
+  var montoQuitadoDeCredito = 0;
+  if(restante > 0.005){
+    clientes = LS('ncl', []);
+    var clIdx = clientes.findIndex(function(c){ return String(c.id)===String(d.cid); });
+    if(clIdx >= 0){
+      var creditoActual = clientes[clIdx].creditoAFavor || 0;
+      var aQuitar = Math.min(creditoActual, restante);
+      montoQuitadoDeCredito = aQuitar;
+      clientes[clIdx].creditoAFavor = Math.max(0, creditoActual - aQuitar);
+      SS('ncl', clientes);
+      if(aQuitar < restante){
+        avisoCredito = '\n\n⚠️ Aviso: $'+fmtNum(restante-aQuitar)+' de esta devolución ya no estaban disponibles como crédito -probablemente porque ya se usaron en otra factura-, así que no se pudieron quitar. Revisa el balance del cliente por si acaso.';
+      }
+    }
+  }
+
+  // Quitar el registro de la devolucion
+  devoluciones.splice(idx, 1);
+  SS('ndevoluciones', devoluciones);
+
+  alert('✅ Devolución deshecha.\n\nInventario restaurado a como estaba antes.'+(montoRevertidoDeFactura>0.005?'\nSe quitó $'+fmtNum(montoRevertidoDeFactura)+' que se había aplicado a la factura.':'')+(montoQuitadoDeCredito>0.005?'\nSe quitó $'+fmtNum(montoQuitadoDeCredito)+' del crédito a favor del cliente.':'')+avisoCredito);
+
+  var histOverlay = document.getElementById('historial-overlay');
+  if(histOverlay && histOverlay.style.display !== 'none'){
+    verHistorialCliente(d.cid, 'completo');
+  }
+}
+
 function verHistorialCliente(cid, modo){
   modo = modo || 'abiertas';
   ventas = LS('nv',[]);
@@ -10232,6 +10314,7 @@ function verHistorialCliente(cid, modo){
             +'<div style="display:flex;justify-content:space-between"><span style="font-size:12px;font-weight:700">'+d.fecha+'</span><span style="font-size:12px;font-weight:700;color:#E65100">$'+fmtNum(d.monto)+'</span></div>'
             +'<div style="font-size:11px;color:#777;margin-top:2px">'+itemsTxt+(d.nota?' · '+d.nota:'')+'</div>'
             +(d.numFacturaOrigen?'<div style="font-size:10px;color:#aaa;margin-top:2px">De la factura #'+d.numFacturaOrigen+'</div>':'')
+            +'<button type="button" onclick="deshacerDevolucion('+d.id+')" style="margin-top:6px;width:100%;padding:6px;background:#FFEBEE;color:#C62828;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer">🗑️ Deshacer esta devolución -por error o duplicada-</button>'
             +'</div>';
         }).join('')
         +'</div>';

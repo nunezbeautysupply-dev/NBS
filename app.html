@@ -2116,6 +2116,31 @@ function cargarLibreriaOCR(callback){
   document.head.appendChild(script);
 }
 
+// Prepara la imagen para que el lector de texto la entienda mejor: la pasa a blanco y negro,
+// le sube el contraste, y la agranda si esta chica -todo esto ayuda bastante a la precision del OCR-.
+function prepararFotoParaOCR(dataUrl, callback){
+  var img = new Image();
+  img.onload = function(){
+    var escala = img.naturalWidth < 1000 ? 1600/img.naturalWidth : 1;
+    var canvas = document.createElement('canvas');
+    canvas.width = Math.round(img.naturalWidth*escala);
+    canvas.height = Math.round(img.naturalHeight*escala);
+    var ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    var datos = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    var d = datos.data;
+    var CONTRASTE = 1.35;
+    for(var i=0; i<d.length; i+=4){
+      var gris = d[i]*0.3 + d[i+1]*0.59 + d[i+2]*0.11; // pasar a blanco y negro
+      gris = Math.min(255, Math.max(0, (gris-128)*CONTRASTE + 128)); // subir el contraste
+      d[i] = d[i+1] = d[i+2] = gris;
+    }
+    ctx.putImageData(datos, 0, 0);
+    callback(canvas.toDataURL('image/png'));
+  };
+  img.src = dataUrl;
+}
+
 function leerTextoFacturaCompra(){
   var foto = document.getElementById('cc-foto-data').value;
   if(!foto){ alert('Primero toma o elige la foto de la factura.'); return; }
@@ -2129,20 +2154,22 @@ function leerTextoFacturaCompra(){
   }
 
   btn.disabled = true;
-  btn.textContent = '⏳ Leyendo el texto de la foto -puede tardar unos segundos...';
+  btn.textContent = '⏳ Preparando la foto y leyendo el texto -puede tardar unos segundos...';
 
   cargarLibreriaOCR(function(exito){
     if(!exito){ restaurarBoton(); return; }
-    Tesseract.recognize(foto, 'eng')
-      .then(function(resultado){
-        textoArea.value = resultado.data.text.trim() || '-No se reconoció texto en esta foto. Intenta con mejor luz o más de cerca.-';
-        resultadoDiv.style.display = 'block';
-      })
-      .catch(function(err){
-        alert('No se pudo leer el texto de esta foto. Intenta con otra foto más clara.');
-        console.error(err);
-      })
-      .finally(restaurarBoton);
+    prepararFotoParaOCR(foto, function(fotoPreparada){
+      Tesseract.recognize(fotoPreparada, 'eng')
+        .then(function(resultado){
+          textoArea.value = resultado.data.text.trim() || '-No se reconoció texto en esta foto. Intenta recortarla más de cerca, solo al texto, con buena luz y sin sombras.-';
+          resultadoDiv.style.display = 'block';
+        })
+        .catch(function(err){
+          alert('No se pudo leer el texto de esta foto. Intenta con otra foto más clara.');
+          console.error(err);
+        })
+        .finally(restaurarBoton);
+    });
   });
 }
 
@@ -3400,6 +3427,199 @@ function verFacturaCompra(c, sid){
       verSup(sid);
     };
   }
+
+  var btnEditarCompra = document.createElement('button');
+  btnEditarCompra.textContent = '✏️ Editar esta compra';
+  btnEditarCompra.style.cssText = 'display:block;width:100%;margin-top:8px;padding:10px;background:#E3F2FD;color:#1565C0;border:1px solid #90CAF9;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700';
+  btnEditarCompra.onclick = function(){ editarCompra(c.id, sid); };
+  el.appendChild(btnEditarCompra);
+
+  var btnEliminarCompra = document.createElement('button');
+  btnEliminarCompra.textContent = '🗑️ Eliminar esta compra -por ejemplo, si fue de prueba';
+  btnEliminarCompra.style.cssText = 'display:block;width:100%;margin-top:8px;padding:10px;background:#B71C1C;color:white;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700';
+  btnEliminarCompra.onclick = function(){ eliminarCompra(c.id, sid); };
+  el.appendChild(btnEliminarCompra);
+}
+
+function eliminarCompra(cid, sid){
+  verificarPIN(function(){
+    compras = LS('nc', []);
+    var idx = compras.findIndex(function(x){ return String(x.id)===String(cid); });
+    if(idx === -1) return;
+    var c = compras[idx];
+
+    if(!confirm('¿Eliminar por completo esta compra de $'+fmtNum(c.total)+' del '+c.fecha+' -'+c.sn+'-?\n\nEsto NO se puede deshacer. El inventario que esta compra agregó se va a restar de vuelta -donde se pueda encontrar el producto exacto-.\n\n¿Continuar?')) return;
+    if(prompt('Para confirmar, escribe la palabra ELIMINAR en mayúsculas:') !== 'ELIMINAR'){ alert('No se escribió la palabra correcta. No se eliminó nada.'); return; }
+
+    loadProds();
+    var avisosStock = [];
+    c.items.forEach(function(it){
+      var p = null;
+      if(it.pid) p = productos.find(function(x){ return String(x.id)===String(it.pid); });
+      if(!p && it.esNuevo){
+        // Producto creado en el momento de esta compra -no guardo su id-, se busca por nombre y marca como mejor esfuerzo
+        p = productos.find(function(x){ return (x.marca||'').toLowerCase()===(it.marca||'').toLowerCase() && (x.nombreCorto||'').toLowerCase()===(it.nombre||'').toLowerCase(); });
+      }
+      if(p){
+        p.stock = Math.max(0, (p.stock||0) - it.cant);
+      } else {
+        avisosStock.push(it.nombre+' x'+it.cant);
+      }
+    });
+    SS('np', productos);
+
+    compras.splice(idx, 1);
+    SS('nc', compras);
+
+    var mensajeFinal = '✅ Compra eliminada por completo.';
+    if(avisosStock.length){
+      mensajeFinal += '\n\n⚠️ No se pudo encontrar el producto exacto para restar el inventario de: '+avisosStock.join(', ')+'. Revisa el stock de esos productos a mano por si acaso.';
+    }
+    alert(mensajeFinal);
+    verSup(sid);
+  });
+}
+
+function editarCompra(cid, sid){
+  compras = LS('nc', []);
+  var c = compras.find(function(x){ return String(x.id)===String(cid); });
+  if(!c) return;
+
+  window._compraEditItems = c.items.map(function(it){ return { nombre: it.nombre, cant: it.cant, costo: it.costo, pid: it.pid||null, esNuevo: it.esNuevo||false, marca: it.marca||'', cat: it.cat||'' }; });
+  window._compraEditId = cid;
+  window._compraEditSid = sid;
+
+  var overlay = document.getElementById('compra-edit-overlay');
+  if(!overlay){
+    overlay = document.createElement('div');
+    overlay.id = 'compra-edit-overlay';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:white;z-index:99999;overflow-y:auto;padding:16px';
+    document.body.appendChild(overlay);
+  }
+  overlay.innerHTML = '';
+
+  var wrap = document.createElement('div');
+  wrap.style.cssText = 'max-width:480px;margin:0 auto';
+
+  var header = document.createElement('div');
+  header.style.cssText = 'display:flex;align-items:center;gap:10px;margin-bottom:16px';
+  var btnBack = document.createElement('button');
+  btnBack.textContent = '← Volver';
+  btnBack.style.cssText = 'background:#E8EAF6;border:none;border-radius:8px;padding:10px 16px;cursor:pointer;font-size:14px;font-weight:600;color:#1a237e';
+  btnBack.onclick = function(){ overlay.style.display='none'; };
+  var iconoNBS4 = document.createElement('img');
+  iconoNBS4.src = 'icon-512.png'; iconoNBS4.alt = 'NBS';
+  iconoNBS4.style.cssText = 'width:32px;height:32px;margin-left:auto;border-radius:8px;cursor:pointer';
+  iconoNBS4.onclick = function(){ overlay.style.display='none'; ir('p-ped'); };
+  header.appendChild(btnBack); header.appendChild(iconoNBS4);
+  wrap.appendChild(header);
+
+  var titulo = document.createElement('div');
+  titulo.innerHTML = '<div style="font-size:17px;font-weight:800;color:#5D4037">✏️ Editar Compra</div>'
+    +'<div style="font-size:12px;color:#aaa;margin-top:2px">'+c.sn+' · '+c.fecha+'</div>';
+  wrap.appendChild(titulo);
+
+  var fechaLabel = document.createElement('label');
+  fechaLabel.className = 'lbl';
+  fechaLabel.textContent = 'Fecha de la compra';
+  wrap.appendChild(fechaLabel);
+  var fechaInput = document.createElement('input');
+  fechaInput.className = 'inp';
+  fechaInput.type = 'date';
+  fechaInput.id = 'compra-edit-fecha';
+  var dFecha = parsearFechaVenta(c.fecha);
+  fechaInput.value = dFecha.getFullYear()+'-'+String(dFecha.getMonth()+1).padStart(2,'0')+'-'+String(dFecha.getDate()).padStart(2,'0');
+  wrap.appendChild(fechaInput);
+
+  var itemsLabel = document.createElement('div');
+  itemsLabel.style.cssText = 'font-size:11px;color:#aaa;font-weight:700;text-transform:uppercase;margin:16px 0 8px';
+  itemsLabel.textContent = 'Productos de esta compra';
+  wrap.appendChild(itemsLabel);
+
+  var itemsWrap = document.createElement('div');
+  itemsWrap.id = 'compra-edit-items-wrap';
+  wrap.appendChild(itemsWrap);
+
+  function renderCompraEditItems(){
+    itemsWrap.innerHTML = '';
+    window._compraEditItems.forEach(function(it, i){
+      var row = document.createElement('div');
+      row.style.cssText = 'background:#FAFAFA;border-radius:10px;padding:10px;margin-bottom:8px;border:0.5px solid #eee';
+      row.innerHTML = '<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">'
+        +'<input type="text" value="'+it.nombre.replace(/"/g,"'")+'" oninput="window._compraEditItems['+i+'].nombre=this.value" style="flex:1;border:0.5px solid #ddd;border-radius:6px;padding:7px 8px;font-size:13px;font-weight:600">'
+        +'<button data-i="'+i+'" class="compra-edit-quitar" style="background:var(--nbs-red-bg);color:var(--nbs-red-dark);border:none;border-radius:8px;width:36px;height:36px;cursor:pointer;font-size:15px;flex-shrink:0">✕</button>'
+        +'</div>'
+        +'<div style="display:flex;gap:8px;align-items:center">'
+        +'<div style="display:flex;align-items:center;gap:4px">'
+        +'<label style="font-size:11px;color:#aaa">Cant:</label>'
+        +'<input type="text" inputmode="numeric" value="'+it.cant+'" data-i="'+i+'" class="compra-edit-cant" onfocus="this.select()" style="width:50px;padding:6px;border:1px solid #ddd;border-radius:6px;font-size:12px;text-align:center">'
+        +'</div>'
+        +'<div style="display:flex;align-items:center;gap:4px;margin-left:auto">'
+        +'<label style="font-size:11px;color:#aaa">Costo c/u:</label>'
+        +'<input type="text" inputmode="numeric" value="'+it.costo.toFixed(2)+'" data-i="'+i+'" class="compra-edit-costo" onfocus="this.select()" oninput="formatoMoneda(this)" style="width:70px;padding:6px;border:1px solid #ddd;border-radius:6px;font-size:12px;text-align:center">'
+        +'</div>'
+        +'</div>';
+      itemsWrap.appendChild(row);
+    });
+    itemsWrap.querySelectorAll('.compra-edit-quitar').forEach(function(btn){
+      btn.onclick = function(){ window._compraEditItems.splice(parseInt(btn.dataset.i),1); renderCompraEditItems(); };
+    });
+    itemsWrap.querySelectorAll('.compra-edit-cant').forEach(function(inp){
+      inp.oninput = function(){ window._compraEditItems[parseInt(inp.dataset.i)].cant = parseInt(inp.value)||1; };
+    });
+    itemsWrap.querySelectorAll('.compra-edit-costo').forEach(function(inp){
+      inp.oninput = function(){ formatoMoneda(inp); window._compraEditItems[parseInt(inp.dataset.i)].costo = parseFloat(inp.value)||0; };
+    });
+  }
+  renderCompraEditItems();
+
+  var btnGuardarCompra = document.createElement('button');
+  btnGuardarCompra.textContent = '✓ Guardar cambios';
+  btnGuardarCompra.style.cssText = 'width:100%;padding:12px;background:#1565C0;color:white;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;margin-top:14px';
+  btnGuardarCompra.onclick = function(){ guardarEdicionCompra(); };
+  wrap.appendChild(btnGuardarCompra);
+
+  overlay.appendChild(wrap);
+  overlay.style.display = 'block';
+  overlay.scrollTop = 0;
+}
+
+function guardarEdicionCompra(){
+  compras = LS('nc', []);
+  loadProds();
+  var idx = compras.findIndex(function(x){ return String(x.id)===String(window._compraEditId); });
+  if(idx < 0) return;
+  if(!window._compraEditItems || !window._compraEditItems.length){ alert('La compra debe tener al menos un producto.'); return; }
+
+  // Ajustar inventario: primero quitar lo que esta compra habia agregado ANTES de editar,
+  // luego agregar lo que tiene AHORA -asi los cambios de cantidad se reflejan bien en el stock-.
+  compras[idx].items.forEach(function(it){
+    var p = it.pid ? productos.find(function(x){ return String(x.id)===String(it.pid); }) : null;
+    if(!p && it.esNuevo) p = productos.find(function(x){ return (x.marca||'').toLowerCase()===(it.marca||'').toLowerCase() && (x.nombreCorto||'').toLowerCase()===(it.nombre||'').toLowerCase(); });
+    if(p) p.stock = Math.max(0, (p.stock||0) - it.cant);
+  });
+  window._compraEditItems.forEach(function(it){
+    var p = it.pid ? productos.find(function(x){ return String(x.id)===String(it.pid); }) : null;
+    if(!p && it.esNuevo) p = productos.find(function(x){ return (x.marca||'').toLowerCase()===(it.marca||'').toLowerCase() && (x.nombreCorto||'').toLowerCase()===(it.nombre||'').toLowerCase(); });
+    if(p) p.stock = (p.stock||0) + (it.cant||1);
+  });
+  SS('np', productos);
+
+  compras[idx].items = window._compraEditItems.map(function(it){
+    return { nombre: (it.nombre||'').trim(), cant: it.cant||1, costo: it.costo||0, pid: it.pid||null, esNuevo: it.esNuevo||false, marca: it.marca||'', cat: it.cat||'' };
+  });
+  compras[idx].total = compras[idx].items.reduce(function(s,it){ return s+(it.cant*it.costo); },0);
+
+  var fechaEl = document.getElementById('compra-edit-fecha');
+  if(fechaEl && fechaEl.value){
+    var fparts = fechaEl.value.split('-');
+    if(fparts.length === 3) compras[idx].fecha = fparts[1]+'/'+fparts[2]+'/'+fparts[0];
+  }
+
+  SS('nc', compras);
+  document.getElementById('compra-edit-overlay').style.display = 'none';
+  alert('✅ Compra actualizada.');
+  verSup(window._compraEditSid);
 }
 
 function eliminarSup(id){
@@ -7004,6 +7224,55 @@ function genRpt(){
     el.appendChild(c2);
   }
 
+  if(tipo==='ruta'){
+    clientes = LS('ncl', []);
+    var porNegocioRuta = {};
+    filt.forEach(function(v){
+      var negocioV = (v.clienteData && v.clienteData.negocio) ? v.clienteData.negocio : 'Sin negocio asignado';
+      if(!porNegocioRuta[negocioV]) porNegocioRuta[negocioV] = { entregado:0, pendiente:0, facturas:0 };
+      porNegocioRuta[negocioV].entregado += v.total;
+      porNegocioRuta[negocioV].facturas += 1;
+      if(v.tipo === 'credito'){
+        var pagadoV = v.pagosFactura ? v.pagosFactura.filter(function(p){return typeof p.monto==='number';}).reduce(function(s,p){return s+p.monto;},0) : 0;
+        porNegocioRuta[negocioV].pendiente += Math.max(0, v.total - pagadoV);
+      }
+    });
+    devFiltradas.forEach(function(d){
+      var negocioD = d.cn ? (function(){
+        var clD = clientes.find(function(c){ return String(c.id)===String(d.cid); });
+        return clD ? (clD.negocio||'Sin negocio asignado') : 'Sin negocio asignado';
+      })() : 'Sin negocio asignado';
+      if(!porNegocioRuta[negocioD]) porNegocioRuta[negocioD] = { entregado:0, pendiente:0, facturas:0, devuelto:0 };
+      porNegocioRuta[negocioD].devuelto = (porNegocioRuta[negocioD].devuelto||0) + d.monto;
+    });
+
+    var tituloRuta = document.createElement('div');
+    tituloRuta.style.cssText = 'font-size:13px;font-weight:700;color:#1a237e;margin:14px 0 10px';
+    tituloRuta.textContent = 'Por negocio: entregado, devuelto y pendiente';
+    el.appendChild(tituloRuta);
+
+    Object.keys(porNegocioRuta).sort(function(a,b){ return porNegocioRuta[b].entregado - porNegocioRuta[a].entregado; }).forEach(function(neg){
+      var datos = porNegocioRuta[neg];
+      var devueltoNeg = datos.devuelto || 0;
+      var row = document.createElement('div');
+      row.className = 'card';
+      row.innerHTML = '<div style="font-size:14px;font-weight:700;color:#1a237e;margin-bottom:8px">🏪 '+neg+'</div>'
+        +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">'
+        +'<div style="background:#E8F5E9;border-radius:6px;padding:8px;text-align:center">'
+        +'<div style="font-size:10px;color:#2E7D32">Entregado</div>'
+        +'<div style="font-size:13px;font-weight:700;color:#2E7D32">$'+fmtNum(datos.entregado)+'</div></div>'
+        +'<div style="background:'+(devueltoNeg>0?'#FFF3E0':'#f5f5f5')+';border-radius:6px;padding:8px;text-align:center">'
+        +'<div style="font-size:10px;color:'+(devueltoNeg>0?'#E65100':'#aaa')+'">Devuelto</div>'
+        +'<div style="font-size:13px;font-weight:700;color:'+(devueltoNeg>0?'#E65100':'#aaa')+'">$'+fmtNum(devueltoNeg)+'</div></div>'
+        +'<div style="background:'+(datos.pendiente>0.005?'#FFEBEE':'#f5f5f5')+';border-radius:6px;padding:8px;text-align:center">'
+        +'<div style="font-size:10px;color:'+(datos.pendiente>0.005?'#C62828':'#aaa')+'">Pendiente</div>'
+        +'<div style="font-size:13px;font-weight:700;color:'+(datos.pendiente>0.005?'#C62828':'#aaa')+'">$'+fmtNum(datos.pendiente)+'</div></div>'
+        +'</div>'
+        +'<div style="font-size:11px;color:#aaa;margin-top:6px">'+datos.facturas+' factura(s) en el periodo</div>';
+      el.appendChild(row);
+    });
+  }
+
   if(tipo==='tiponegocio'){
     clientes = LS('ncl', []);
     var pt={};
@@ -8031,6 +8300,15 @@ function verFacturaProfesional(vid){
   overlay.appendChild(btnDevolucion);
 
   if(!v.cancelada){
+    var btnFirma = document.createElement('button');
+    btnFirma.className = 'no-print';
+    btnFirma.innerHTML = v.firma ? '✍️ Ver firma del cliente -guardada-' : '✍️ Firma del cliente -opcional, como constancia de entrega-';
+    btnFirma.style.cssText = 'display:block;width:100%;max-width:400px;margin:0 auto 8px;padding:10px;background:'+(v.firma?'#E8F5E9':'#E3F2FD')+';color:'+(v.firma?'#2E7D32':'#1565C0')+';border:1px solid '+(v.firma?'#A5D6A7':'#90CAF9')+';border-radius:8px;cursor:pointer;font-size:13px;font-weight:700';
+    btnFirma.onclick = function(){ abrirFirmaFactura(vid); };
+    overlay.appendChild(btnFirma);
+  }
+
+  if(!v.cancelada){
     var btnCancelarFac = document.createElement('button');
     btnCancelarFac.className = 'no-print';
     btnCancelarFac.innerHTML = '🚫 Cancelar esta factura completa';
@@ -8940,7 +9218,7 @@ function exportD(){
   var url = URL.createObjectURL(blob);
   var a = document.createElement('a');
   a.href = url;
-  a.download = 'NunezBeauty_backup_' + new Date().toLocaleDateString().replace(/\//g,'-') + '.json';
+  a.download = 'NunezBeauty_backup_' + fechaHoy().replace(/\//g,'-') + '.json';
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
@@ -8958,7 +9236,7 @@ function mostrarBackupTexto(json){
   overlay.innerHTML = '<div style="max-width:600px;margin:0 auto">'
     +'<div style="background:#1a237e;color:white;padding:16px;border-radius:8px;margin-bottom:16px;text-align:center">'
     +'<div style="font-size:18px;font-weight:800">💾 Backup de Datos</div>'
-    +'<div style="font-size:12px;opacity:0.8;margin-top:4px">'+new Date().toLocaleDateString()+'</div>'
+    +'<div style="font-size:12px;opacity:0.8;margin-top:4px">'+fechaHoy()+'</div>'
     +'</div>'
     +'<div style="background:#E8F5E9;border-radius:8px;padding:12px;margin-bottom:12px">'
     +'<div style="font-size:13px;color:#2E7D32;font-weight:700;margin-bottom:8px">📋 Instrucciones:</div>'
@@ -8981,7 +9259,7 @@ function mostrarBackupTexto(json){
 
 function emailBackup(){
   var txt = document.getElementById('backup-json-text');
-  var fecha = new Date().toLocaleDateString();
+  var fecha = fechaHoy();
   var subject = 'NBS Backup ' + fecha;
   var body = 'Backup de Nunez Beauty Supply - ' + fecha + '\n\n' + txt.value;
   window.location.href = 'mailto:?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
@@ -9917,6 +10195,87 @@ function navegarANegocio(nombreNegocio){
   window.open(url, '_blank');
 }
 
+function revisarFechasSospechosas(){
+  var problemas = [];
+
+  function revisarFecha(fechaStr, origen, detalle){
+    if(!fechaStr) return;
+    if(fechaStr.indexOf('-') >= 0){
+      problemas.push({ origen: origen, detalle: detalle, fecha: fechaStr, razon: 'Tiene guiones en vez de diagonales -formato viejo, incorrecto-' });
+      return;
+    }
+    var partes = fechaStr.split('/');
+    if(partes.length !== 3){
+      problemas.push({ origen: origen, detalle: detalle, fecha: fechaStr, razon: 'No tiene el formato esperado MM/DD/AAAA' });
+      return;
+    }
+    var mes = parseInt(partes[0]), dia = parseInt(partes[1]), anio = parseInt(partes[2]);
+    if(mes > 12){
+      problemas.push({ origen: origen, detalle: detalle, fecha: fechaStr, razon: 'El primer número ('+mes+') es mayor a 12 -no puede ser un mes-, esta fecha puede estar invertida' });
+    } else if(anio < 2020 || anio > 2035){
+      problemas.push({ origen: origen, detalle: detalle, fecha: fechaStr, razon: 'El año ('+anio+') se ve fuera de lo normal' });
+    }
+  }
+
+  ventas = LS('nv', []);
+  ventas.forEach(function(v){ revisarFecha(v.fecha, 'Venta', 'Factura de '+(v.cn||'cliente')+' por $'+fmtNum(v.total)); });
+  var gastosRev = LS('ngastos', []);
+  gastosRev.forEach(function(g){ revisarFecha(g.fecha, 'Gasto', g.cat+' - $'+fmtNum(g.monto)); });
+  var comprasRev = LS('nc', []);
+  comprasRev.forEach(function(c){ revisarFecha(c.fecha, 'Compra', c.sn+' - $'+fmtNum(c.total)); });
+  var devRev = LS('ndevoluciones', []);
+  devRev.forEach(function(d){ revisarFecha(d.fecha, 'Devolución', (d.cn||'cliente')+' - $'+fmtNum(d.monto)); });
+
+  var overlay = document.getElementById('diagnostico-fechas-overlay');
+  if(!overlay){
+    overlay = document.createElement('div');
+    overlay.id = 'diagnostico-fechas-overlay';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:white;z-index:99998;overflow-y:auto;padding:16px';
+    document.body.appendChild(overlay);
+  }
+  var wrap = document.createElement('div');
+  wrap.style.cssText = 'max-width:480px;margin:0 auto';
+
+  var header = document.createElement('div');
+  header.style.cssText = 'display:flex;align-items:center;gap:10px;margin-bottom:16px';
+  var btnBack = document.createElement('button');
+  btnBack.textContent = '← Volver';
+  btnBack.style.cssText = 'background:#E8EAF6;border:none;border-radius:8px;padding:10px 16px;cursor:pointer;font-size:14px;font-weight:600;color:#1a237e';
+  btnBack.onclick = function(){ overlay.style.display='none'; };
+  header.appendChild(btnBack);
+  wrap.appendChild(header);
+
+  var titulo = document.createElement('div');
+  titulo.innerHTML = '<div style="font-size:18px;font-weight:800;color:#C62828">🔍 Revisión de Fechas</div>'
+    +'<div style="font-size:13px;color:#aaa;margin-top:2px">Ventas, gastos, compras y devoluciones con fechas sospechosas</div>';
+  wrap.appendChild(titulo);
+
+  if(!problemas.length){
+    var ok = document.createElement('div');
+    ok.style.cssText = 'background:#E8F5E9;border-radius:10px;padding:16px;margin-top:16px;text-align:center;color:#2E7D32;font-size:13px';
+    ok.textContent = '✅ No se encontró ninguna fecha con formato sospechoso en tus datos.';
+    wrap.appendChild(ok);
+  } else {
+    var aviso = document.createElement('div');
+    aviso.style.cssText = 'background:#FFEBEE;border-radius:10px;padding:12px;margin:14px 0;font-size:12px;color:#C62828';
+    aviso.textContent = 'Se encontraron '+problemas.length+' registro(s) con fechas que vale la pena revisar. La app no puede adivinar sola cuál es la fecha correcta cuando el día y el mes son ambos 12 o menos -por ejemplo, 05/07/2026 podría ser 5 de julio o 7 de mayo-, así que estas hay que corregirlas a mano si hace falta, editando esa venta, gasto, o compra.';
+    wrap.appendChild(aviso);
+
+    problemas.forEach(function(pr){
+      var card = document.createElement('div');
+      card.style.cssText = 'background:#FAFAFA;border-radius:10px;padding:12px;margin-bottom:8px;border:1px solid #FFCDD2';
+      card.innerHTML = '<div style="font-size:13px;font-weight:800;color:#1a237e">'+pr.origen+' · '+pr.detalle+'</div>'
+        +'<div style="font-size:12px;color:#333;margin-top:4px">📅 Fecha guardada: <b>'+pr.fecha+'</b></div>'
+        +'<div style="font-size:11px;color:#C62828;margin-top:2px">'+pr.razon+'</div>';
+      wrap.appendChild(card);
+    });
+  }
+
+  overlay.innerHTML = '';
+  overlay.appendChild(wrap);
+  overlay.style.display = 'block';
+}
+
 function revisarDireccionesDeNegocios(){
   clientes = LS('ncl', []);
   var porNegocio = {};
@@ -10268,6 +10627,147 @@ function cancelarFacturaCompleta(vid){
 }
 
 function cerrarFacturaView(){ var o=document.getElementById("factura-view-overlay"); if(o) o.style.display="none"; }
+
+function abrirFirmaFactura(vid){
+  ventas = LS('nv', []);
+  var v = ventas.find(function(x){ return String(x.id)===String(vid); });
+  if(!v) return;
+
+  var overlay = document.getElementById('firma-overlay');
+  if(!overlay){
+    overlay = document.createElement('div');
+    overlay.id = 'firma-overlay';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:white;z-index:999998;display:flex;flex-direction:column;padding:16px';
+    document.body.appendChild(overlay);
+  }
+  overlay.innerHTML = '';
+
+  var header = document.createElement('div');
+  header.style.cssText = 'display:flex;align-items:center;gap:10px;margin-bottom:12px';
+  var btnBack = document.createElement('button');
+  btnBack.textContent = '← Volver';
+  btnBack.style.cssText = 'background:#E8EAF6;border:none;border-radius:8px;padding:10px 16px;cursor:pointer;font-size:14px;font-weight:600;color:#1a237e';
+  btnBack.onclick = function(){ overlay.style.display='none'; };
+  header.appendChild(btnBack);
+  overlay.appendChild(header);
+
+  var titulo = document.createElement('div');
+  titulo.innerHTML = '<div style="font-size:17px;font-weight:800;color:#1565C0">✍️ Firma del cliente</div>'
+    +'<div style="font-size:12px;color:#aaa;margin-top:2px">Factura #'+(v.numFactura||String(v.id).slice(-6))+' · '+v.cn+' · Opcional, solo como constancia de entrega</div>';
+  overlay.appendChild(titulo);
+
+  if(v.firma){
+    var fotoActual = document.createElement('div');
+    fotoActual.style.cssText = 'margin-top:12px;text-align:center';
+    fotoActual.innerHTML = '<div style="font-size:11px;color:#777;margin-bottom:6px">Firma ya guardada -'+(v.firmaFecha||'')+'-:</div>'
+      +'<img src="'+v.firma+'" style="max-width:100%;border:1px solid #ddd;border-radius:8px;background:#FAFAFA">';
+    overlay.appendChild(fotoActual);
+    var btnBorrarFirma = document.createElement('button');
+    btnBorrarFirma.textContent = '🗑️ Quitar esta firma y capturar una nueva';
+    btnBorrarFirma.style.cssText = 'margin-top:10px;width:100%;padding:10px;background:#FFEBEE;color:#C62828;border:1px solid #FFCDD2;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer';
+    btnBorrarFirma.onclick = function(){
+      ventas = LS('nv', []);
+      var v2 = ventas.find(function(x){ return String(x.id)===String(vid); });
+      if(v2){ delete v2.firma; delete v2.firmaFecha; SS('nv', ventas); }
+      abrirFirmaFactura(vid);
+    };
+    overlay.appendChild(btnBorrarFirma);
+    overlay.style.display = 'flex';
+    return;
+  }
+
+  var instrucciones = document.createElement('div');
+  instrucciones.style.cssText = 'font-size:12px;color:#777;margin:12px 0 8px';
+  instrucciones.textContent = 'Pídele al cliente que firme aquí con el dedo, para dejar constancia de que recibió el pedido:';
+  overlay.appendChild(instrucciones);
+
+  var contenedorLienzo = document.createElement('div');
+  contenedorLienzo.style.cssText = 'border:2px dashed #ccc;border-radius:12px;background:#FAFAFA;flex:1;min-height:250px;position:relative;touch-action:none';
+  overlay.appendChild(contenedorLienzo);
+
+  var canvas = document.createElement('canvas');
+  canvas.style.cssText = 'width:100%;height:100%;display:block;touch-action:none';
+  contenedorLienzo.appendChild(canvas);
+
+  var placeholder = document.createElement('div');
+  placeholder.textContent = 'Firma aquí';
+  placeholder.style.cssText = 'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#ccc;font-size:16px;pointer-events:none';
+  contenedorLienzo.appendChild(placeholder);
+
+  var ctx = canvas.getContext('2d');
+  var dibujando = false;
+  var yaFirmo = false;
+  function ajustarTamanoLienzo(){
+    var rect = contenedorLienzo.getBoundingClientRect();
+    canvas.width = rect.width;
+    canvas.height = rect.height;
+    ctx.strokeStyle = '#1a237e';
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+  }
+  setTimeout(ajustarTamanoLienzo, 50);
+
+  function posDe(e){
+    var rect = canvas.getBoundingClientRect();
+    if(e.touches && e.touches.length) return { x: e.touches[0].clientX-rect.left, y: e.touches[0].clientY-rect.top };
+    return { x: e.clientX-rect.left, y: e.clientY-rect.top };
+  }
+  function empezar(e){
+    e.preventDefault();
+    dibujando = true; yaFirmo = true;
+    placeholder.style.display = 'none';
+    var p = posDe(e);
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y);
+  }
+  function mover(e){
+    if(!dibujando) return;
+    e.preventDefault();
+    var p = posDe(e);
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+  }
+  function terminar(){ dibujando = false; }
+
+  canvas.addEventListener('mousedown', empezar);
+  canvas.addEventListener('mousemove', mover);
+  canvas.addEventListener('mouseup', terminar);
+  canvas.addEventListener('touchstart', empezar, {passive:false});
+  canvas.addEventListener('touchmove', mover, {passive:false});
+  canvas.addEventListener('touchend', terminar);
+
+  var botones = document.createElement('div');
+  botones.style.cssText = 'display:flex;gap:10px;margin-top:12px';
+  var btnLimpiar = document.createElement('button');
+  btnLimpiar.textContent = '↺ Borrar y empezar de nuevo';
+  btnLimpiar.style.cssText = 'flex:1;padding:12px;background:#f0f0f0;color:#555;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer';
+  btnLimpiar.onclick = function(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    placeholder.style.display = 'block';
+    yaFirmo = false;
+  };
+  var btnGuardarFirma = document.createElement('button');
+  btnGuardarFirma.textContent = '✓ Guardar firma';
+  btnGuardarFirma.style.cssText = 'flex:1;padding:12px;background:#1565C0;color:white;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer';
+  btnGuardarFirma.onclick = function(){
+    if(!yaFirmo){ alert('Todavía no hay ninguna firma dibujada.'); return; }
+    ventas = LS('nv', []);
+    var v2 = ventas.find(function(x){ return String(x.id)===String(vid); });
+    if(v2){
+      v2.firma = canvas.toDataURL('image/png');
+      v2.firmaFecha = fechaHoy()+' '+new Date().toLocaleTimeString('es-US',{hour:'2-digit',minute:'2-digit'});
+      SS('nv', ventas);
+    }
+    overlay.style.display = 'none';
+    verFacturaProfesional(vid);
+  };
+  botones.appendChild(btnLimpiar);
+  botones.appendChild(btnGuardarFirma);
+  overlay.appendChild(botones);
+
+  overlay.style.display = 'flex';
+}
 
 function abrirDevolucion(vid){
   window._cambioItems = [];
@@ -11434,6 +11934,7 @@ function verHistorialCliente(cid, modo){
 <div id="p-rpt" class="pg">
   <div style="display:flex;gap:8px;margin-bottom:16px"><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="volverAtras()">← Atrás</button><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="ir('p-ped')">🏠 Inicio</button></div>
   <h2 style="font-size:20px;font-weight:700;color:#1a237e;margin-bottom:14px">📊 Reportes</h2>
+  <button onclick="revisarFechasSospechosas()" style="width:100%;padding:10px;background:#FFF3E0;color:#E65100;border:1px solid #FFCC80;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;margin-bottom:14px">🔍 Revisar si hay fechas guardadas con formato incorrecto</button>
   <div class="card">
     <div class="r2">
       <div><label class="lbl">Desde</label><input class="inp" id="rfrom" type="date"></div>
@@ -11444,6 +11945,7 @@ function verHistorialCliente(cid, modo){
       <optgroup label="📊 Ventas">
         <option value="total">Resumen general de ventas</option>
         <option value="cliente">Ventas por cliente</option>
+        <option value="ruta">Entregado, devuelto y pendiente por negocio</option>
         <option value="tiponegocio">Ventas por tipo de negocio</option>
         <option value="productos">Productos más vendidos (cantidad)</option>
         <option value="ganancia">Productos mejor ganancia ($)</option>

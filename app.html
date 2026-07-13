@@ -327,7 +327,7 @@ button:active{transform:scale(0.96);filter:brightness(0.93);}
     <button onclick="irMenuProtegido('p-comp')" class="mlb2"><span class="mlb2-icon"><span style="font-size:19px">🚚</span></span>Compras</button>
 
     <div style="font-size:10px;color:var(--nbs-muted-2);font-weight:700;letter-spacing:1px;padding:12px 8px 4px">FINANZAS</div>
-    <button onclick="irMenu('p-dashboard')" class="mlb2"><span class="mlb2-icon"><span style="font-size:19px">📊</span></span>Dashboard Financiero</button>
+    <button onclick="irMenu('p-dashboard')" class="mlb2"><span class="mlb2-icon"><span style="font-size:19px">📊</span></span>Resumen Financiero</button>
     <button onclick="irMenuProtegido('p-gastos')" class="mlb2"><span class="mlb2-icon"><span style="font-size:19px">💸</span></span>Gastos</button>
     <button onclick="irMenuProtegido('p-rpt')" class="mlb2"><span class="mlb2-icon"><span style="font-size:19px">📈</span></span>Reportes</button>
     <button onclick="irMenu('p-rutas')" class="mlb2"><span class="mlb2-icon"><span style="font-size:19px">🗺️</span></span>Ruta de Visitas</button>
@@ -2231,7 +2231,13 @@ function saveGasto(){
   }
   var monto = parseFloat(document.getElementById('gmonto').value) || 0;
   if(monto <= 0){ alert('Ingresa un monto válido'); return; }
-  var fecha = document.getElementById('gfecha').value || fechaHoyISO();
+  // Convertir la fecha del campo -formato AAAA-MM-DD- al formato que usa el resto de la app -MM/DD/AAAA-
+  var fechaEl = document.getElementById('gfecha');
+  var fecha = fechaHoy();
+  if(fechaEl && fechaEl.value){
+    var fparts = fechaEl.value.split('-');
+    if(fparts.length === 3) fecha = fparts[1]+'/'+fparts[2]+'/'+fparts[0];
+  }
   var nota = document.getElementById('gnota').value.trim();
 
   // Datos adicionales de comida
@@ -2467,7 +2473,13 @@ function selComidaTipoEdit(tipo){
 function guardarEdicionGasto(id){
   var cat = document.getElementById('eg-cat').value.trim();
   var monto = parseFloat(document.getElementById('eg-monto').value) || 0;
-  var fecha = document.getElementById('eg-fecha').value;
+  // Convertir la fecha del campo -formato AAAA-MM-DD- al formato que usa el resto de la app -MM/DD/AAAA-
+  var fechaElEdit = document.getElementById('eg-fecha');
+  var fecha = fechaHoy();
+  if(fechaElEdit && fechaElEdit.value){
+    var fpartsEdit = fechaElEdit.value.split('-');
+    if(fpartsEdit.length === 3) fecha = fpartsEdit[1]+'/'+fpartsEdit[2]+'/'+fpartsEdit[0];
+  }
   var nota = document.getElementById('eg-nota').value.trim();
   if(!cat){ alert('La categoría es requerida'); return; }
   if(monto <= 0){ alert('El monto debe ser mayor a $0.00'); return; }
@@ -2603,10 +2615,10 @@ var MANUAL_SECCIONES = [
     'Registra cada compra de inventario a un proveedor: productos, cantidades, costos, y si fue de contado o a crédito.'
   ]},
   { t:'💸 Gastos', c: [
-    'Registra gastos operativos (gasolina, mantenimiento, etc.) para que el Dashboard calcule la ganancia neta real.'
+    'Registra gastos operativos (gasolina, mantenimiento, etc.) para que el Resumen Financiero calcule la ganancia neta real.'
   ]},
-  { t:'📊 Dashboard Financiero', c: [
-    'Resumen de ventas y ganancia de hoy y del mes, gastos, ganancia neta, total en CxC, meta semanal con progreso, alertas de stock, y productos más vendidos.'
+  { t:'📊 Resumen Financiero del Negocio', c: [
+    'Resumen de ventas y ganancia de hoy y del mes, gastos, ganancia neta, total en cuentas por cobrar, meta semanal con progreso, alertas de inventario, y productos más vendidos.'
   ]},
   { t:'📈 Reportes', c: [
     'Reportes detallados de ventas por rango de fechas, por producto, o por cliente.'
@@ -9075,12 +9087,32 @@ document.addEventListener('DOMContentLoaded', function(){
   // Abrir pedidos rápidos por defecto
   ir('p-ped');
 
+  // === CORRECCION UNICA: gastos guardados con la fecha en formato AAAA-MM-DD -bug ya corregido-
+  // se convierten al formato MM/DD/AAAA que usa el resto de la app, para que se cuenten bien
+  // en el Dashboard y en cualquier reporte.
+  corregirFechasGastosViejos();
+
   // === SISTEMA DE RECORDATORIO DE BACKUP ===
   verificarBackup();
 
   // === SISTEMA DE RECORDATORIO DE VISITAS A NEGOCIOS (tiendas, meat market, etc) ===
   setTimeout(verificarVisitasNegocios, 2500);
 });
+
+function corregirFechasGastosViejos(){
+  var gastosLS = LS('ngastos', []);
+  var huboCambios = false;
+  gastosLS.forEach(function(g){
+    if(g.fecha && g.fecha.indexOf('-') >= 0){
+      var partes = g.fecha.split('-');
+      if(partes.length === 3 && partes[0].length === 4){ // AAAA-MM-DD
+        g.fecha = partes[1]+'/'+partes[2]+'/'+partes[0];
+        huboCambios = true;
+      }
+    }
+  });
+  if(huboCambios) SS('ngastos', gastosLS);
+}
 
 function abrirMenuLateral(){
   var menu = document.getElementById('menu-lateral');
@@ -9478,57 +9510,65 @@ function renderDashboard(){
 
   // Cards del mes
   +'<h3 style="font-size:12px;color:var(--nbs-muted);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px;display:flex;align-items:center;gap:5px">📆Este mes</h3>'
-  +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">'
+  +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">'
   +'<div style="background:white;border-radius:12px;padding:14px;border:0.5px solid var(--nbs-line);box-shadow:var(--nbs-shadow-card)">'
-  +'<div style="font-size:11px;color:var(--nbs-muted);font-weight:600;margin-bottom:6px">VENTAS MES</div>'
+  +'<div style="font-size:11px;color:var(--nbs-muted);font-weight:600;margin-bottom:6px">VENTAS DEL MES</div>'
   +'<div style="font-size:20px;font-weight:700;color:var(--nbs-ink)" class="contador-animado" data-valor="'+totalMes+'">$0.00</div>'
-  +'<div style="font-size:11px;color:var(--nbs-green-text);margin-top:4px">Ganancia'+(gananciaPerdidaMes>0.005?' neta':'')+': $'+fmtNum(gananciaMes)+'</div>'
-  +(crecimientoPct!==null ? '<div style="font-size:11px;color:'+(crecimientoPct>=0?'var(--nbs-green-text)':'var(--nbs-red-text)')+';margin-top:2px;font-weight:600">'+(crecimientoPct>=0?'↑ +':'↓ ')+crecimientoPct+'% vs. mes pasado</div>' : '')
+  +(crecimientoPct!==null ? '<div style="font-size:11px;color:'+(crecimientoPct>=0?'var(--nbs-green-text)':'var(--nbs-red-text)')+';margin-top:4px;font-weight:600">'+(crecimientoPct>=0?'↑ +':'↓ ')+crecimientoPct+'% comparado al mes pasado</div>' : '<div style="font-size:11px;color:var(--nbs-muted);margin-top:4px">Sin datos del mes pasado para comparar</div>')
   +'</div>'
   +'<div style="background:white;border-radius:12px;padding:14px;border:0.5px solid var(--nbs-line);box-shadow:var(--nbs-shadow-card)">'
-  +'<div style="font-size:11px;color:var(--nbs-muted);font-weight:600;margin-bottom:6px">GASTOS MES</div>'
+  +'<div style="font-size:11px;color:var(--nbs-muted);font-weight:600;margin-bottom:6px">GASTOS DEL MES</div>'
   +'<div style="font-size:20px;font-weight:700;color:var(--nbs-red-dark)">$'+fmtNum(totalGastosMes)+'</div>'
-  +'<div style="font-size:11px;color:'+(gananciaMes-totalGastosMes>=0?'var(--nbs-green-text)':'var(--nbs-red-text)')+';margin-top:4px">Neto: $'+fmtNum(gananciaMes-totalGastosMes)+'</div>'
+  +'<div style="font-size:11px;color:var(--nbs-muted);margin-top:4px">gasolina, comida, suministros...</div>'
   +'</div>'
+  +'</div>'
+
+  // Ganancia neta del mes -tarjeta grande y clara, la mas importante de todas-
+  +'<div style="background:'+(gananciaMes-totalGastosMes>=0?'var(--nbs-green-bg)':'var(--nbs-red-bg)')+';border-radius:12px;padding:16px;margin-bottom:16px;text-align:center">'
+  +'<div style="font-size:12px;color:'+(gananciaMes-totalGastosMes>=0?'var(--nbs-green-text)':'var(--nbs-red-text)')+';font-weight:700">💵 LO QUE TE QUEDA REALMENTE ESTE MES</div>'
+  +'<div style="font-size:11px;color:'+(gananciaMes-totalGastosMes>=0?'var(--nbs-green-text)':'var(--nbs-red-text)')+';margin-top:1px">Ganancia de tus ventas, menos tus gastos del mes</div>'
+  +'<div style="font-size:26px;font-weight:800;color:'+(gananciaMes-totalGastosMes>=0?'var(--nbs-green-text)':'var(--nbs-red-text)')+';margin-top:4px" class="contador-animado" data-valor="'+(gananciaMes-totalGastosMes)+'">$0.00</div>'
+  +(gananciaPerdidaMes>0.005?'<div style="font-size:10px;color:'+(gananciaMes-totalGastosMes>=0?'var(--nbs-green-text)':'var(--nbs-red-text)')+';margin-top:2px">Ya se restaron las devoluciones de este mes</div>':'')
   +'</div>'
 
   +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">'
   +'<div style="background:white;border-radius:12px;padding:14px;border:0.5px solid var(--nbs-line);box-shadow:var(--nbs-shadow-card)">'
-  +'<div style="font-size:11px;color:var(--nbs-muted);font-weight:600;margin-bottom:6px">🎟️ TICKET PROMEDIO</div>'
+  +'<div style="font-size:11px;color:var(--nbs-muted);font-weight:600;margin-bottom:6px">💰 VENTA PROMEDIO</div>'
   +'<div style="font-size:18px;font-weight:700;color:var(--nbs-ink)">$'+fmtNum(ticketPromedio)+'</div>'
-  +'<div style="font-size:11px;color:var(--nbs-muted);margin-top:4px">'+ventasMes.length+' venta(s) este mes</div>'
+  +'<div style="font-size:11px;color:var(--nbs-muted);margin-top:4px">Cuánto gasta un cliente en promedio -'+ventasMes.length+' venta(s) este mes-</div>'
   +'</div>'
   +(devolucionesMes.length>0 ? '<div style="background:#FFF3E0;border-radius:12px;padding:14px;border:0.5px solid #FFCC80">'
-    +'<div style="font-size:11px;color:#E65100;font-weight:600;margin-bottom:6px">↩️ DEVOLUCIONES MES</div>'
+    +'<div style="font-size:11px;color:#E65100;font-weight:600;margin-bottom:6px">↩️ DEVOLUCIONES DEL MES</div>'
     +'<div style="font-size:18px;font-weight:700;color:#E65100">$'+fmtNum(totalDevueltoMes)+'</div>'
     +'<div style="font-size:11px;color:#E65100;margin-top:4px">'+devolucionesMes.length+' devolución(es)</div>'
     +'</div>' : '<div></div>')
   +'</div>'
 
-  // CxC
+  // Seccion de dinero -cuentas por cobrar y por pagar-
+  +'<h3 style="font-size:12px;color:var(--nbs-muted);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px;display:flex;align-items:center;gap:5px">💰 Dinero pendiente</h3>'
   +'<div onclick="ir(\'p-cxc\')" style="background:var(--nbs-gold-bg);border-radius:12px;padding:14px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;cursor:pointer">'
-  +'<div><div style="font-size:12px;color:var(--nbs-gold-dark);font-weight:600;display:flex;align-items:center;gap:5px">💳Cuentas por cobrar</div>'
-  +'<div style="font-size:11px;color:var(--nbs-gold-dark);margin-top:2px">Dinero que te deben</div></div>'
+  +'<div><div style="font-size:12px;color:var(--nbs-gold-dark);font-weight:600;display:flex;align-items:center;gap:5px">💳 Lo que te deben tus clientes</div>'
+  +'<div style="font-size:11px;color:var(--nbs-gold-dark);margin-top:2px">Toca para ver el detalle</div></div>'
   +'<div style="font-size:22px;font-weight:700;color:var(--nbs-gold-dark)" class="contador-animado" data-valor="'+totalCxC+'">$0.00</div>'
   +'</div>'
 
   +(cuentasVencidas.length > 0 ?
     '<div onclick="ir(\'p-cxc\')" style="background:#FFEBEE;border-radius:12px;padding:12px;margin-bottom:10px;cursor:pointer">'
-    +'<div style="font-size:12px;color:#C62828;font-weight:600;margin-bottom:6px;display:flex;align-items:center;gap:5px">⏰Cuentas vencidas hace 30+ días ('+cuentasVencidas.length+')</div>'
+    +'<div style="font-size:12px;color:#C62828;font-weight:600;margin-bottom:6px;display:flex;align-items:center;gap:5px">⏰ Clientes atrasados hace más de 30 días ('+cuentasVencidas.length+')</div>'
     +cuentasVencidas.slice(0,3).map(function(c){ return '<div style="font-size:12px;color:var(--nbs-ink);padding:3px 0;display:flex;justify-content:space-between"><span>• '+c.nombre+' ('+c.dias+' días)</span><span style="font-weight:700">$'+fmtNum(c.saldo)+'</span></div>'; }).join('')
     +(cuentasVencidas.length>3?'<div style="font-size:11px;color:var(--nbs-muted);margin-top:2px">...y '+(cuentasVencidas.length-3)+' más — toca para ver todas</div>':'')
     +'</div>' : '')
 
-  // CxP
   +'<div onclick="ir(\'p-cxp\')" style="background:#F5E6EA;border-radius:12px;padding:14px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;cursor:pointer">'
-  +'<div><div style="font-size:12px;color:#7B1E3A;font-weight:600;display:flex;align-items:center;gap:5px">📤Cuentas por pagar</div>'
-  +'<div style="font-size:11px;color:#7B1E3A;margin-top:2px">Suplidores, tarjetas y otras deudas</div></div>'
+  +'<div><div style="font-size:12px;color:#7B1E3A;font-weight:600;display:flex;align-items:center;gap:5px">📤 Lo que tú debes</div>'
+  +'<div style="font-size:11px;color:#7B1E3A;margin-top:2px">A suplidores, tarjetas y otras deudas</div></div>'
   +'<div style="font-size:22px;font-weight:700;color:#7B1E3A" class="contador-animado" data-valor="'+totalCxP+'">$0.00</div>'
   +'</div>'
 
-  // Balance neto (CxC - CxP)
+  // Diferencia entre lo que te deben y lo que debes
   +'<div style="background:'+(totalCxC-totalCxP>=0?'var(--nbs-green-bg)':'var(--nbs-red-bg)')+';border-radius:12px;padding:12px;margin-bottom:16px;text-align:center">'
-  +'<div style="font-size:11px;color:'+(totalCxC-totalCxP>=0?'var(--nbs-green-text)':'var(--nbs-red-text)')+';font-weight:600">⚖️ BALANCE NETO (lo que te deben − lo que debes)</div>'
+  +'<div style="font-size:11px;color:'+(totalCxC-totalCxP>=0?'var(--nbs-green-text)':'var(--nbs-red-text)')+';font-weight:600">⚖️ LA DIFERENCIA ENTRE LOS DOS</div>'
+  +'<div style="font-size:10px;color:'+(totalCxC-totalCxP>=0?'var(--nbs-green-text)':'var(--nbs-red-text)')+'">Lo que te deben, menos lo que tú debes</div>'
   +'<div style="font-size:18px;font-weight:800;color:'+(totalCxC-totalCxP>=0?'var(--nbs-green-text)':'var(--nbs-red-text)')+';margin-top:2px" class="contador-animado" data-valor="'+(totalCxC-totalCxP)+'">$0.00</div>'
   +'</div>'
 
@@ -9547,17 +9587,17 @@ function renderDashboard(){
   +'</div>'
   +'</div>'
 
-  // Alertas de stock
+  // Alertas de inventario
   +(productosSinStock.length > 0 ?
     '<div style="background:var(--nbs-red-bg);border-radius:12px;padding:12px;margin-bottom:8px">'
-    +'<div style="font-size:12px;color:var(--nbs-red-dark);font-weight:600;margin-bottom:6px;display:flex;align-items:center;gap:5px">🚨Sin stock ('+productosSinStock.length+')</div>'
+    +'<div style="font-size:12px;color:var(--nbs-red-dark);font-weight:600;margin-bottom:6px;display:flex;align-items:center;gap:5px">🚨 Productos agotados ('+productosSinStock.length+')</div>'
     +productosSinStock.slice(0,3).map(function(p){ return '<div style="font-size:12px;color:var(--nbs-ink);padding:3px 0">• '+p.nombre+'</div>'; }).join('')
     +(productosSinStock.length>3?'<div style="font-size:11px;color:var(--nbs-muted)">...y '+(productosSinStock.length-3)+' más</div>':'')
     +'</div>' : '')
   +(productosStockBajo.length > 0 ?
     '<div style="background:var(--nbs-gold-bg);border-radius:12px;padding:12px;margin-bottom:16px">'
-    +'<div style="font-size:12px;color:var(--nbs-gold-dark);font-weight:600;margin-bottom:6px;display:flex;align-items:center;gap:5px">⚠️Stock bajo ('+productosStockBajo.length+')</div>'
-    +productosStockBajo.slice(0,3).map(function(p){ return '<div style="font-size:12px;color:var(--nbs-ink);padding:3px 0">• '+p.nombre+' ('+p.stock+' unidades)</div>'; }).join('')
+    +'<div style="font-size:12px;color:var(--nbs-gold-dark);font-weight:600;margin-bottom:6px;display:flex;align-items:center;gap:5px">⚠️ Se está acabando el stock ('+productosStockBajo.length+')</div>'
+    +productosStockBajo.slice(0,3).map(function(p){ return '<div style="font-size:12px;color:var(--nbs-ink);padding:3px 0">• '+p.nombre+' -quedan '+p.stock+' unidades-</div>'; }).join('')
     +(productosStockBajo.length>3?'<div style="font-size:11px;color:var(--nbs-muted)">...y '+(productosStockBajo.length-3)+' más</div>':'')
     +'</div>' : '')
 
@@ -11489,7 +11529,7 @@ function verHistorialCliente(cid, modo){
 
 <div id="p-dashboard" class="pg">
   <div style="display:flex;gap:8px;margin-bottom:16px"><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="volverAtras()">← Atrás</button><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="ir('p-ped')">🏠 Inicio</button></div>
-  <h2 style="font-size:24px;font-weight:800;color:#1a237e;margin-bottom:16px;text-align:center;padding-bottom:12px;border-bottom:2px solid #E8EAF6">📊 Dashboard Financiero</h2>
+  <h2 style="font-size:24px;font-weight:800;color:#1a237e;margin-bottom:16px;text-align:center;padding-bottom:12px;border-bottom:2px solid #E8EAF6">📊 Resumen Financiero del Negocio</h2>
   <div id="dashboard-contenido"></div>
 </div>
 

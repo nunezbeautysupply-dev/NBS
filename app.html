@@ -1679,6 +1679,24 @@ function calcVIP(cid){
       conteo[key].unidades += it.cant;
     });
   });
+
+  // Restar las unidades que se hayan devuelto -un producto devuelto no debe seguir contando
+  // para el punto VIP, ya que el cliente ya no se quedo con el-.
+  var devoluciones = LS('ndevoluciones', []);
+  devoluciones.filter(function(d){ return String(d.cid)===String(cid); }).forEach(function(d){
+    (d.items||[]).forEach(function(it){
+      if(!esProductoVIP(it.precio)) return;
+      var prod = productos.find(function(x){ return String(x.id)===String(it.pid); });
+      var key;
+      if(prod && prod.marca){
+        key = prod.marca.toUpperCase() + (prod.cat ? ' · '+prod.cat : '');
+      } else {
+        key = getMarcaVIP(it.nombre, prod ? (prod.cat||'') : '');
+      }
+      if(conteo[key]) conteo[key].unidades = Math.max(0, conteo[key].unidades - it.cant);
+    });
+  });
+
   Object.keys(conteo).forEach(function(k){
     var p = conteo[k];
     var puntos = calcPuntosVIP(p.precio, p.unidades);
@@ -2073,10 +2091,59 @@ function cargarFotoGasto(input, prefijo){
       prev.innerHTML = '<img src="'+dataFinal+'" style="width:100%;height:100%;object-fit:cover">';
       prev.style.background = '#f0f0f0';
       prev.style.border = 'none';
+      if(prefijo === 'cc'){
+        var btnOcr = document.getElementById('cc-btn-ocr');
+        if(btnOcr) btnOcr.style.display = 'block';
+      }
     });
   };
   reader.readAsDataURL(file);
   input.value = '';
+}
+
+// Carga la libreria de lectura de texto -Tesseract.js- solo la primera vez que hace falta,
+// para no ralentizar el resto de la app en cada uso normal. Necesita internet SOLO esta
+// primera vez, para descargarla; despues de cargada, el navegador la guarda en cache.
+function cargarLibreriaOCR(callback){
+  if(window.Tesseract){ callback(true); return; }
+  var script = document.createElement('script');
+  script.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+  script.onload = function(){ callback(true); };
+  script.onerror = function(){
+    alert('No se pudo cargar la herramienta de lectura de texto -necesita internet la primera vez que se usa-. Revisa tu conexión e intenta de nuevo.');
+    callback(false);
+  };
+  document.head.appendChild(script);
+}
+
+function leerTextoFacturaCompra(){
+  var foto = document.getElementById('cc-foto-data').value;
+  if(!foto){ alert('Primero toma o elige la foto de la factura.'); return; }
+  var btn = document.getElementById('cc-btn-ocr');
+  var resultadoDiv = document.getElementById('cc-ocr-resultado');
+  var textoArea = document.getElementById('cc-ocr-texto');
+
+  function restaurarBoton(){
+    btn.disabled = false;
+    btn.textContent = '🔍 Leer el texto de la foto -para copiar y pegar más rápido';
+  }
+
+  btn.disabled = true;
+  btn.textContent = '⏳ Leyendo el texto de la foto -puede tardar unos segundos...';
+
+  cargarLibreriaOCR(function(exito){
+    if(!exito){ restaurarBoton(); return; }
+    Tesseract.recognize(foto, 'eng')
+      .then(function(resultado){
+        textoArea.value = resultado.data.text.trim() || '-No se reconoció texto en esta foto. Intenta con mejor luz o más de cerca.-';
+        resultadoDiv.style.display = 'block';
+      })
+      .catch(function(err){
+        alert('No se pudo leer el texto de esta foto. Intenta con otra foto más clara.');
+        console.error(err);
+      })
+      .finally(restaurarBoton);
+  });
 }
 
 function quitarFotoGasto(prefijo){
@@ -2086,6 +2153,12 @@ function quitarFotoGasto(prefijo){
   prev.innerHTML = '📷';
   prev.style.background = 'var(--nbs-gold-bg)';
   prev.style.border = '2px dashed var(--nbs-gold)';
+  if(prefijo === 'cc'){
+    var btnOcr = document.getElementById('cc-btn-ocr');
+    if(btnOcr) btnOcr.style.display = 'none';
+    var resOcr = document.getElementById('cc-ocr-resultado');
+    if(resOcr) resOcr.style.display = 'none';
+  }
 }
 
 function abrirOpcionesFotoGasto(prefijo){
@@ -3206,7 +3279,7 @@ function verSup(id, modo){
           +'</div>';
       }
       card.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center">'
-        +'<div><div style="font-size:14px;font-weight:700">'+c.fecha+' - '+c.hora+'</div>'
+        +'<div><div style="font-size:14px;font-weight:700">'+c.fecha+' - '+c.hora+(c.foto?' 📷':'')+'</div>'
         +'<div style="font-size:12px;color:#aaa;margin-top:2px">'+c.items.length+' producto(s)</div>'
         +'<div style="margin-top:4px"><span style="font-size:13px;padding:3px 9px;border-radius:10px;font-weight:500;'+(c.tipo==='credito'?'background:#FFF8E1;color:#E65100':'background:#E8F5E9;color:#2E7D32')+'">'+(c.tipo==='credito'?'a credito':'contado')+'</span></div></div>'
         +'<div style="text-align:right"><div style="font-size:18px;font-weight:700;color:#1565C0">$'+fmtNum(c.total)+'</div>'
@@ -3251,6 +3324,17 @@ function verFacturaCompra(c, sid){
       +'<span style="color:#777">Saldo pendiente</span><span style="font-weight:700;color:'+(esSaldoPendiente(saldo)?'#C62828':'#2E7D32')+'">$'+fmtNum(saldo)+'</span></div>'
       : '');
   el.appendChild(header);
+
+  if(c.foto){
+    var fotoCard = document.createElement('div');
+    fotoCard.className = 'card';
+    fotoCard.innerHTML = '<div style="font-size:13px;font-weight:700;color:#5D4037;margin-bottom:8px">📷 FOTO DE LA FACTURA</div>'
+      +'<div id="compra-foto-thumb" style="width:110px;height:110px;border-radius:8px;overflow:hidden;cursor:pointer;background:#f0f0f0"></div>';
+    el.appendChild(fotoCard);
+    var thumbCompra = fotoCard.querySelector('#compra-foto-thumb');
+    thumbCompra.innerHTML = '<img src="'+c.foto+'" style="width:100%;height:100%;object-fit:cover">';
+    thumbCompra.onclick = function(){ verFotoGasto(c.foto); };
+  }
 
   var prodCard = document.createElement('div');
   prodCard.className = 'card';
@@ -4300,7 +4384,10 @@ function autocompletarDireccionDeNegocio(inputIdNegocio, nombreNegocio){
   var huboAutocompletado = false;
   Object.keys(mapaCampos).forEach(function(campo){
     var el = document.getElementById(mapaCampos[campo]);
-    if(el && !el.value && conEsaDireccion[campo]){
+    // Se sobreescribe siempre -no solo si esta vacio-, ya que elegir una barberia del listado
+    // es una accion explicita e intencional: si la persona cambia de barberia una segunda vez,
+    // se espera que la direccion se actualice tambien, no que se quede con la de la eleccion anterior.
+    if(el && conEsaDireccion[campo]){
       el.value = conEsaDireccion[campo];
       huboAutocompletado = true;
     }
@@ -4930,13 +5017,17 @@ function saveCC(){
     items: iCC.slice(), total: tot,
     fecha: fechaHoy(),
     hora: new Date().toLocaleTimeString('es-US',{hour:'2-digit',minute:'2-digit'}),
-    pagosFactura: pagosIniciales
+    pagosFactura: pagosIniciales,
+    foto: document.getElementById('cc-foto-data').value || null
   });
 
   iCC = [];
   renderICC();
   document.getElementById('ccsup').value = '';
   document.getElementById('cctipo').value = 'credito';
+  quitarFotoGasto('cc');
+  var ocrResEl = document.getElementById('cc-ocr-resultado');
+  if(ocrResEl) ocrResEl.style.display = 'none';
   window._pagoMetodos = window._pagoMetodos || {};
   window._pagoMetodos['ccini'] = [{tipo:'efectivo', monto:0}];
   renderMetodosPago('ccini');
@@ -11102,6 +11193,19 @@ function verHistorialCliente(cid, modo){
     <select class="inp" id="ccsup">
       <option value="">-- Seleccionar suplidor --</option>
     </select>
+    <label class="lbl">Foto de la factura del suplidor (opcional)</label>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+      <div id="cc-foto-preview" onclick="abrirOpcionesFotoGasto('cc')" style="width:56px;height:56px;border-radius:10px;background:var(--nbs-gold-bg);border:2px dashed var(--nbs-gold);display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0;overflow:hidden;cursor:pointer">📷</div>
+      <div style="font-size:12px;color:#aaa;flex:1">Queda guardada junto a esta compra, para tenerla de constancia.</div>
+    </div>
+    <input type="hidden" id="cc-foto-data">
+    <input type="file" id="cc-foto-camara" accept="image/*" capture="camera" style="display:none" onchange="cargarFotoGasto(this,'cc')">
+    <input type="file" id="cc-foto-galeria" accept="image/jpeg,image/png,image/gif,image/webp" style="display:none" onchange="cargarFotoGasto(this,'cc')">
+    <button type="button" id="cc-btn-ocr" style="display:none;width:100%;padding:10px;background:#E3F2FD;color:#1565C0;border:1px solid #90CAF9;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;margin-bottom:10px" onclick="leerTextoFacturaCompra()">🔍 Leer el texto de la foto -para copiar y pegar más rápido</button>
+    <div id="cc-ocr-resultado" style="display:none;background:#FAFAFA;border:1px solid #ddd;border-radius:8px;padding:10px;margin-bottom:10px">
+      <div style="font-size:11px;color:#777;font-weight:700;margin-bottom:6px">TEXTO ENCONTRADO EN LA FOTO -tócalo y cópialo, no siempre sale perfecto-</div>
+      <textarea id="cc-ocr-texto" readonly style="width:100%;min-height:100px;border:none;background:white;border-radius:6px;padding:8px;font-size:12px;font-family:monospace;resize:vertical"></textarea>
+    </div>
     <label class="lbl">Buscar producto existente</label>
     <input class="inp" id="ccb" type="text" placeholder="Escribe para buscar..." oninput="filterCC(this.value)" onfocus="filterCC(this.value||'')">
     <input type="hidden" id="ccsel">

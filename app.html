@@ -472,6 +472,7 @@ button:active{transform:scale(0.96);filter:brightness(0.93);}
     <button class="btn" style="background:var(--nbs-gold);color:white" onclick="abrirEditarPorMarca()">✏️ Editar toda una marca</button>
     <button class="btn" style="background:#546E7A;color:white" onclick="redondearPrecios()">⬆️ Redondear precios al entero</button>
     <button class="btn" style="background:#6A1B9A;color:white" onclick="eliminarDuplicados()">🔍 Detectar y eliminar duplicados</button>
+    <button class="btn" style="background:#00838F;color:white" onclick="exportarCatalogoParaPedidos()">📲 Generar página de pedidos por SMS para clientes</button>
     <input class="inp" id="catbuscar" type="text" placeholder="Buscar producto por nombre..." oninput="renderCatalogo(this.value)">
     <div id="catlista"></div>
   </div>
@@ -1665,6 +1666,11 @@ function calcVIP(cid){
   });
   var conteo = {};
   ventasC.forEach(function(v){
+    // Si esta venta tuvo un descuento aplicado -a nivel de toda la factura-, ninguno de sus
+    // productos cuenta para VIP: ya se le dio un beneficio en el precio, no puede sumar tambien
+    // el punto de lealtad. El precio guardado en cada item puede seguir siendo el de catalogo
+    // aunque el cliente en realidad haya pagado menos por el descuento de la factura completa.
+    if(v.descuento && v.descuento.monto > 0.005) return;
     (v.items||[]).forEach(function(it){
       if(!esProductoVIP(it.precio)) return;
       var prod = productos.find(function(x){ return String(x.id)===String(it.pid); });
@@ -6333,6 +6339,110 @@ function togglePin(){
     knob.style.left = '3px';
     txt.textContent = 'Desactivado';
   }
+}
+
+function exportarCatalogoParaPedidos(){
+  loadProds();
+  var catalogoParaExportar = productos
+    .filter(function(p){ return p.stock > 0; })
+    .map(function(p){ return { n: p.nombre, c: p.cat||'Otros', p: p.precio }; });
+
+  if(!confirm('Esto va a generar un archivo -pagina.html- con tu catalogo actual -'+catalogoParaExportar.length+' productos con stock- para que tus clientes puedan armar su pedido y enviartelo por mensaje de texto.\n\nDespues de descargarlo, tienes que subirlo a tu sitio -junto a app.html-, y esa es la direccion que le compartes a tus clientes.\n\n¿Continuar?')) return;
+
+  var telefono = '4013050188';
+  var datosJSON = JSON.stringify(catalogoParaExportar);
+
+  var html = '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">'
+    + '<meta name="viewport" content="width=device-width, initial-scale=1.0">'
+    + '<title>Hacer un Pedido - Nunez Beauty Supply</title>'
+    + '<style>'
+    + 'body{font-family:sans-serif;background:#f5f5f7;margin:0;padding:16px;color:#14141F}'
+    + '.wrap{max-width:480px;margin:0 auto}'
+    + 'h1{font-size:20px;color:#1a237e;text-align:center;margin-bottom:4px}'
+    + '.sub{text-align:center;color:#777;font-size:13px;margin-bottom:16px}'
+    + 'input[type=text]{width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:14px;box-sizing:border-box;margin-bottom:10px}'
+    + '.cat{font-size:12px;color:#B8860B;font-weight:700;text-transform:uppercase;margin:16px 0 8px}'
+    + '.prod{background:white;border-radius:10px;padding:10px 12px;margin-bottom:6px;display:flex;align-items:center;gap:10px;box-shadow:0 1px 3px rgba(0,0,0,0.08)}'
+    + '.prod .info{flex:1}'
+    + '.prod .nom{font-size:13px;font-weight:600}'
+    + '.prod .prec{font-size:12px;color:#2E7D32;font-weight:700}'
+    + '.qtybox{display:flex;align-items:center;gap:6px}'
+    + '.qtybox button{width:30px;height:30px;border:none;border-radius:6px;background:#eee;font-size:16px;cursor:pointer}'
+    + '.qtybox span{width:20px;text-align:center;font-weight:700}'
+    + '#resumen{position:sticky;bottom:0;background:white;border-radius:12px 12px 0 0;box-shadow:0 -2px 10px rgba(0,0,0,0.1);padding:14px;margin-top:20px}'
+    + '#btnEnviar{width:100%;padding:14px;background:#25D366;color:white;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;margin-top:8px}'
+    + '#btnEnviar:disabled{background:#ccc}'
+    + '</style></head><body><div class="wrap">'
+    + '<h1>🛒 Hacer un Pedido</h1>'
+    + '<div class="sub">Nunez Beauty Supply</div>'
+    + '<input type="text" id="nombreCliente" placeholder="Tu nombre y negocio -ej: Julio, Barberia Julio-">'
+    + '<input type="text" id="buscarProd" placeholder="Buscar producto...">'
+    + '<div id="listaProductos"></div>'
+    + '<div id="resumen">'
+    + '<div style="display:flex;justify-content:space-between;font-size:14px;font-weight:700"><span>Total del pedido</span><span id="totalPedido">$0.00</span></div>'
+    + '<button id="btnEnviar" disabled onclick="enviarPedido()">📲 Enviar mi pedido por mensaje de texto</button>'
+    + '</div>'
+    + '</div>'
+    + '<script>'
+    + 'var CATALOGO = ' + datosJSON + ';'
+    + 'var TELEFONO_NEGOCIO = "' + telefono + '";'
+    + 'var cantidades = {};'
+    + 'function fmt(n){ return "$"+n.toFixed(2); }'
+    + 'function renderLista(filtro){'
+    + '  filtro = (filtro||"").toLowerCase();'
+    + '  var el = document.getElementById("listaProductos"); el.innerHTML = "";'
+    + '  var porCategoria = {};'
+    + '  CATALOGO.forEach(function(p,i){'
+    + '    if(filtro && p.n.toLowerCase().indexOf(filtro)<0) return;'
+    + '    if(!porCategoria[p.c]) porCategoria[p.c] = [];'
+    + '    porCategoria[p.c].push({p:p, idx:i});'
+    + '  });'
+    + '  Object.keys(porCategoria).sort().forEach(function(cat){'
+    + '    var catDiv = document.createElement("div"); catDiv.className="cat"; catDiv.textContent = cat;'
+    + '    el.appendChild(catDiv);'
+    + '    porCategoria[cat].forEach(function(item){'
+    + '      var row = document.createElement("div"); row.className="prod";'
+    + '      row.innerHTML = "<div class=\\"info\\"><div class=\\"nom\\">"+item.p.n+"</div><div class=\\"prec\\">"+fmt(item.p.p)+"</div></div>"'
+    + '        +"<div class=\\"qtybox\\"><button onclick=\\"cambiarCant("+item.idx+",-1)\\">-</button><span id=\\"cant-"+item.idx+"\\">"+(cantidades[item.idx]||0)+"</span><button onclick=\\"cambiarCant("+item.idx+",1)\\">+</button></div>";'
+    + '      el.appendChild(row);'
+    + '    });'
+    + '  });'
+    + '}'
+    + 'function cambiarCant(i, delta){'
+    + '  cantidades[i] = Math.max(0, (cantidades[i]||0)+delta);'
+    + '  document.getElementById("cant-"+i).textContent = cantidades[i];'
+    + '  actualizarTotal();'
+    + '}'
+    + 'function actualizarTotal(){'
+    + '  var total = 0, hayAlgo = false;'
+    + '  Object.keys(cantidades).forEach(function(i){ if(cantidades[i]>0){ total += cantidades[i]*CATALOGO[i].p; hayAlgo = true; } });'
+    + '  document.getElementById("totalPedido").textContent = fmt(total);'
+    + '  document.getElementById("btnEnviar").disabled = !hayAlgo;'
+    + '}'
+    + 'function enviarPedido(){'
+    + '  var nombre = document.getElementById("nombreCliente").value.trim() || "Cliente sin nombre";'
+    + '  var lineas = ["Pedido de "+nombre+":"];'
+    + '  var total = 0;'
+    + '  Object.keys(cantidades).forEach(function(i){'
+    + '    if(cantidades[i]>0){ lineas.push("- "+CATALOGO[i].n+" x"+cantidades[i]); total += cantidades[i]*CATALOGO[i].p; }'
+    + '  });'
+    + '  lineas.push("Total aprox: "+fmt(total));'
+    + '  var mensaje = encodeURIComponent(lineas.join("\\n"));'
+    + '  window.location.href = "sms:"+TELEFONO_NEGOCIO+"?body="+mensaje;'
+    + '}'
+    + 'document.getElementById("buscarProd").addEventListener("input", function(){ renderLista(this.value); });'
+    + 'renderLista("");'
+    + '<\/script></body></html>';
+
+  var blob = new Blob([html], {type:'text/html'});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = 'pedido.html';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  alert('✅ Archivo "pedido.html" descargado.\n\nSubelo a tu sitio -junto a app.html, en la misma carpeta de GitHub- y comparte esa direccion con tus clientes -por ejemplo: tu-sitio.github.io/pedido.html-.');
 }
 
 function eliminarDuplicados(){

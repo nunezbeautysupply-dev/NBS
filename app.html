@@ -7934,6 +7934,13 @@ function verFacturaProfesional(vid){
     btnCancelarFac.style.cssText = 'display:block;width:100%;max-width:400px;margin:0 auto 16px;padding:10px;background:#FFEBEE;color:#C62828;border:1px solid #FFCDD2;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700';
     btnCancelarFac.onclick = function(){ cancelarFacturaCompleta(vid); };
     overlay.appendChild(btnCancelarFac);
+  } else {
+    var btnEliminarFac = document.createElement('button');
+    btnEliminarFac.className = 'no-print';
+    btnEliminarFac.innerHTML = '🗑️ Eliminar esta factura cancelada -no se puede deshacer';
+    btnEliminarFac.style.cssText = 'display:block;width:100%;max-width:400px;margin:0 auto 16px;padding:10px;background:#B71C1C;color:white;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700';
+    btnEliminarFac.onclick = function(){ eliminarFacturaCancelada(vid); };
+    overlay.appendChild(btnEliminarFac);
   }
 
   // Contenido de la factura
@@ -10080,6 +10087,33 @@ function registrarCambioPrecio(nombre, precioAntes, precioDespues){
 
 // ===== HISTORIAL DE COMPRAS POR CLIENTE =====
 function cerrarFacturaEdit(){ var o=document.getElementById("fact-edit-overlay"); if(o) o.style.display="none"; }
+function eliminarFacturaCancelada(vid){
+  verificarPIN(function(){
+    ventas = LS('nv', []);
+    var idx = ventas.findIndex(function(x){ return String(x.id)===String(vid); });
+    if(idx === -1) return;
+    var v = ventas[idx];
+    if(!v.cancelada){ alert('Solo se pueden eliminar facturas que ya estén canceladas. Primero cancélala.'); return; }
+
+    // Avisar si hay devoluciones vinculadas a esta factura, para no dejar registros huerfanos
+    var devoluciones = LS('ndevoluciones', []);
+    var devolucionesVinculadas = devoluciones.filter(function(d){ return String(d.ventaId)===String(vid); });
+    var avisoDevoluciones = devolucionesVinculadas.length
+      ? '\n\n⚠️ Esta factura tiene '+devolucionesVinculadas.length+' devolución(es) registrada(s) vinculada(s). Esos registros de devolución se van a quedar sin la factura original a la que pertenecían.'
+      : '';
+
+    if(!confirm('¿Eliminar por completo esta factura cancelada de $'+fmtNum(v.total)+' del '+v.fecha+'?\n\nEsto NO se puede deshacer -la factura desaparece por completo, no queda ningún registro de ella.'+avisoDevoluciones+'\n\n¿Continuar?')) return;
+    if(prompt('Para confirmar, escribe la palabra ELIMINAR en mayúsculas:') !== 'ELIMINAR') { alert('No se escribió la palabra correcta. No se eliminó nada.'); return; }
+
+    var cidCliente = v.cid;
+    ventas.splice(idx, 1);
+    SS('nv', ventas);
+    alert('✅ Factura eliminada por completo.');
+    cerrarFacturaView();
+    if(cidCliente) verCl(cidCliente); else ir('p-cxc');
+  });
+}
+
 function cancelarFacturaCompleta(vid){
   verificarPIN(function(){
     ventas = LS('nv', []);

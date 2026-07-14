@@ -237,6 +237,20 @@ header::after{
   display:flex;
   flex-direction:column;
   box-shadow:var(--shadow);
+  overflow:hidden;
+}
+.marca-strip{
+  background:#F3E6C8;
+  color:#6B4900;
+  font-size:12.5px;
+  font-weight:800;
+  letter-spacing:0.5px;
+  text-transform:uppercase;
+  text-align:center;
+  padding:7px 8px;
+  margin:-12px -12px 10px -12px;
+  border-radius:11px 11px 0 0;
+  border-bottom:1px solid var(--gold);
 }
 .vip-badge{
   font-size:9px;
@@ -246,19 +260,11 @@ header::after{
   border:1px solid var(--gold);
   border-radius:6px;
   padding:4px 7px;
-  margin-bottom:7px;
+  margin-top:8px;
+  margin-bottom:0;
   display:block;
   line-height:1.35;
   letter-spacing:0.1px;
-}
-.pcard .marca{
-  font-size:13.5px;
-  color:#6B4900;
-  font-weight:800;
-  letter-spacing:0.5px;
-  text-transform:uppercase;
-  margin-bottom:7px;
-  min-height:16px;
 }
 .pcard .nombre{
   font-size:14px;
@@ -791,9 +797,8 @@ function renderCard(p){
     : '⭐ Compra 10 de este producto y el 11° es gratis';
 
   card.innerHTML = `
-    ${esVip ? `<div class="vip-badge">${vipTexto}</div>` : ''}
-    <div class="marca">${p.m || '&nbsp;'}</div>
-    <div class="nombre">${p.n}</div>
+    ${p.m ? `<div class="marca-strip">${p.m}</div>` : ''}
+    <div class="nombre" style="${p.m ? '' : 'margin-top:2px;'}">${p.n}</div>
     <div class="precio">$${p.p.toFixed(2)}</div>
     ${agotado
       ? `<div class="agotado-tag">Agotado temporalmente</div>`
@@ -805,6 +810,7 @@ function renderCard(p){
              </div>`
           : `<button class="add-btn" onclick="cambiarCantidad(${p.cod}, 1)">+ Agregar</button>`)
     }
+    ${esVip ? `<div class="vip-badge">${vipTexto}</div>` : ''}
   `;
   return card;
 }

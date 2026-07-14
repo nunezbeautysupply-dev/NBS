@@ -474,6 +474,10 @@ button:active{transform:scale(0.96);filter:brightness(0.93);}
     <button class="btn" style="background:#6A1B9A;color:white" onclick="eliminarDuplicados()">🔍 Detectar y eliminar duplicados</button>
     <button class="btn" style="background:#00838F;color:white" onclick="exportarCatalogoParaPedidos()">📲 Generar página de pedidos por SMS para clientes</button>
     <input class="inp" id="catbuscar" type="text" placeholder="Buscar producto por nombre..." oninput="renderCatalogo(this.value)">
+    <div id="busqueda-inteligente-wrap" style="margin-bottom:10px">
+      <button id="btn-busqueda-inteligente" onclick="activarBusquedaInteligente()" style="width:100%;padding:9px;background:#EDE7F6;color:#5E35B1;border:1px solid #D1C4E9;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">🧠 Buscar con Inteligencia Artificial -encuentra productos aunque los escribas distinto o con una falta-</button>
+      <div id="busqueda-inteligente-resultado" style="display:none;margin-top:8px"></div>
+    </div>
     <div id="catlista"></div>
   </div>
   <div id="cat-marca-wrap" style="display:none">
@@ -2110,6 +2114,118 @@ function cargarFotoGasto(input, prefijo){
 // Carga la libreria de lectura de texto -Tesseract.js- solo la primera vez que hace falta,
 // para no ralentizar el resto de la app en cada uso normal. Necesita internet SOLO esta
 // primera vez, para descargarla; despues de cargada, el navegador la guarda en cache.
+// ===== BUSQUEDA INTELIGENTE CON IA -gratis, corre en el telefono, sin servidor ni costo- =====
+// Usa un modelo pequeño -Transformers.js, de Hugging Face- que entiende el SIGNIFICADO de lo que
+// se busca, no solo las letras exactas. Asi encuentra un producto aunque se escriba distinto,
+// con una falta de ortografia, o con otra palabra parecida.
+window._iaEmbeddingsCatalogo = null; // cache en memoria mientras la app esta abierta
+
+function cargarLibreriaIA(callback){
+  if(window.transformersLib){ callback(true); return; }
+  import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3/dist/transformers.min.js')
+    .then(function(modulo){ window.transformersLib = modulo; callback(true); })
+    .catch(function(err){
+      console.error(err);
+      alert('No se pudo cargar la Inteligencia Artificial -necesita internet la primera vez que se usa, para descargarla-. Revisa tu conexión e intenta de nuevo.');
+      callback(false);
+    });
+}
+
+function similitudCoseno(a, b){
+  var punto = 0, normA = 0, normB = 0;
+  for(var i=0;i<a.length;i++){ punto += a[i]*b[i]; normA += a[i]*a[i]; normB += b[i]*b[i]; }
+  return punto / (Math.sqrt(normA)*Math.sqrt(normB));
+}
+
+function activarBusquedaInteligente(){
+  var wrap = document.getElementById('busqueda-inteligente-resultado');
+  var btn = document.getElementById('btn-busqueda-inteligente');
+
+  if(window._iaEmbeddingsCatalogo){
+    mostrarCajaBusquedaIA();
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = '⏳ Preparando la Inteligencia Artificial por primera vez -puede tardar un minuto, solo esta vez...';
+
+  cargarLibreriaIA(function(exito){
+    if(!exito){ btn.disabled = false; btn.textContent = '🧠 Buscar con Inteligencia Artificial -encuentra productos aunque los escribas distinto o con una falta-'; return; }
+
+    window.transformersLib.pipeline('feature-extraction', 'Xenova/multilingual-e5-small').then(function(extractor){
+      window._iaExtractor = extractor;
+      loadProds();
+      var conStock = productos.filter(function(p){ return p.stock > 0; });
+
+      btn.textContent = '⏳ Analizando tu catálogo -'+conStock.length+' productos, esto solo pasa una vez...';
+
+      extractor(conStock.map(function(p){ return 'passage: '+p.nombre; }), { pooling: 'mean', normalize: true }).then(function(salida){
+        var vectores = salida.tolist();
+        window._iaEmbeddingsCatalogo = conStock.map(function(p, i){ return { producto: p, vector: vectores[i] }; });
+        btn.disabled = false;
+        btn.textContent = '🧠 Buscar con Inteligencia Artificial -ya está lista-';
+        mostrarCajaBusquedaIA();
+      }).catch(function(err){
+        console.error(err);
+        alert('Hubo un problema preparando la Inteligencia Artificial. Intenta de nuevo.');
+        btn.disabled = false;
+        btn.textContent = '🧠 Buscar con Inteligencia Artificial -encuentra productos aunque los escribas distinto o con una falta-';
+      });
+    }).catch(function(err){
+      console.error(err);
+      alert('No se pudo preparar la Inteligencia Artificial. Revisa tu conexión e intenta de nuevo.');
+      btn.disabled = false;
+      btn.textContent = '🧠 Buscar con Inteligencia Artificial -encuentra productos aunque los escribas distinto o con una falta-';
+    });
+  });
+}
+
+function mostrarCajaBusquedaIA(){
+  var wrap = document.getElementById('busqueda-inteligente-resultado');
+  wrap.style.display = 'block';
+  wrap.innerHTML = '<input type="text" id="ia-buscar-input" placeholder="Escribe lo que buscas..." style="width:100%;padding:10px;border:1px solid #D1C4E9;border-radius:8px;font-size:13px;box-sizing:border-box;margin-bottom:8px">'
+    + '<div id="ia-buscar-resultados"></div>';
+  document.getElementById('ia-buscar-input').addEventListener('input', debounce(function(){
+    buscarConIA(document.getElementById('ia-buscar-input').value);
+  }, 400));
+  document.getElementById('ia-buscar-input').focus();
+}
+
+function debounce(fn, espera){
+  var t;
+  return function(){
+    clearTimeout(t);
+    var args = arguments;
+    t = setTimeout(function(){ fn.apply(null, args); }, espera);
+  };
+}
+
+function buscarConIA(consulta){
+  var resDiv = document.getElementById('ia-buscar-resultados');
+  if(!consulta || !consulta.trim()){ resDiv.innerHTML = ''; return; }
+  resDiv.innerHTML = '<div style="font-size:12px;color:#aaa;padding:8px">Buscando...</div>';
+
+  window._iaExtractor('query: '+consulta, { pooling: 'mean', normalize: true }).then(function(salida){
+    var vectorConsulta = salida.tolist()[0];
+    var conPuntaje = window._iaEmbeddingsCatalogo.map(function(item){
+      return { producto: item.producto, puntaje: similitudCoseno(vectorConsulta, item.vector) };
+    });
+    conPuntaje.sort(function(a,b){ return b.puntaje - a.puntaje; });
+    var top5 = conPuntaje.slice(0, 5);
+
+    resDiv.innerHTML = top5.map(function(r){
+      return '<div style="background:white;border-radius:8px;padding:10px;margin-bottom:6px;border:0.5px solid #eee;display:flex;justify-content:space-between;align-items:center">'
+        + '<div><div style="font-size:13px;font-weight:600">'+r.producto.nombre+'</div>'
+        + '<div style="font-size:11px;color:#aaa">Stock: '+r.producto.stock+' · $'+fmtNum(r.producto.precio)+'</div></div>'
+        + '<div style="font-size:10px;color:#5E35B1;font-weight:700">'+Math.round(r.puntaje*100)+'% parecido</div>'
+        + '</div>';
+    }).join('');
+  }).catch(function(err){
+    console.error(err);
+    resDiv.innerHTML = '<div style="font-size:12px;color:#C62828;padding:8px">Hubo un problema buscando. Intenta de nuevo.</div>';
+  });
+}
+
 function cargarLibreriaOCR(callback){
   if(window.Tesseract){ callback(true); return; }
   var script = document.createElement('script');
@@ -2271,7 +2387,7 @@ function saveGasto(){
     var fparts = fechaEl.value.split('-');
     if(fparts.length === 3) fecha = fparts[1]+'/'+fparts[2]+'/'+fparts[0];
   }
-  var nota = document.getElementById('gnota').value.trim();
+  var nota = limpiarTexto(document.getElementById('gnota').value.trim());
 
   // Datos adicionales de comida
   var comidaTipo = ''; var comidaDesc = ''; var comidaLugar = '';
@@ -2513,7 +2629,7 @@ function guardarEdicionGasto(id){
     var fpartsEdit = fechaElEdit.value.split('-');
     if(fpartsEdit.length === 3) fecha = fpartsEdit[1]+'/'+fpartsEdit[2]+'/'+fpartsEdit[0];
   }
-  var nota = document.getElementById('eg-nota').value.trim();
+  var nota = limpiarTexto(document.getElementById('eg-nota').value.trim());
   if(!cat){ alert('La categoría es requerida'); return; }
   if(monto <= 0){ alert('El monto debe ser mayor a $0.00'); return; }
   // -confirmacion redundante quitada, el boton de Guardar ya es la confirmacion-
@@ -3023,19 +3139,19 @@ function nombreVentaClienteConNegocio(v){
 }
 
 function saveSup(){
-  var n = document.getElementById('sn').value.trim();
+  var n = limpiarTexto(document.getElementById('sn').value.trim());
   if(!n){ alert('El nombre de la empresa es requerido'); return; }
   // -confirmacion redundante quitada, el boton de Guardar ya es la confirmacion-
   suplidores = LS('nsup', []);
   suplidores.push({
     id: Date.now(),
     nombre: n,
-    contacto: document.getElementById('sct').value.trim(),
+    contacto: limpiarTexto(document.getElementById('sct').value.trim()),
     tel: document.getElementById('stel').value.trim(),
     telContacto: document.getElementById('stelc').value.trim(),
     email: document.getElementById('sem').value.trim(),
-    dir: document.getElementById('sdir').value.trim(),
-    ciudad: document.getElementById('sciu').value.trim(),
+    dir: limpiarTexto(document.getElementById('sdir').value.trim()),
+    ciudad: limpiarTexto(document.getElementById('sciu').value.trim()),
     zip: document.getElementById('szip').value.trim(),
     estado: document.getElementById('sest').value,
     notas: document.getElementById('snotas').value.trim()
@@ -3117,7 +3233,7 @@ function guardarBalanceInicialSuplidor(id){
   var monto = parseFloat(document.getElementById('bis-monto').value) || 0;
   if(monto <= 0){ alert('Ingresa un monto válido mayor a $0.00'); return; }
 
-  var nota = document.getElementById('bis-nota').value.trim() || 'Balance inicial traído de sistema anterior';
+  var nota = limpiarTexto(document.getElementById('bis-nota').value.trim()) || 'Balance inicial traído de sistema anterior';
   var fecha = document.getElementById('bis-fecha').value || fechaHoyISO();
   var fechaFmt = fechaFormat(new Date(fecha+'T12:00:00'));
 
@@ -3729,16 +3845,16 @@ function toggleIntervaloVisita(selectId, wrapId){
 }
 
 function saveCl(){
-  var n=document.getElementById('cn').value.trim();
-  var a=document.getElementById('ca').value.trim();
+  var n=limpiarTexto(document.getElementById('cn').value.trim());
+  var a=limpiarTexto(document.getElementById('ca').value.trim());
   if(!n||!a){alert('Nombre y apellido requeridos');return;}
   var nuevoId = Date.now();
   var vipActivo = document.getElementById('cvip-activo').value === '1';
   var tipoSel = document.getElementById('ctipo').value;
   var subtipoSel = tipoSel==='Tienda' ? document.getElementById('csubtipo').value : null;
-  var subtipoOtroTxt = document.getElementById('csubtipo-otro').value.trim();
+  var subtipoOtroTxt = limpiarTexto(document.getElementById('csubtipo-otro').value.trim());
   var intervaloVal = parseInt(document.getElementById('cintervalo').value) || null;
-  clientes.push({id:nuevoId,nombre:n,apellido:a,apodo:document.getElementById('capodo').value.trim(),negocio:document.getElementById('cne').value.trim(),tel:document.getElementById('ct').value.trim(),tipoNegocio:tipoSel,subtipoTienda:subtipoSel,subtipoTiendaOtro:subtipoOtroTxt,intervaloVisitaDias:tipoSel==='Barberia'?null:intervaloVal,ultimaVisitaNegocio:null,contacto:document.getElementById('ccontacto').value.trim(),contactoApodo:document.getElementById('ccontactoapodo').value.trim(),contactoTel:document.getElementById('ccontactotel').value.trim(),email:document.getElementById('ce').value.trim(),dir:document.getElementById('cd').value.trim(),ciudad:document.getElementById('ccity').value.trim(),zip:document.getElementById('czip').value.trim(),estado:document.getElementById('cstate').value,vipActivo:vipActivo});
+  clientes.push({id:nuevoId,nombre:n,apellido:a,apodo:limpiarTexto(document.getElementById('capodo').value.trim()),negocio:limpiarTexto(document.getElementById('cne').value.trim()),tel:document.getElementById('ct').value.trim(),tipoNegocio:tipoSel,subtipoTienda:subtipoSel,subtipoTiendaOtro:subtipoOtroTxt,intervaloVisitaDias:tipoSel==='Barberia'?null:intervaloVal,ultimaVisitaNegocio:null,contacto:limpiarTexto(document.getElementById('ccontacto').value.trim()),contactoApodo:limpiarTexto(document.getElementById('ccontactoapodo').value.trim()),contactoTel:document.getElementById('ccontactotel').value.trim(),email:document.getElementById('ce').value.trim(),dir:limpiarTexto(document.getElementById('cd').value.trim()),ciudad:limpiarTexto(document.getElementById('ccity').value.trim()),zip:document.getElementById('czip').value.trim(),estado:document.getElementById('cstate').value,vipActivo:vipActivo});
   SS('ncl',clientes);
 
   // Registrar balance inicial si se ingresó
@@ -4014,6 +4130,15 @@ function formatFechaInput(input){
     val = val.substring(0,2)+'/'+val.substring(2,4)+'/'+val.substring(4,8);
   }
   input.value = val;
+}
+
+// Quita cualquier codigo HTML de un texto antes de guardarlo -para que un nombre, nota, o
+// direccion con simbolos como < > nunca se pueda ejecutar como codigo en ningun lugar de la app-.
+function limpiarTexto(texto){
+  if(!texto) return texto;
+  var div = document.createElement('div');
+  div.textContent = texto;
+  return div.innerHTML.replace(/</g, '').replace(/>/g, '');
 }
 
 function fechaHoy(){
@@ -4693,11 +4818,11 @@ function cerrarEdicionProducto(){
 }
 
 function guardarEdicionProducto(){
-  var marca = document.getElementById('ep-marca').value.trim();
+  var marca = limpiarTexto(document.getElementById('ep-marca').value.trim());
   if(!marca){ alert('La marca es requerida'); return; }
-  var nombre = document.getElementById('ep-nombre').value.trim();
+  var nombre = limpiarTexto(document.getElementById('ep-nombre').value.trim());
   if(!nombre){ alert('El nombre del producto es requerido'); return; }
-  var cat = document.getElementById('ep-cat').value.trim();
+  var cat = limpiarTexto(document.getElementById('ep-cat').value.trim());
   var sku = document.getElementById('ep-sku').value.trim();
   var costo = parseFloat(document.getElementById('ep-costo').value) || 0;
   var precio = parseFloat(document.getElementById('ep-precio').value) || 0;
@@ -4706,7 +4831,7 @@ function guardarEdicionProducto(){
   var foto = document.getElementById('ep-foto-data').value || '';
   var unidad = document.getElementById('ep-unidad').value || 'unidad';
   var proveedorPref = document.getElementById('ep-proveedor-pref').value || '';
-  var desc = document.getElementById('ep-desc').value.trim();
+  var desc = limpiarTexto(document.getElementById('ep-desc').value.trim());
   var nombreCompleto = marca + ' ' + nombre;
 
   // -confirmacion redundante quitada, el boton de Guardar ya es la confirmacion-
@@ -5731,6 +5856,131 @@ function filterPed(q){
   });
 }
 
+// ===== DICTADO POR VOZ PARA PEDIDOS -gratis, usa el microfono del telefono, ya integrado
+// en el navegador, sin necesidad de ninguna libreria ni servidor propio- =====
+var NUMEROS_ESPANOL = {
+  'un':1,'uno':1,'una':1,'dos':2,'tres':3,'cuatro':4,'cinco':5,'seis':6,'siete':7,'ocho':8,
+  'nueve':9,'diez':10,'once':11,'doce':12,'trece':13,'catorce':14,'quince':15,'dieciseis':16,
+  'diecisiete':17,'dieciocho':18,'diecinueve':19,'veinte':20
+};
+
+function dictarProductoPedido(){
+  var ReconocedorVoz = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!ReconocedorVoz){
+    alert('Tu navegador no tiene esta función disponible todavía. Prueba desde Chrome en tu teléfono.');
+    return;
+  }
+
+  var btn = document.getElementById('btn-dictar-pedido');
+  var wrap = document.getElementById('dictado-resultado-wrap');
+
+  var reconocimiento = new ReconocedorVoz();
+  reconocimiento.lang = 'es-US';
+  reconocimiento.interimResults = false;
+  reconocimiento.maxAlternatives = 1;
+
+  btn.textContent = '🔴';
+  btn.style.background = '#C62828';
+  wrap.style.display = 'block';
+  wrap.innerHTML = '<div style="font-size:13px;color:#5E35B1;font-weight:600">🎤 Escuchando... di algo como "dos máquinas Wahl"</div>';
+
+  reconocimiento.onresult = function(evento){
+    var texto = evento.results[0][0].transcript;
+    procesarDictadoPedido(texto);
+  };
+  reconocimiento.onerror = function(evento){
+    restaurarBotonDictado();
+    if(evento.error === 'not-allowed'){
+      wrap.innerHTML = '<div style="font-size:13px;color:#C62828">No se pudo usar el micrófono -revisa que le hayas dado permiso a la app en los ajustes de tu teléfono.</div>';
+    } else if(evento.error === 'no-speech'){
+      wrap.innerHTML = '<div style="font-size:13px;color:#C62828">No se escuchó nada. Intenta de nuevo, hablando cerca del teléfono.</div>';
+    } else {
+      wrap.innerHTML = '<div style="font-size:13px;color:#C62828">Hubo un problema escuchando. Intenta de nuevo.</div>';
+    }
+  };
+  reconocimiento.onend = function(){ restaurarBotonDictado(); };
+
+  function restaurarBotonDictado(){
+    btn.textContent = '🎤';
+    btn.style.background = '#5E35B1';
+  }
+
+  try { reconocimiento.start(); }
+  catch(e){ restaurarBotonDictado(); alert('No se pudo iniciar el micrófono. Intenta de nuevo.'); }
+}
+
+function procesarDictadoPedido(textoOriginal){
+  var wrap = document.getElementById('dictado-resultado-wrap');
+  var texto = textoOriginal.toLowerCase().trim();
+  var palabras = texto.split(/\s+/);
+
+  // Buscar un numero -digito o palabra en español- al inicio de lo que se dijo
+  var cantidad = 1;
+  var primeraPalabra = palabras[0];
+  if(/^\d+$/.test(primeraPalabra)){
+    cantidad = parseInt(primeraPalabra);
+    palabras.shift();
+  } else if(NUMEROS_ESPANOL[primeraPalabra] !== undefined){
+    cantidad = NUMEROS_ESPANOL[primeraPalabra];
+    palabras.shift();
+  }
+  var textoProducto = palabras.join(' ').trim();
+
+  if(!textoProducto){
+    wrap.innerHTML = '<div style="font-size:13px;color:#C62828">No se entendió qué producto buscar. Escuché: "'+textoOriginal+'"</div>';
+    return;
+  }
+
+  loadProds();
+  var candidatos = productos.filter(function(p){ return p.stock > 0; });
+  var q = textoProducto.toLowerCase();
+  var coincidencias = candidatos.filter(function(p){ return p.nombre.toLowerCase().indexOf(q) >= 0; });
+  // Si no hubo coincidencia exacta de texto, buscar por palabras sueltas -mas flexible-,
+  // ordenando por cuantas palabras de lo dicho aparecen en el nombre -mejor coincidencia primero-
+  if(!coincidencias.length){
+    var palabrasClave = q.split(/\s+/).filter(function(w){ return w.length > 2; });
+    var conPuntaje = candidatos.map(function(p){
+      var nombreLower = p.nombre.toLowerCase();
+      var puntaje = palabrasClave.filter(function(w){ return nombreLower.indexOf(w) >= 0; }).length;
+      return { producto: p, puntaje: puntaje };
+    }).filter(function(x){ return x.puntaje > 0; });
+    conPuntaje.sort(function(a,b){ return b.puntaje - a.puntaje; });
+    coincidencias = conPuntaje.map(function(x){ return x.producto; });
+  }
+
+  if(!coincidencias.length){
+    wrap.innerHTML = '<div style="font-size:13px;color:#333">Escuché: <b>"'+textoOriginal+'"</b></div>'
+      + '<div style="font-size:12px;color:#C62828;margin-top:6px">No encontré ningún producto parecido a "'+textoProducto+'". Intenta describirlo distinto, o búscalo escribiendo.</div>';
+    return;
+  }
+
+  var mejor = coincidencias[0];
+  wrap.innerHTML = '<div style="font-size:13px;color:#333">Escuché: <b>"'+textoOriginal+'"</b></div>'
+    + '<div style="background:white;border-radius:8px;padding:10px;margin-top:8px">'
+    + '<div style="font-size:13px;font-weight:700">'+mejor.nombre+'</div>'
+    + '<div style="font-size:12px;color:#777">Cantidad: '+cantidad+' · $'+fmtNum(mejor.precio)+' c/u · Stock: '+mejor.stock+'</div>'
+    + '</div>'
+    + '<div style="display:flex;gap:8px;margin-top:8px">'
+    + '<button onclick="document.getElementById(\'dictado-resultado-wrap\').style.display=\'none\'" style="flex:1;padding:9px;background:#eee;color:#555;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">✕ No es esto</button>'
+    + '<button onclick="confirmarDictadoPedido(\''+mejor.id+'\','+cantidad+')" style="flex:1;padding:9px;background:#2E7D32;color:white;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">✓ Agregar al pedido</button>'
+    + '</div>';
+}
+
+function confirmarDictadoPedido(pid, cantidad){
+  loadProds();
+  var p = productos.find(function(x){ return String(x.id)===String(pid); });
+  if(!p) return;
+  var encontrado = false;
+  var precioAUsar = obtenerPrecioParaCliente(pedBarberoCid, p.id, p.precio);
+  for(var j=0;j<pedItemsTemp.length;j++){
+    if(String(pedItemsTemp[j].pid)===String(p.id)){ pedItemsTemp[j].cant += cantidad; encontrado = true; break; }
+  }
+  if(!encontrado) pedItemsTemp.push({ pid: p.id, nombre: p.nombre, cant: cantidad, precio: precioAUsar, costo: p.costo, foto: p.foto||null });
+  renderPedItems();
+  document.getElementById('dictado-resultado-wrap').style.display = 'none';
+  document.getElementById('pedb').value = '';
+}
+
 function selPed(id){
   var p = productos.find(function(x){ return String(x.id)===String(id); }); if(!p) return;
   // Agregar directamente al pedido sin pasos extra
@@ -6347,10 +6597,16 @@ function exportarCatalogoParaPedidos(){
     .filter(function(p){ return p.stock > 0; })
     .map(function(p){ return { n: p.nombre, c: p.cat||'Otros', p: p.precio }; });
 
-  if(!confirm('Esto va a generar un archivo -pagina.html- con tu catalogo actual -'+catalogoParaExportar.length+' productos con stock- para que tus clientes puedan armar su pedido y enviartelo por mensaje de texto.\n\nDespues de descargarlo, tienes que subirlo a tu sitio -junto a app.html-, y esa es la direccion que le compartes a tus clientes.\n\n¿Continuar?')) return;
+  var codigoAcceso = prompt('Elige un código de acceso simple para esta página -tus clientes lo van a necesitar antes de ver el catálogo, para que no cualquiera que consiga el enlace pueda verlo. Ejemplo: NBS2026, o el nombre de tu negocio.');
+  if(codigoAcceso === null) return; // cancelo
+  codigoAcceso = codigoAcceso.trim();
+  if(!codigoAcceso){ alert('Tienes que escribir un código -no puede quedar vacío.'); return; }
+
+  if(!confirm('Esto va a generar un archivo -pagina.html- con tu catalogo actual -'+catalogoParaExportar.length+' productos con stock- para que tus clientes puedan armar su pedido y enviartelo por mensaje de texto.\n\nEl código de acceso va a ser: '+codigoAcceso+'\n\nDespues de descargarlo, tienes que subirlo a tu sitio -junto a app.html-, y esa es la direccion que le compartes a tus clientes -junto con el código-.\n\n¿Continuar?')) return;
 
   var telefono = '4013050188';
   var datosJSON = JSON.stringify(catalogoParaExportar);
+  var codigoJSON = JSON.stringify(codigoAcceso.toUpperCase());
 
   var html = '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">'
     + '<meta name="viewport" content="width=device-width, initial-scale=1.0">'
@@ -6372,7 +6628,21 @@ function exportarCatalogoParaPedidos(){
     + '#resumen{position:sticky;bottom:0;background:white;border-radius:12px 12px 0 0;box-shadow:0 -2px 10px rgba(0,0,0,0.1);padding:14px;margin-top:20px}'
     + '#btnEnviar{width:100%;padding:14px;background:#25D366;color:white;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;margin-top:8px}'
     + '#btnEnviar:disabled{background:#ccc}'
-    + '</style></head><body><div class="wrap">'
+    + '#pantallaCodigo{max-width:340px;margin:80px auto 0;text-align:center}'
+    + '#pantallaCodigo input{text-align:center;font-size:18px;letter-spacing:2px;text-transform:uppercase}'
+    + '#btnEntrar{width:100%;padding:14px;background:#1a237e;color:white;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;margin-top:8px}'
+    + '#errorCodigo{color:#C62828;font-size:13px;margin-top:8px;display:none}'
+    + '#contenidoPedido{display:none}'
+    + '</style></head><body>'
+    + '<div id="pantallaCodigo">'
+    + '<div style="font-size:40px;margin-bottom:10px">🔒</div>'
+    + '<h1>Código de Acceso</h1>'
+    + '<div class="sub">Pídele el código a Nunez Beauty Supply para ver el catálogo</div>'
+    + '<input type="text" id="inputCodigo" placeholder="Código" maxlength="20">'
+    + '<button id="btnEntrar" onclick="verificarCodigo()">Entrar</button>'
+    + '<div id="errorCodigo">Código incorrecto, intenta de nuevo.</div>'
+    + '</div>'
+    + '<div class="wrap" id="contenidoPedido">'
     + '<h1>🛒 Hacer un Pedido</h1>'
     + '<div class="sub">Nunez Beauty Supply</div>'
     + '<input type="text" id="nombreCliente" placeholder="Tu nombre y negocio -ej: Julio, Barberia Julio-">'
@@ -6431,7 +6701,23 @@ function exportarCatalogoParaPedidos(){
     + '  window.location.href = "sms:"+TELEFONO_NEGOCIO+"?body="+mensaje;'
     + '}'
     + 'document.getElementById("buscarProd").addEventListener("input", function(){ renderLista(this.value); });'
-    + 'renderLista("");'
+    + 'var CODIGO_CORRECTO = ' + codigoJSON + ';'
+    + 'function mostrarCatalogo(){'
+    + '  document.getElementById("pantallaCodigo").style.display = "none";'
+    + '  document.getElementById("contenidoPedido").style.display = "block";'
+    + '  renderLista("");'
+    + '}'
+    + 'function verificarCodigo(){'
+    + '  var val = document.getElementById("inputCodigo").value.trim().toUpperCase();'
+    + '  if(val === CODIGO_CORRECTO){'
+    + '    sessionStorage.setItem("codigoOk", "1");'
+    + '    mostrarCatalogo();'
+    + '  } else {'
+    + '    document.getElementById("errorCodigo").style.display = "block";'
+    + '  }'
+    + '}'
+    + 'document.getElementById("inputCodigo").addEventListener("keypress", function(e){ if(e.key==="Enter") verificarCodigo(); });'
+    + 'if(sessionStorage.getItem("codigoOk") === "1"){ mostrarCatalogo(); }'
     + '<\/script></body></html>';
 
   var blob = new Blob([html], {type:'text/html'});
@@ -7039,7 +7325,7 @@ function guardarBalanceInicial(id){
   var monto = parseFloat(document.getElementById('bi-monto').value) || 0;
   if(monto <= 0){ alert('Ingresa un monto válido mayor a $0.00'); return; }
 
-  var nota = document.getElementById('bi-nota').value.trim() || 'Balance inicial traído de sistema anterior';
+  var nota = limpiarTexto(document.getElementById('bi-nota').value.trim()) || 'Balance inicial traído de sistema anterior';
   var fecha = document.getElementById('bi-fecha').value || fechaHoyISO();
   var fechaFmt = fechaFormat(new Date(fecha+'T12:00:00'));
 
@@ -7135,24 +7421,24 @@ function guardarEdicionCl(id){
   clientes = LS('ncl', []);
   var idx = clientes.findIndex(function(x){ return x.id===id; });
   if(idx === -1) return;
-  var nombre = document.getElementById('ecl-n').value.trim();
-  var apellido = document.getElementById('ecl-a').value.trim();
+  var nombre = limpiarTexto(document.getElementById('ecl-n').value.trim());
+  var apellido = limpiarTexto(document.getElementById('ecl-a').value.trim());
   if(!nombre || !apellido){ alert('Nombre y apellido son requeridos'); return; }
   var negocioAnterior = (clientes[idx].negocio || '').trim();
   clientes[idx].nombre = nombre;
   clientes[idx].apellido = apellido;
-  clientes[idx].negocio = document.getElementById('ecl-ne').value.trim();
-  var apodoEl = document.getElementById('ecl-apodo'); if(apodoEl) clientes[idx].apodo = apodoEl.value.trim();
+  clientes[idx].negocio = limpiarTexto(document.getElementById('ecl-ne').value.trim());
+  var apodoEl = document.getElementById('ecl-apodo'); if(apodoEl) clientes[idx].apodo = limpiarTexto(apodoEl.value.trim());
   clientes[idx].tel = document.getElementById('ecl-t').value.trim();
   var tipoEl = document.getElementById('ecl-tipo'); if(tipoEl) clientes[idx].tipoNegocio = tipoEl.value;
   var subtipoEl = document.getElementById('ecl-subtipo'); if(subtipoEl) clientes[idx].subtipoTienda = (tipoEl && tipoEl.value==='Tienda') ? subtipoEl.value : null;
-  var subtipoOtroEl = document.getElementById('ecl-subtipo-otro'); if(subtipoOtroEl) clientes[idx].subtipoTiendaOtro = subtipoOtroEl.value.trim();
+  var subtipoOtroEl = document.getElementById('ecl-subtipo-otro'); if(subtipoOtroEl) clientes[idx].subtipoTiendaOtro = limpiarTexto(subtipoOtroEl.value.trim());
   var intervaloEl = document.getElementById('ecl-intervalo'); if(intervaloEl) clientes[idx].intervaloVisitaDias = (tipoEl && tipoEl.value==='Barberia') ? null : (parseInt(intervaloEl.value)||null);
-  var contactoEl = document.getElementById('ecl-contacto'); if(contactoEl) clientes[idx].contacto = contactoEl.value.trim();
-  var contactoApodoEl = document.getElementById('ecl-contactoapodo'); if(contactoApodoEl) clientes[idx].contactoApodo = contactoApodoEl.value.trim();
+  var contactoEl = document.getElementById('ecl-contacto'); if(contactoEl) clientes[idx].contacto = limpiarTexto(contactoEl.value.trim());
+  var contactoApodoEl = document.getElementById('ecl-contactoapodo'); if(contactoApodoEl) clientes[idx].contactoApodo = limpiarTexto(contactoApodoEl.value.trim());
   var contactoTelEl = document.getElementById('ecl-contactotel'); if(contactoTelEl) clientes[idx].contactoTel = contactoTelEl.value.trim();
   clientes[idx].email = document.getElementById('ecl-e').value.trim();
-  clientes[idx].dir = document.getElementById('ecl-d').value.trim();
+  clientes[idx].dir = limpiarTexto(document.getElementById('ecl-d').value.trim());
   clientes[idx].ciudad = document.getElementById('ecl-ci').value.trim();
   clientes[idx].zip = document.getElementById('ecl-z').value.trim();
   clientes[idx].estado = document.getElementById('ecl-st').value.trim();
@@ -11158,7 +11444,7 @@ function procesarDevolucion(vid){
   });
   SS('np', productos);
 
-  var nota = document.getElementById('dev-nota').value.trim();
+  var nota = limpiarTexto(document.getElementById('dev-nota').value.trim());
   var fechaHoyStr = fechaHoy();
   var horaHoyStr = new Date().toLocaleTimeString('es-US',{hour:'2-digit',minute:'2-digit'});
 
@@ -11802,7 +12088,11 @@ function verHistorialCliente(cid, modo){
         <button onclick="cancelarPedido()" style="background:#f5f5f5;border:none;border-radius:8px;padding:8px 12px;cursor:pointer;font-size:13px;color:#546E7A;font-weight:600">✕ Cancelar</button>
       </div>
       <label class="lbl">Buscar producto</label>
-      <input class="inp" id="pedb" type="text" placeholder="Escribe para buscar..." oninput="filterPed(this.value)" onfocus="filterPed(this.value||'')">
+      <div style="display:flex;gap:8px">
+        <input class="inp" id="pedb" type="text" placeholder="Escribe para buscar..." oninput="filterPed(this.value)" onfocus="filterPed(this.value||'')" style="flex:1">
+        <button id="btn-dictar-pedido" onclick="dictarProductoPedido()" style="background:#5E35B1;color:white;border:none;border-radius:8px;width:44px;flex-shrink:0;cursor:pointer;font-size:18px">🎤</button>
+      </div>
+      <div id="dictado-resultado-wrap" style="display:none;background:#EDE7F6;border-radius:10px;padding:12px;margin-bottom:8px"></div>
       <input type="hidden" id="pedsel">
       <div id="pedplist" style="background:white;border:1px solid #ddd;border-radius:8px;max-height:200px;overflow-y:auto;display:none;margin-bottom:8px"></div>
       <div id="pedchip" style="display:none;align-items:center;justify-content:space-between;background:#FFF8E1;border-radius:20px;padding:8px 14px;margin-bottom:8px">

@@ -9658,12 +9658,17 @@ function dibujarContenidoFactura(ctx, W, pad, v, cl, pagado, saldo, numFact, abo
     y += 20;
     ctx.font = 'bold '+fs.cliente+'px sans-serif';
     ctx.fillStyle = '#1a237e';
-    ctx.textAlign = 'left'; ctx.fillText((v.cn||'').substring(0,maxCliente), pad, y);
+    // Misma prioridad que en la vista digital: para Tiendas -no barberias-, el negocio va
+    // primero y mas grande, el dueño/encargado mas chico debajo.
+    var esNegocioPrioritario = cl && cl.tipoNegocio && cl.tipoNegocio !== 'Barberia' && cl.negocio;
+    var lineaGrande = esNegocioPrioritario ? cl.negocio : (v.cn||'');
+    var lineaChica = esNegocioPrioritario ? (v.cn||'') : (cl && cl.negocio ? cl.negocio : '');
+    ctx.textAlign = 'left'; ctx.fillText(lineaGrande.substring(0,maxCliente), pad, y);
     ctx.textAlign = 'right'; ctx.fillText('#'+numFact, W-pad, y);
     y += 19;
     ctx.font = 'bold '+fs.negocio+'px sans-serif';
     ctx.fillStyle = '#555';
-    if(cl && cl.negocio){ ctx.textAlign='left'; ctx.fillText(cl.negocio.substring(0,maxNegocio), pad, y); }
+    if(lineaChica){ ctx.textAlign='left'; ctx.fillText(lineaChica.substring(0,maxNegocio), pad, y); }
     ctx.textAlign='right'; ctx.fillText(v.fecha, W-pad, y);
     y += 17;
     var dirClColor = cl ? ((cl.dir||'')+(cl.ciudad?', '+cl.ciudad:'')).trim() : '';
@@ -9695,8 +9700,13 @@ function dibujarContenidoFactura(ctx, W, pad, v, cl, pagado, saldo, numFact, abo
     ctx.textAlign='center'; ctx.fillText('Factura No. '+numFact, W/2, y);
     y += 32;
 
-    // Fila 3: nombre del cliente + telefono juntos si caben; si no, telefono baja a su propia linea
-    var nombreCl = v.cn || '';
+    // Fila 3: nombre grande + telefono juntos si caben; si no, telefono baja a su propia linea.
+    // Misma prioridad que en la vista digital: para Tiendas -no barberias-, el negocio va
+    // primero -grande-, y el dueño/encargado mas chico debajo. Para Barberias, sigue igual
+    // que siempre -el barbero individual primero-.
+    var esNegocioPrioritarioBN = cl && cl.tipoNegocio && cl.tipoNegocio !== 'Barberia' && cl.negocio;
+    var nombreCl = esNegocioPrioritarioBN ? cl.negocio : (v.cn || '');
+    var nombreChico = esNegocioPrioritarioBN ? (v.cn || '') : '';
     var telCl = (cl && cl.tel) ? cl.tel : '';
     ctx.font = 'bold '+fs.cliente+'px sans-serif';
     var anchoNombreCl = ctx.measureText(nombreCl).width;
@@ -9717,10 +9727,12 @@ function dibujarContenidoFactura(ctx, W, pad, v, cl, pagado, saldo, numFact, abo
       y += 26;
     }
 
-    // Nombre de la barberia/negocio - letra mas pequena, en su propia linea, SIN cortar
-    if(cl && cl.negocio){
+    // Segunda linea -mas chica-: para Tienda es el nombre del dueño; para Barberia es el
+    // nombre del negocio, tal como funcionaba antes.
+    var textoSegundaLinea = esNegocioPrioritarioBN ? nombreChico : (cl && cl.negocio ? cl.negocio : '');
+    if(textoSegundaLinea){
       ctx.font = fs.dirCl+'px sans-serif';
-      var lineasNeg = envolverTexto(ctx, cl.negocio, W-2*pad, 2);
+      var lineasNeg = envolverTexto(ctx, textoSegundaLinea, W-2*pad, 2);
       lineasNeg.forEach(function(linea){
         ctx.textAlign='left'; ctx.fillText(linea, pad, y);
         y += 24;

@@ -1947,11 +1947,22 @@ function verificarVIPdespuesDeVenta(cid, itemsVendidos){
   clientes=LS('ncl',[]);
   var cl=clientes.find(function(c){ return String(c.id)===String(cid); });
   if(!cl||!cl.vipActivo) return;
+  loadProds();
   var vip=calcVIP(cid);
   var alertas=[];
   itemsVendidos.forEach(function(it){
     if(!esProductoVIP(it.precio)) return;
-    var key=String(it.pid||it.nombre);
+    // IMPORTANTE: usar exactamente la misma logica de clave que calcVIP -marca+categoria real
+    // del producto, o el respaldo por nombre-, ya que antes se buscaba por pid/nombre directo,
+    // que nunca coincidia con como calcVIP guarda las cosas -por eso el aviso de "completo sus
+    // 10 compras" nunca se disparaba, aunque el conteo de puntos en si siempre estuvo bien-.
+    var prod = productos.find(function(x){ return String(x.id)===String(it.pid); });
+    var key;
+    if(prod && prod.marca){
+      key = prod.marca.toUpperCase() + (prod.cat ? ' · '+prod.cat : '');
+    } else {
+      key = getMarcaVIP(it.nombre, prod ? (prod.cat||'') : '');
+    }
     var p=vip[key];
     if(p&&p.progreso===0&&p.total>0){
       alertas.push('🎁 ¡'+it.nombre+' completó 10 compras! El cliente ganó 1 GRATIS.');
@@ -2095,6 +2106,9 @@ function cargarFotoGasto(input, prefijo){
   if(!file) return;
   var reader = new FileReader();
   reader.onload = function(e){
+    // Fotos de facturas y recibos -gasto, compra- necesitan mucha mas resolucion que una foto
+    // de producto normal, para poder leer los numeros chiquitos despues.
+    var resolucionAlta = (prefijo === 'gasto' || prefijo === 'cc') ? 1800 : undefined;
     abrirRecortarFoto(e.target.result, function(dataFinal){
       document.getElementById(prefijo+'-foto-data').value = dataFinal;
       var prev = document.getElementById(prefijo+'-foto-preview');
@@ -2105,7 +2119,7 @@ function cargarFotoGasto(input, prefijo){
         var btnOcr = document.getElementById('cc-btn-ocr');
         if(btnOcr) btnOcr.style.display = 'block';
       }
-    });
+    }, resolucionAlta);
   };
   reader.readAsDataURL(file);
   input.value = '';
@@ -2354,6 +2368,53 @@ function abrirOpcionesFotoGasto(prefijo){
 
   overlay.appendChild(sheet);
   overlay.style.display = 'flex'; overlay.scrollTop = 0;
+}
+
+// Menu generico de opciones para una foto, reutilizable donde haga falta -recibe una lista de
+// [texto, funcion] y las muestra como una hoja que sube desde abajo-.
+function mostrarMenuOpcionesFoto(opciones){
+  var overlay = document.getElementById('foto-acciones-overlay');
+  if(!overlay){
+    overlay = document.createElement('div');
+    overlay.id = 'foto-acciones-overlay';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:999999;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:flex;align-items:flex-end';
+    document.body.appendChild(overlay);
+  }
+  overlay.innerHTML = '';
+  overlay.onclick = function(e){ if(e.target === overlay) overlay.style.display = 'none'; };
+  var sheet = document.createElement('div');
+  sheet.style.cssText = 'background:white;width:100%;max-width:480px;margin:0 auto;border-radius:16px 16px 0 0;padding:16px;box-shadow:0 -4px 20px rgba(0,0,0,0.15)';
+  opciones.forEach(function(op){
+    var btn = document.createElement('button');
+    btn.textContent = op[0];
+    btn.style.cssText = 'display:block;width:100%;text-align:left;padding:14px 16px;background:#f5f5f5;color:'+(op[0].indexOf('Quitar')>=0?'var(--nbs-red-text)':'var(--nbs-ink)')+';border:none;border-radius:10px;margin-bottom:8px;font-size:15px;font-weight:700;cursor:pointer';
+    btn.onclick = function(){ overlay.style.display = 'none'; op[1](); };
+    sheet.appendChild(btn);
+  });
+  var btnCancelar = document.createElement('button');
+  btnCancelar.textContent = 'Cancelar';
+  btnCancelar.style.cssText = 'display:block;width:100%;text-align:center;padding:14px 16px;background:none;color:#999;border:none;font-size:15px;cursor:pointer';
+  btnCancelar.onclick = function(){ overlay.style.display = 'none'; };
+  sheet.appendChild(btnCancelar);
+  overlay.appendChild(sheet);
+  overlay.style.display = 'flex'; overlay.scrollTop = 0;
+}
+
+function cargarFotoEditCompra(input){
+  var file = input.files[0];
+  if(!file) return;
+  var reader = new FileReader();
+  reader.onload = function(e){
+    abrirRecortarFoto(e.target.result, function(dataFinal){
+      document.getElementById('compra-edit-foto-data').value = dataFinal;
+      var prev = document.getElementById('compra-edit-foto-preview');
+      prev.innerHTML = '<img src="'+dataFinal+'" style="width:100%;height:100%;object-fit:cover">';
+      prev.style.background = '#f0f0f0';
+      prev.style.border = 'none';
+    }, 1800); // alta resolucion, para poder leer los numeros de la factura despues
+  };
+  reader.readAsDataURL(file);
+  input.value = '';
 }
 
 function verFotoGasto(dataUrl){
@@ -3501,11 +3562,13 @@ function verFacturaCompra(c, sid){
   prodCard.className = 'card';
   prodCard.innerHTML = '<div style="font-size:13px;font-weight:700;color:#5D4037;margin-bottom:10px">PRODUCTOS</div>';
   c.items.forEach(function(it){
+    var cantSegura = Number(it.cant); if(!isFinite(cantSegura) || cantSegura <= 0) cantSegura = 1;
+    var costoSeguro = Number(it.costo); if(!isFinite(costoSeguro) || costoSeguro < 0) costoSeguro = 0;
     var row = document.createElement('div');
     row.style.cssText = 'display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f0f0f0;font-size:13px';
-    row.innerHTML = '<div><div style="font-weight:600">'+it.nombre+(it.esNuevo?' <span style="color:#795548;font-size:11px">(nuevo)</span>':'')+'</div>'
-      +'<div style="color:#aaa;font-size:11px">x'+it.cant+' @ $'+fmtNum(it.costo)+'</div></div>'
-      +'<span style="font-weight:700;color:#5D4037">$'+fmtNum((it.cant*it.costo))+'</span>';
+    row.innerHTML = '<div><div style="font-weight:600">'+(it.nombre||'Producto sin nombre')+(it.esNuevo?' <span style="color:#795548;font-size:11px">(nuevo)</span>':'')+'</div>'
+      +'<div style="color:#aaa;font-size:11px">x'+cantSegura+' @ $'+fmtNum(costoSeguro)+'</div></div>'
+      +'<span style="font-weight:700;color:#5D4037">$'+fmtNum((cantSegura*costoSeguro))+'</span>';
     prodCard.appendChild(row);
   });
   el.appendChild(prodCard);
@@ -3607,7 +3670,13 @@ function editarCompra(cid, sid){
   var c = compras.find(function(x){ return String(x.id)===String(cid); });
   if(!c) return;
 
-  window._compraEditItems = c.items.map(function(it){ return { nombre: it.nombre, cant: it.cant, costo: it.costo, pid: it.pid||null, esNuevo: it.esNuevo||false, marca: it.marca||'', cat: it.cat||'' }; });
+  window._compraEditItems = c.items.map(function(it){
+    var cantSegura = Number(it.cant);
+    if(!isFinite(cantSegura) || cantSegura <= 0) cantSegura = 1;
+    var costoSeguro = Number(it.costo);
+    if(!isFinite(costoSeguro) || costoSeguro < 0) costoSeguro = 0;
+    return { nombre: it.nombre||'Producto sin nombre', cant: cantSegura, costo: costoSeguro, pid: it.pid||null, esNuevo: it.esNuevo||false, marca: it.marca||'', cat: it.cat||'' };
+  });
   window._compraEditId = cid;
   window._compraEditSid = sid;
 
@@ -3726,24 +3795,30 @@ function editarCompra(cid, sid){
   function renderCompraEditItems(){
     itemsWrap.innerHTML = '';
     window._compraEditItems.forEach(function(it, i){
+      // Segunda capa de proteccion: sin importar como haya llegado el dato -de un guardado viejo,
+      // de una busqueda, de voz, etc-, aqui SIEMPRE se garantiza un numero valido para mostrar,
+      // nunca "undefined", "NaN", ni un campo vacio.
+      var cantSegura = Number(it.cant); if(!isFinite(cantSegura) || cantSegura <= 0) cantSegura = 1;
+      var costoSeguro = Number(it.costo); if(!isFinite(costoSeguro) || costoSeguro < 0) costoSeguro = 0;
+      it.cant = cantSegura; it.costo = costoSeguro; // corregir tambien en los datos, no solo en pantalla
       var row = document.createElement('div');
       row.style.cssText = 'background:#FAFAFA;border-radius:10px;padding:10px;margin-bottom:8px;border:0.5px solid #eee';
       row.innerHTML = '<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">'
-        +'<input type="text" value="'+it.nombre.replace(/"/g,"'")+'" oninput="window._compraEditItems['+i+'].nombre=this.value" style="flex:1;border:0.5px solid #ddd;border-radius:6px;padding:7px 8px;font-size:13px;font-weight:600">'
+        +'<input type="text" value="'+(it.nombre||'Producto sin nombre').replace(/"/g,"'")+'" oninput="window._compraEditItems['+i+'].nombre=this.value" style="flex:1;border:0.5px solid #ddd;border-radius:6px;padding:7px 8px;font-size:13px;font-weight:600">'
         +'<button data-i="'+i+'" class="compra-edit-quitar" style="background:var(--nbs-red-bg);color:var(--nbs-red-dark);border:none;border-radius:8px;width:36px;height:36px;cursor:pointer;font-size:15px;flex-shrink:0">✕</button>'
         +'</div>'
         +'<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">'
         +'<div style="display:flex;align-items:center;gap:4px">'
         +'<label style="font-size:11px;color:#aaa">Cant:</label>'
-        +'<input type="text" inputmode="numeric" value="'+it.cant+'" data-i="'+i+'" class="compra-edit-cant" onfocus="this.select()" style="width:50px;padding:6px;border:1px solid #ddd;border-radius:6px;font-size:12px;text-align:center">'
+        +'<input type="text" inputmode="numeric" value="'+cantSegura+'" data-i="'+i+'" class="compra-edit-cant" onfocus="this.select()" style="width:50px;padding:6px;border:1px solid #ddd;border-radius:6px;font-size:12px;text-align:center">'
         +'</div>'
         +'<div style="display:flex;align-items:center;gap:4px">'
         +'<label style="font-size:11px;color:#aaa">Costo c/u:</label>'
-        +'<input type="text" inputmode="decimal" value="'+it.costo+'" data-i="'+i+'" class="compra-edit-costo" onfocus="this.select()" style="width:65px;padding:6px;border:1px solid #ddd;border-radius:6px;font-size:12px;text-align:center">'
+        +'<input type="text" inputmode="decimal" value="'+costoSeguro+'" data-i="'+i+'" class="compra-edit-costo" onfocus="this.select()" style="width:65px;padding:6px;border:1px solid #ddd;border-radius:6px;font-size:12px;text-align:center">'
         +'</div>'
         +'<div style="display:flex;align-items:center;gap:4px;margin-left:auto">'
         +'<label style="font-size:11px;color:#1565C0;font-weight:700">Total línea:</label>'
-        +'<input type="text" inputmode="decimal" value="'+(it.cant*it.costo).toFixed(2)+'" data-i="'+i+'" class="compra-edit-total-linea" onfocus="this.select()" style="width:70px;padding:6px;border:1.5px solid #90CAF9;border-radius:6px;font-size:12px;text-align:center;color:#1565C0;font-weight:700;background:#E3F2FD">'
+        +'<input type="text" inputmode="decimal" value="'+(cantSegura*costoSeguro).toFixed(2)+'" data-i="'+i+'" class="compra-edit-total-linea" onfocus="this.select()" style="width:70px;padding:6px;border:1.5px solid #90CAF9;border-radius:6px;font-size:12px;text-align:center;color:#1565C0;font-weight:700;background:#E3F2FD">'
         +'</div>'
         +'</div>'
         +'<div style="font-size:10px;color:#aaa;margin-top:4px">Tip: si tu factura solo trae el total de la línea -no el costo por unidad-, escríbelo en "Total línea" y el costo se calcula solo.</div>';
@@ -3800,6 +3875,59 @@ function editarCompra(cid, sid){
       +'<div style="font-size:11px;color:#C62828;margin-top:4px">Si cambias productos, cantidades, costos, o el envío, el TOTAL de la compra va a cambiar, pero lo que ya pagaste se queda igual -el balance pendiente con el suplidor se va a ajustar según el nuevo total, no según lo que pagaste antes de este cambio.</div>';
     wrap.appendChild(avisoRiesgo);
   }
+
+  var fotoLabel = document.createElement('label');
+  fotoLabel.className = 'lbl';
+  fotoLabel.textContent = 'Foto de la factura del suplidor';
+  wrap.appendChild(fotoLabel);
+  var fotoRow = document.createElement('div');
+  fotoRow.style.cssText = 'display:flex;align-items:center;gap:10px;margin-bottom:14px';
+  var fotoPreviewEdit = document.createElement('div');
+  fotoPreviewEdit.id = 'compra-edit-foto-preview';
+  fotoPreviewEdit.style.cssText = 'width:56px;height:56px;border-radius:10px;background:'+(c.foto?'#f0f0f0':'var(--nbs-gold-bg)')+';border:'+(c.foto?'none':'2px dashed var(--nbs-gold)')+';display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0;overflow:hidden;cursor:pointer';
+  fotoPreviewEdit.innerHTML = c.foto ? '<img src="'+c.foto+'" style="width:100%;height:100%;object-fit:cover">' : '📷';
+  var fotoInfoTxt = document.createElement('div');
+  fotoInfoTxt.style.cssText = 'font-size:12px;color:#aaa;flex:1';
+  fotoInfoTxt.textContent = c.foto ? 'Toca la foto para verla en grande, cambiarla, o quitarla.' : 'Todavía no tiene foto — toca para agregar una.';
+  fotoRow.appendChild(fotoPreviewEdit);
+  fotoRow.appendChild(fotoInfoTxt);
+  wrap.appendChild(fotoRow);
+
+  var fotoDataEditInput = document.createElement('input');
+  fotoDataEditInput.type = 'hidden';
+  fotoDataEditInput.id = 'compra-edit-foto-data';
+  fotoDataEditInput.value = c.foto || '';
+  wrap.appendChild(fotoDataEditInput);
+
+  var inputCamaraEdit = document.createElement('input');
+  inputCamaraEdit.type = 'file'; inputCamaraEdit.accept = 'image/*'; inputCamaraEdit.capture = 'camera';
+  inputCamaraEdit.style.display = 'none'; inputCamaraEdit.id = 'compra-edit-foto-camara';
+  inputCamaraEdit.onchange = function(){ cargarFotoEditCompra(inputCamaraEdit); };
+  wrap.appendChild(inputCamaraEdit);
+  var inputGaleriaEdit = document.createElement('input');
+  inputGaleriaEdit.type = 'file'; inputGaleriaEdit.accept = 'image/jpeg,image/png,image/gif,image/webp';
+  inputGaleriaEdit.style.display = 'none'; inputGaleriaEdit.id = 'compra-edit-foto-galeria';
+  inputGaleriaEdit.onchange = function(){ cargarFotoEditCompra(inputGaleriaEdit); };
+  wrap.appendChild(inputGaleriaEdit);
+
+  fotoPreviewEdit.onclick = function(){
+    var opciones = c.foto
+      ? [['👁️ Ver en grande', function(){ verFotoGasto(document.getElementById('compra-edit-foto-data').value); }],
+         ['📷 Tomar otra foto', function(){ document.getElementById('compra-edit-foto-camara').click(); }],
+         ['🖼️ Elegir otra de galería', function(){ document.getElementById('compra-edit-foto-galeria').click(); }],
+         ['🗑️ Quitar foto', function(){
+           document.getElementById('compra-edit-foto-data').value = '';
+           fotoPreviewEdit.innerHTML = '📷';
+           fotoPreviewEdit.style.background = 'var(--nbs-gold-bg)';
+           fotoPreviewEdit.style.border = '2px dashed var(--nbs-gold)';
+           fotoInfoTxt.textContent = 'Todavía no tiene foto — toca para agregar una.';
+           c.foto = null;
+         }]]
+      : [['📷 Tomar foto', function(){ document.getElementById('compra-edit-foto-camara').click(); }],
+         ['🖼️ Elegir de galería', function(){ document.getElementById('compra-edit-foto-galeria').click(); }]];
+    mostrarMenuOpcionesFoto(opciones);
+  };
+
 
   var envioLabel = document.createElement('label');
   envioLabel.className = 'lbl';
@@ -3881,6 +4009,9 @@ function guardarEdicionCompra(){
     var fparts = fechaEl.value.split('-');
     if(fparts.length === 3) compras[idx].fecha = fparts[1]+'/'+fparts[2]+'/'+fparts[0];
   }
+
+  var fotoEditEl = document.getElementById('compra-edit-foto-data');
+  compras[idx].foto = fotoEditEl ? (fotoEditEl.value || null) : compras[idx].foto;
 
   SS('nc', compras);
   document.getElementById('compra-edit-overlay').style.display = 'none';
@@ -4445,9 +4576,9 @@ function cerrarEscanerSKU(){
 
 // Recortador de fotos reutilizable: muestra un cuadro donde se puede arrastrar y hacer zoom
 // antes de confirmar. Al confirmar, llama a onConfirmar(dataUrlRecortado).
-function abrirRecortarFoto(dataUrlOriginal, onConfirmar){
+function abrirRecortarFoto(dataUrlOriginal, onConfirmar, salidaMaxCustom){
   var MAXW = 320, MAXH = 420; // tamano maximo del area donde se ve la foto completa en pantalla
-  var SALIDA_MAX = 600; // resolucion maxima del lado mas largo de la imagen final recortada
+  var SALIDA_MAX = salidaMaxCustom || 600; // resolucion maxima del lado mas largo de la imagen final -mas alta para facturas/recibos, donde hay que poder leer numeros chiquitos-
   var MIN_RECT = 40; // tamano minimo del recuadro de recorte, en pixeles de pantalla
 
   var overlay = document.getElementById('crop-foto-overlay');
@@ -5588,6 +5719,12 @@ function addCC(){
   document.getElementById('cccosto').value = '0.00';
   document.getElementById('ccprecio').value = '0.00';
   clearCC();
+  // IMPORTANTE: limpiar tambien los campos de "producto nuevo" -si no se limpian, un doble toque
+  // accidental en el boton -muy comun en el telefono- agregaba el mismo producto 2 veces, porque
+  // los campos seguian con el mismo texto escrito.
+  document.getElementById('ccnp-marca').value = '';
+  document.getElementById('ccnp-nombre').value = '';
+  document.getElementById('ccnp-cat').value = '';
   document.getElementById('cc-nuevo-prod').style.display = 'none';
   renderICC();
 }
@@ -5596,22 +5733,26 @@ function renderICC(){
   var el = document.getElementById('iccp'); el.innerHTML = '';
   var tot = 0;
   iCC.forEach(function(it,i){
-    tot += it.cant * it.costo;
+    // Misma proteccion que en editar compra: nunca mostrar "undefined", "NaN", ni un campo vacio.
+    var cantSegura = Number(it.cant); if(!isFinite(cantSegura) || cantSegura <= 0) cantSegura = 1;
+    var costoSeguro = Number(it.costo); if(!isFinite(costoSeguro) || costoSeguro < 0) costoSeguro = 0;
+    it.cant = cantSegura; it.costo = costoSeguro;
+    tot += cantSegura * costoSeguro;
     var row = document.createElement('div');
     row.style.cssText = 'background:#FAFAFA;border-radius:10px;padding:10px;margin-bottom:8px;border:0.5px solid #eee';
     row.innerHTML = '<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">'
-      +'<input type="text" value="'+it.nombre.replace(/"/g,"'")+'" data-i="'+i+'" class="icc-nombre" style="flex:1;border:0.5px solid #ddd;border-radius:6px;padding:7px 8px;font-size:13px;font-weight:600;color:var(--nbs-ink)">'
+      +'<input type="text" value="'+(it.nombre||'Producto sin nombre').replace(/"/g,"'")+'" data-i="'+i+'" class="icc-nombre" style="flex:1;border:0.5px solid #ddd;border-radius:6px;padding:7px 8px;font-size:13px;font-weight:600;color:var(--nbs-ink)">'
       +(it.esNuevo?' <span style="color:#795548;font-size:11px;flex-shrink:0">(nuevo)</span>':'')
       +'<button data-i="'+i+'" class="icc-quitar" style="background:var(--nbs-red-bg);color:var(--nbs-red-dark);border:none;border-radius:8px;width:36px;height:36px;cursor:pointer;font-size:15px;flex-shrink:0">✕</button>'
       +'</div>'
       +'<div style="display:flex;gap:8px;align-items:center">'
       +'<div style="display:flex;align-items:center;gap:4px">'
       +'<button data-i="'+i+'" data-d="-1" class="icc-cant" style="width:28px;height:28px;background:var(--nbs-red-bg);color:var(--nbs-red-dark);border:none;border-radius:6px;cursor:pointer;font-size:14px;font-weight:700">−</button>'
-      +'<span style="width:26px;text-align:center;font-size:13px;font-weight:700">'+it.cant+'</span>'
+      +'<span style="width:26px;text-align:center;font-size:13px;font-weight:700">'+cantSegura+'</span>'
       +'<button data-i="'+i+'" data-d="1" class="icc-cant" style="width:28px;height:28px;background:var(--nbs-green-bg);color:var(--nbs-green-text);border:none;border-radius:6px;cursor:pointer;font-size:14px;font-weight:700">+</button>'
       +'</div>'
       +'<label style="font-size:11px;color:#aaa">Costo c/u:</label>'
-      +'<input type="text" inputmode="decimal" value="'+it.costo+'" data-i="'+i+'" class="icc-costo" onfocus="this.select()" style="width:65px;padding:6px;border:1px solid #ddd;border-radius:6px;font-size:12px;text-align:center">'
+      +'<input type="text" inputmode="decimal" value="'+costoSeguro+'" data-i="'+i+'" class="icc-costo" onfocus="this.select()" style="width:65px;padding:6px;border:1px solid #ddd;border-radius:6px;font-size:12px;text-align:center">'
       +'<label style="font-size:11px;color:#1565C0;font-weight:700;margin-left:auto">Total línea:</label>'
       +'<input type="text" inputmode="decimal" value="'+(it.cant*it.costo).toFixed(2)+'" data-i="'+i+'" class="icc-total-linea" onfocus="this.select()" style="width:65px;padding:6px;border:1.5px solid #90CAF9;border-radius:6px;font-size:12px;text-align:center;color:#1565C0;font-weight:700;background:#E3F2FD">'
       +'</div>';
@@ -6732,6 +6873,24 @@ function verCl(id){
     +'</div>'
     +'<button class="btn" style="background:#6A1B9A;color:white" onclick="agregarBalanceInicial('+id+')">💰 Agregar balance inicial</button>'
     +'<button class="btn" id="btn-vip-cl" style="background:'+(c.vipActivo?'#AD1457':'#546E7A')+';color:white" data-clid="'+id+'" onclick="toggleVIPBtn(this)">'+(c.vipActivo?'⭐ Inscrito en VIP — Toca para retirar':'☆ Inscribir en programa VIP')+'</button>'
+    +(function(){
+      // Detalle VIP visible de una vez en el perfil -antes solo se veia entrando a Historial Completo-
+      if(!c.vipActivo) return '';
+      var vipDet = calcVIP(id);
+      var keysDet = Object.keys(vipDet);
+      if(!keysDet.length) return '<div style="background:#FCE4EC;border-radius:10px;padding:10px;margin-bottom:8px;font-size:12px;color:#777">⭐ Inscrito en VIP, sin compras VIP registradas todavía.</div>';
+      return '<div style="background:#FCE4EC;border-radius:10px;padding:10px;margin-bottom:8px">'
+        +keysDet.map(function(k){
+          var v = vipDet[k];
+          var pct = Math.min(100, Math.round((v.progreso/VIP_META)*100));
+          var colorDet = v.gratis>0 ? '#AD1457' : '#C2185B';
+          return '<div style="margin-bottom:6px">'
+            +'<div style="display:flex;justify-content:space-between;font-size:12px;color:#333;margin-bottom:2px"><span style="font-weight:600">'+v.nombre+'</span><span style="font-weight:700;color:'+colorDet+'">'+v.progreso+'/'+VIP_META+(v.gratis>0?' 🎁x'+v.gratis:'')+'</span></div>'
+            +'<div style="height:6px;background:white;border-radius:3px;overflow:hidden"><div style="height:100%;width:'+pct+'%;background:'+colorDet+'"></div></div>'
+            +'</div>';
+        }).join('')
+        +'</div>';
+    })()
     +'<button class="btn" style="background:#1a237e;color:white" onclick="verHistorialCliente('+id+',\'completo\')">📋 Ver historial completo -pagos, facturas, VIP, visitas</button>'
     +'<button class="btn" style="background:#00695C;color:white" onclick="abrirPreciosPersonalizados('+id+')">💲 Precios especiales de este cliente</button>';
   el.appendChild(header);
@@ -9098,8 +9257,14 @@ function verFacturaProfesional(vid){
     +'<div style="border:0.5px solid #e5e7eb;border-top:none;padding:16px;border-radius:0 0 12px 12px">'
     +'<div style="display:flex;justify-content:space-between;margin-bottom:12px;padding-bottom:12px;border-bottom:0.5px solid #f0f0f0">'
     +'<div><div style="font-size:11px;color:#aaa;font-weight:700;text-transform:uppercase">Cliente</div>'
-    +'<div style="font-size:15px;font-weight:800;color:#1a237e;margin-top:2px">'+v.cn+'</div>'
-    +(cl&&cl.negocio?'<div style="font-size:12px;color:#555;margin-top:2px">🏪 '+cl.negocio+'</div>':'')
+    +(cl && cl.tipoNegocio && cl.tipoNegocio !== 'Barberia' && cl.negocio
+      // Para Tiendas y otros negocios -no barberias-, el NEGOCIO tiene la prioridad -es el
+      // cliente real-, y el dueño/encargado se muestra mas chico debajo, al reves que en
+      // barberias, donde el barbero individual es el cliente real, no el local.
+      ? '<div style="font-size:15px;font-weight:800;color:#1a237e;margin-top:2px">🏪 '+cl.negocio+'</div>'
+        +'<div style="font-size:12px;color:#555;margin-top:2px">'+v.cn+'</div>'
+      : '<div style="font-size:15px;font-weight:800;color:#1a237e;margin-top:2px">'+v.cn+'</div>'
+        +(cl&&cl.negocio?'<div style="font-size:12px;color:#555;margin-top:2px">🏪 '+cl.negocio+'</div>':''))
     +(cl&&(cl.dir||cl.ciudad)?'<div style="font-size:11px;color:#888;margin-top:2px">📍 '+((cl.dir||'')+(cl.ciudad?', '+cl.ciudad:'')+(cl.estado?', '+cl.estado:''))+'</div>':'')
     +(cl&&cl.tel?'<div style="font-size:12px;color:#555;margin-top:2px">📱 '+cl.tel+'</div>':'')
     +'</div>'
@@ -9178,8 +9343,13 @@ function imprimirFacturaBT(vid){
   lineas.push('        401-305-0188            ');
   lineas.push('================================');
   lineas.push('Fac #'+numFact+'  '+v.fecha+'  '+v.hora);
-  lineas.push(v.cn.substring(0,32));
-  if(cl&&cl.negocio) lineas.push(cl.negocio.substring(0,32));
+  if(cl && cl.tipoNegocio && cl.tipoNegocio !== 'Barberia' && cl.negocio){
+    lineas.push(cl.negocio.substring(0,32));
+    lineas.push(v.cn.substring(0,32));
+  } else {
+    lineas.push(v.cn.substring(0,32));
+    if(cl&&cl.negocio) lineas.push(cl.negocio.substring(0,32));
+  }
   lineas.push('--------------------------------');
   v.items.forEach(function(it){
     var nom = it.nombre.substring(0,32);

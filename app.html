@@ -566,12 +566,18 @@ button:active{transform:scale(0.96);filter:brightness(0.93);}
   <h2 style="font-size:20px;font-weight:700;color:#1a237e;margin-bottom:4px">💰 Inventario</h2>
   <p style="font-size:12px;color:var(--nbs-muted);margin-bottom:14px">Cuánto dinero tienes invertido en mercancía, y cuánto ganarías si la vendieras toda. Esta información es 100% interna — nunca la ve un cliente.</p>
 
-  <div id="inv-resumen" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px"></div>
+  <div id="inv-resumen" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px"></div>
+  <div id="inv-alerta-dormido" style="display:none;background:#FFF3E0;color:#E65100;border-radius:8px;padding:10px;font-size:12px;margin-bottom:14px"></div>
 
   <input class="inp" id="invbuscar" type="text" placeholder="Buscar producto por nombre..." oninput="renderInventario(this.value)">
   <div style="display:flex;gap:8px;margin-bottom:10px">
     <select class="inp" id="inv-filtro-marca" onchange="renderInventario(document.getElementById('invbuscar').value)" style="flex:1"><option value="">Todas las marcas</option></select>
     <select class="inp" id="inv-filtro-cat" onchange="renderInventario(document.getElementById('invbuscar').value)" style="flex:1"><option value="">Todas las categorías</option></select>
+  </div>
+  <div style="display:flex;gap:6px;margin-bottom:10px">
+    <button id="inv-orden-az" class="btn" style="flex:1;padding:8px;font-size:11px;background:var(--nbs-gold);color:white" onclick="cambiarOrdenInventario('az')">A-Z</button>
+    <button id="inv-orden-vendido" class="btn" style="flex:1;padding:8px;font-size:11px;background:#eee;color:var(--nbs-ink)" onclick="cambiarOrdenInventario('vendido')">🏆 Más vendido</button>
+    <button id="inv-orden-dormido" class="btn" style="flex:1;padding:8px;font-size:11px;background:#eee;color:var(--nbs-ink)" onclick="cambiarOrdenInventario('dormido')">💤 Dormidos</button>
   </div>
   <div id="invlista"></div>
 </div>
@@ -4360,6 +4366,16 @@ function actualizarMarcasDetalle(){
   }).join('');
 }
 
+function cambiarOrdenInventario(modo){
+  window._ordenInventario = modo;
+  ['az','vendido','dormido'].forEach(function(m){
+    var btn = document.getElementById('inv-orden-'+m);
+    if(btn) btn.style.background = (m===modo) ? 'var(--nbs-gold)' : '#eee';
+    if(btn) btn.style.color = (m===modo) ? 'white' : 'var(--nbs-ink)';
+  });
+  renderInventario(document.getElementById('invbuscar').value);
+}
+
 function renderInventario(q){
   loadProds();
   q = (q||'').toLowerCase();
@@ -4379,6 +4395,43 @@ function renderInventario(q){
   });
   var gananciaPotencial = totalVenta - totalInvertido;
 
+  // COGS del mes -costo de la mercancia que realmente vendiste este mes, no lo que tienes
+  // guardado- y rotacion de inventario -que tan rapido se mueve tu dinero-. Esto es lo que
+  // usan las empresas serias para saber si el dinero esta trabajando o dormido en el estante.
+  ventas = LS('nv', []);
+  var ahora = new Date();
+  var mesActual = ahora.getMonth(), anioActual = ahora.getFullYear();
+  var cogsDelMes = 0;
+  var ultimaVentaPorProducto = {}; // pid -> fecha mas reciente en que se vendio, para "dormidos"
+  ventas.forEach(function(v){
+    if(v.cancelada) return;
+    var partesFecha = (v.fecha||'').split('/'); // MM/DD/AAAA
+    if(partesFecha.length !== 3) return;
+    var fechaVenta = new Date(parseInt(partesFecha[2]), parseInt(partesFecha[0])-1, parseInt(partesFecha[1]));
+    var esDeEsteMes = fechaVenta.getMonth()===mesActual && fechaVenta.getFullYear()===anioActual;
+    (v.items||[]).forEach(function(it){
+      if(esDeEsteMes) cogsDelMes += (it.cant||0) * (it.costo||0);
+      if(it.pid){
+        var keyPid = String(it.pid);
+        if(!ultimaVentaPorProducto[keyPid] || fechaVenta > ultimaVentaPorProducto[keyPid]) ultimaVentaPorProducto[keyPid] = fechaVenta;
+      }
+    });
+  });
+  // Rotacion = COGS del mes ÷ valor de inventario actual -aproximacion practica, ya que no
+  // guardamos un promedio historico del inventario dia por dia-.
+  var rotacion = totalInvertido > 0 ? (cogsDelMes / totalInvertido) : 0;
+
+  // Inventario dormido: productos con stock que no se han vendido en los ultimos 45 dias
+  // -o nunca se han vendido-.
+  var UMBRAL_DORMIDO_DIAS = 45;
+  var productosDormidos = productos.filter(function(p){
+    if(!p.stock || p.stock <= 0) return false;
+    var ultimaVenta = ultimaVentaPorProducto[String(p.id)];
+    if(!ultimaVenta) return true; // nunca se ha vendido
+    var diasSinVenderse = Math.floor((ahora - ultimaVenta) / (1000*60*60*24));
+    return diasSinVenderse >= UMBRAL_DORMIDO_DIAS;
+  });
+
   var resumenEl = document.getElementById('inv-resumen');
   resumenEl.innerHTML =
     '<div style="background:white;border-radius:12px;padding:14px;border:0.5px solid var(--nbs-line);box-shadow:var(--nbs-shadow-card)">'
@@ -4396,7 +4449,26 @@ function renderInventario(q){
     +'<div style="background:white;border-radius:12px;padding:14px;border:0.5px solid var(--nbs-line);box-shadow:var(--nbs-shadow-card)">'
     +'<div style="font-size:11px;color:var(--nbs-muted);font-weight:600;margin-bottom:6px">UNIDADES / PRODUCTOS</div>'
     +'<div style="font-size:19px;font-weight:700;color:var(--nbs-ink)">'+totalUnidades+'</div>'
-    +'<div style="font-size:10px;color:var(--nbs-muted);margin-top:2px">en '+productosConStock+' producto(s) distinto(s)</div></div>';
+    +'<div style="font-size:10px;color:var(--nbs-muted);margin-top:2px">en '+productosConStock+' producto(s) distinto(s)</div></div>'
+    +'<div style="background:white;border-radius:12px;padding:14px;border:0.5px solid var(--nbs-line);box-shadow:var(--nbs-shadow-card)">'
+    +'<div style="font-size:11px;color:var(--nbs-muted);font-weight:600;margin-bottom:6px">COGS DEL MES</div>'
+    +'<div style="font-size:19px;font-weight:700;color:var(--nbs-ink)">$'+fmtNum(cogsDelMes)+'</div>'
+    +'<div style="font-size:10px;color:var(--nbs-muted);margin-top:2px">Costo de lo que vendiste este mes</div></div>'
+    +'<div style="background:white;border-radius:12px;padding:14px;border:0.5px solid var(--nbs-line);box-shadow:var(--nbs-shadow-card)">'
+    +'<div style="font-size:11px;color:var(--nbs-muted);font-weight:600;margin-bottom:6px">ROTACIÓN</div>'
+    +'<div style="font-size:19px;font-weight:700;color:var(--nbs-ink)">'+rotacion.toFixed(2)+'x</div>'
+    +'<div style="font-size:10px;color:var(--nbs-muted);margin-top:2px">Qué tan rápido se mueve tu dinero</div></div>';
+
+  var alertaDormidoEl = document.getElementById('inv-alerta-dormido');
+  if(alertaDormidoEl){
+    if(productosDormidos.length > 0){
+      alertaDormidoEl.style.display = 'block';
+      alertaDormidoEl.innerHTML = '💤 <b>'+productosDormidos.length+' producto(s) dormido(s)</b> -sin venderse en '+UMBRAL_DORMIDO_DIAS+' días o más-. Toca "💤 Dormidos" abajo para verlos.';
+    } else {
+      alertaDormidoEl.style.display = 'none';
+    }
+  }
+  window._productosDormidosIds = productosDormidos.map(function(p){ return String(p.id); });
 
   // Llenar los filtros de marca/categoria solo la primera vez -si ya tienen opciones, no se vuelven a construir-
   var selMarca = document.getElementById('inv-filtro-marca');
@@ -4410,17 +4482,41 @@ function renderInventario(q){
     cats.forEach(function(c){ var o=document.createElement('option'); o.value=c; o.textContent=c; selCat.appendChild(o); });
   }
 
-  // La TABLA si respeta la busqueda y los filtros, ordenada alfabeticamente para encontrar rapido
+  // Unidades vendidas en los ultimos 30 dias por producto, para el orden "Mas vendido"
+  var unidadesVendidas30d = {};
+  var hace30dias = new Date(ahora.getTime() - 30*24*60*60*1000);
+  ventas.forEach(function(v){
+    if(v.cancelada) return;
+    var partesF = (v.fecha||'').split('/');
+    if(partesF.length !== 3) return;
+    var fV = new Date(parseInt(partesF[2]), parseInt(partesF[0])-1, parseInt(partesF[1]));
+    if(fV < hace30dias) return;
+    (v.items||[]).forEach(function(it){
+      if(!it.pid) return;
+      var k = String(it.pid);
+      unidadesVendidas30d[k] = (unidadesVendidas30d[k]||0) + (it.cant||0);
+    });
+  });
+
+  var modoOrden = window._ordenInventario || 'az';
+  // La TABLA respeta la busqueda y los filtros, y se ordena segun el boton elegido -A-Z,
+  // mas vendido en los ultimos 30 dias, o solo los productos dormidos-.
   var lista = productos.filter(function(p){
     if(q && p.nombre.toLowerCase().indexOf(q) < 0) return false;
     if(marcaFiltro && p.marca !== marcaFiltro) return false;
     if(catFiltro && p.cat !== catFiltro) return false;
+    if(modoOrden === 'dormido' && (window._productosDormidosIds||[]).indexOf(String(p.id)) < 0) return false;
     return true;
-  }).sort(function(a,b){ return a.nombre.localeCompare(b.nombre); });
+  });
+  if(modoOrden === 'vendido'){
+    lista.sort(function(a,b){ return (unidadesVendidas30d[String(b.id)]||0) - (unidadesVendidas30d[String(a.id)]||0); });
+  } else {
+    lista.sort(function(a,b){ return a.nombre.localeCompare(b.nombre); });
+  }
 
   var listaEl = document.getElementById('invlista');
   if(!lista.length){
-    listaEl.innerHTML = '<div style="text-align:center;color:var(--nbs-muted);padding:20px;font-size:13px">No se encontró ningún producto.</div>';
+    listaEl.innerHTML = '<div style="text-align:center;color:var(--nbs-muted);padding:20px;font-size:13px">'+(modoOrden==='dormido'?'Ningún producto dormido -todo se está vendiendo bien-. 🎉':'No se encontró ningún producto.')+'</div>';
     return;
   }
   listaEl.innerHTML = lista.map(function(p){
@@ -4428,9 +4524,10 @@ function renderInventario(q){
     var valorTotal = (p.stock||0) * (p.precio||0);
     var margen = p.precio > 0 ? ((p.precio - (p.costo||0)) / p.precio * 100) : 0;
     var sinStock = !p.stock || p.stock <= 0;
+    var ventasRecientes = unidadesVendidas30d[String(p.id)] || 0;
     return '<div class="card" style="'+(sinStock?'opacity:0.55':'')+'">'
       +'<div style="font-size:14px;font-weight:700;color:var(--nbs-ink)">'+p.nombre+'</div>'
-      +'<div style="font-size:11px;color:var(--nbs-muted);margin-bottom:8px">'+(p.marca||'')+(p.cat?' · '+p.cat:'')+' · Stock: '+(p.stock||0)+'</div>'
+      +'<div style="font-size:11px;color:var(--nbs-muted);margin-bottom:8px">'+(p.marca||'')+(p.cat?' · '+p.cat:'')+' · Stock: '+(p.stock||0)+(modoOrden==='vendido'?' · Vendidos -30 días-: '+ventasRecientes:'')+'</div>'
       +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px">'
       +'<div>Costo c/u: <b>$'+fmtNum(p.costo||0)+'</b></div>'
       +'<div>Precio venta: <b>$'+fmtNum(p.precio||0)+'</b></div>'

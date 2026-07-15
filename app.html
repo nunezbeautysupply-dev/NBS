@@ -529,7 +529,7 @@ button:active{transform:scale(0.96);filter:brightness(0.93);}
         <input type="file" id="ep-sku-foto" accept="image/*" capture="environment" style="display:none" onchange="leerBarcodeDeFoto(this)">
       </div>
       <div class="r2">
-        <div><label class="lbl">Costo ($)</label><input class="inp" id="ep-costo" type="text" inputmode="numeric" value="0.00" onfocus="this.select()" oninput="formatoMoneda(this)"></div>
+        <div><label class="lbl">Costo ($)</label><input class="inp" id="ep-costo" type="text" inputmode="decimal" value="0.00" onfocus="this.select()" oninput="formatoCostoPreciso(this)"></div>
         <div><label class="lbl">Precio ($)</label><input class="inp" id="ep-precio" type="text" inputmode="numeric" value="0.00" onfocus="this.select()" oninput="formatoMoneda(this)"></div>
       </div>
       <div class="r2">
@@ -3739,7 +3739,7 @@ function editarCompra(cid, sid){
         +'</div>'
         +'<div style="display:flex;align-items:center;gap:4px;margin-left:auto">'
         +'<label style="font-size:11px;color:#aaa">Costo c/u:</label>'
-        +'<input type="text" inputmode="numeric" value="'+it.costo.toFixed(2)+'" data-i="'+i+'" class="compra-edit-costo" onfocus="this.select()" oninput="formatoMoneda(this)" style="width:70px;padding:6px;border:1px solid #ddd;border-radius:6px;font-size:12px;text-align:center">'
+        +'<input type="text" inputmode="decimal" value="'+it.costo+'" data-i="'+i+'" class="compra-edit-costo" onfocus="this.select()" style="width:70px;padding:6px;border:1px solid #ddd;border-radius:6px;font-size:12px;text-align:center">'
         +'</div>'
         +'</div>';
       itemsWrap.appendChild(row);
@@ -3751,7 +3751,7 @@ function editarCompra(cid, sid){
       inp.oninput = function(){ window._compraEditItems[parseInt(inp.dataset.i)].cant = parseInt(inp.value)||1; };
     });
     itemsWrap.querySelectorAll('.compra-edit-costo').forEach(function(inp){
-      inp.oninput = function(){ formatoMoneda(inp); window._compraEditItems[parseInt(inp.dataset.i)].costo = parseFloat(inp.value)||0; };
+      inp.oninput = function(){ formatoCostoPreciso(inp); window._compraEditItems[parseInt(inp.dataset.i)].costo = parseFloat(inp.value)||0; };
     });
   }
   renderCompraEditItems();
@@ -4284,6 +4284,25 @@ function formatoMoneda(input){
   var entero = digitos.slice(0, -2);
   var decimales = digitos.slice(-2);
   input.value = entero + '.' + decimales;
+}
+
+// Campo de COSTO con precision completa -a diferencia de formatoMoneda, que siempre fuerza
+// exactamente 2 decimales tipo calculadora-. Esto es porque algunos suplidores facturan el
+// costo por unidad con mas de 2 decimales -por ejemplo $3.9589-, resultado de dividir el precio
+// de una caja entre las unidades. Forzar solo 2 decimales aqui causaba diferencias de centavos
+// o hasta dolares en facturas con muchas unidades. Se escribe el punto decimal normal, como en
+// una calculadora de verdad -no como los demas campos de dinero de la app, que autoinsertan el
+// punto-.
+function formatoCostoPreciso(input){
+  var valor = input.value;
+  // Dejar solo digitos y un unico punto decimal
+  valor = valor.replace(/[^\d.]/g, '');
+  var partes = valor.split('.');
+  if(partes.length > 2) valor = partes[0] + '.' + partes.slice(1).join('');
+  // Limitar a 4 decimales -mas que suficiente para cualquier factura real-
+  var partesFinal = valor.split('.');
+  if(partesFinal[1] && partesFinal[1].length > 4) valor = partesFinal[0] + '.' + partesFinal[1].slice(0,4);
+  input.value = valor;
 }
 
 function formatoMonedaEdit(input, i){
@@ -5558,7 +5577,7 @@ function renderICC(){
       +'<button data-i="'+i+'" data-d="1" class="icc-cant" style="width:28px;height:28px;background:var(--nbs-green-bg);color:var(--nbs-green-text);border:none;border-radius:6px;cursor:pointer;font-size:14px;font-weight:700">+</button>'
       +'</div>'
       +'<label style="font-size:11px;color:#aaa;margin-left:auto">Costo c/u:</label>'
-      +'<input type="text" inputmode="numeric" value="'+it.costo.toFixed(2)+'" data-i="'+i+'" class="icc-costo" onfocus="this.select()" style="width:70px;padding:6px;border:1px solid #ddd;border-radius:6px;font-size:12px;text-align:center">'
+      +'<input type="text" inputmode="decimal" value="'+it.costo+'" data-i="'+i+'" class="icc-costo" onfocus="this.select()" style="width:70px;padding:6px;border:1px solid #ddd;border-radius:6px;font-size:12px;text-align:center">'
       +'<span style="font-weight:700;color:#5D4037;font-size:13px">$'+fmtNum((it.cant*it.costo))+'</span>'
       +'</div>';
     el.appendChild(row);
@@ -5580,7 +5599,7 @@ function renderICC(){
   });
   el.querySelectorAll('.icc-costo').forEach(function(inp){
     inp.oninput = function(){
-      formatoMoneda(inp);
+      formatoCostoPreciso(inp);
       var i = parseInt(inp.dataset.i);
       iCC[i].costo = parseFloat(inp.value)||0;
       // No se vuelve a dibujar toda la lista aqui -perderias el foco del campo mientras escribes-,
@@ -12264,7 +12283,7 @@ function verHistorialCliente(cid, modo){
       <label class="lbl">Nombre del producto *</label><input class="inp" id="vnp-nombre" type="text" placeholder="Ej: Roja Cortada, Colonia Venom" autocomplete="off" oninput="onNombreProductoInput('vnp-nombre')" onblur="ocultarDropdown('vnp-nombre')">
       <label class="lbl">Categoría</label><input class="inp" id="vnp-cat" type="text" placeholder="Ej: Pomadas, Navajas..." autocomplete="off" oninput="onCategoriaInput('vnp-cat')" onblur="ocultarDropdown('vnp-cat')">
       <div class="r2">
-        <div><label class="lbl">Costo ($)</label><input class="inp" id="vnp-costo" type="text" inputmode="numeric" value="0.00" onfocus="this.select()" oninput="formatoMoneda(this)"></div>
+        <div><label class="lbl">Costo ($)</label><input class="inp" id="vnp-costo" type="text" inputmode="decimal" value="0.00" onfocus="this.select()" oninput="formatoCostoPreciso(this)"></div>
         <div><label class="lbl">Precio ($)</label><input class="inp" id="vnp-precio" type="text" inputmode="numeric" value="0.00" onfocus="this.select()" oninput="formatoMoneda(this)"></div>
       </div>
       <label class="lbl">Stock inicial</label><input class="inp" id="vnp-stock" type="number" value="0" min="0">
@@ -12392,7 +12411,7 @@ function verHistorialCliente(cid, modo){
         <label class="lbl">Nombre del producto *</label><input class="inp" id="pednp-nombre" type="text" placeholder="Ej: Roja Cortada, Colonia Venom" autocomplete="off" oninput="onNombreProductoInput('pednp-nombre')" onblur="ocultarDropdown('pednp-nombre')">
         <label class="lbl">Categoría</label><input class="inp" id="pednp-cat" type="text" placeholder="Ej: Pomadas, Navajas..." autocomplete="off" oninput="onCategoriaInput('pednp-cat')" onblur="ocultarDropdown('pednp-cat')">
         <div class="r2">
-          <div><label class="lbl">Costo ($)</label><input class="inp" id="pednp-costo" type="text" inputmode="numeric" value="0.00" onfocus="this.select()" oninput="formatoMoneda(this)"></div>
+          <div><label class="lbl">Costo ($)</label><input class="inp" id="pednp-costo" type="text" inputmode="decimal" value="0.00" onfocus="this.select()" oninput="formatoCostoPreciso(this)"></div>
           <div><label class="lbl">Precio ($)</label><input class="inp" id="pednp-precio" type="text" inputmode="numeric" value="0.00" onfocus="this.select()" oninput="formatoMoneda(this)"></div>
         </div>
         <label class="lbl">Stock inicial</label><input class="inp" id="pednp-stock" type="number" value="0" min="0">
@@ -12456,7 +12475,7 @@ function verHistorialCliente(cid, modo){
     </div>
     <div style="display:grid;grid-template-columns:0.7fr 1fr 1fr;gap:8px">
       <div><label class="lbl">Cant.</label><input class="inp" id="cccant" type="number" value="1" min="1" style="text-align:center;padding:10px 4px"></div>
-      <div><label class="lbl">Costo ($)</label><input class="inp" id="cccosto" type="text" inputmode="numeric" value="0.00" onfocus="this.select()" oninput="formatoMoneda(this)" style="text-align:center;padding:10px 4px"></div>
+      <div><label class="lbl">Costo ($)</label><input class="inp" id="cccosto" type="text" inputmode="decimal" value="0.00" onfocus="this.select()" oninput="formatoCostoPreciso(this)" style="text-align:center;padding:10px 4px"></div>
       <div><label class="lbl">Precio venta ($)</label><input class="inp" id="ccprecio" type="text" inputmode="numeric" value="0.00" onfocus="this.select()" oninput="formatoMoneda(this)" style="text-align:center;padding:10px 4px"></div>
     </div>
     <p style="font-size:11px;color:#aaa;margin:-4px 0 8px">El precio de venta solo aplica si es producto nuevo.</p>

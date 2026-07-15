@@ -3732,26 +3732,60 @@ function editarCompra(cid, sid){
         +'<input type="text" value="'+it.nombre.replace(/"/g,"'")+'" oninput="window._compraEditItems['+i+'].nombre=this.value" style="flex:1;border:0.5px solid #ddd;border-radius:6px;padding:7px 8px;font-size:13px;font-weight:600">'
         +'<button data-i="'+i+'" class="compra-edit-quitar" style="background:var(--nbs-red-bg);color:var(--nbs-red-dark);border:none;border-radius:8px;width:36px;height:36px;cursor:pointer;font-size:15px;flex-shrink:0">✕</button>'
         +'</div>'
-        +'<div style="display:flex;gap:8px;align-items:center">'
+        +'<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">'
         +'<div style="display:flex;align-items:center;gap:4px">'
         +'<label style="font-size:11px;color:#aaa">Cant:</label>'
         +'<input type="text" inputmode="numeric" value="'+it.cant+'" data-i="'+i+'" class="compra-edit-cant" onfocus="this.select()" style="width:50px;padding:6px;border:1px solid #ddd;border-radius:6px;font-size:12px;text-align:center">'
         +'</div>'
-        +'<div style="display:flex;align-items:center;gap:4px;margin-left:auto">'
+        +'<div style="display:flex;align-items:center;gap:4px">'
         +'<label style="font-size:11px;color:#aaa">Costo c/u:</label>'
-        +'<input type="text" inputmode="decimal" value="'+it.costo+'" data-i="'+i+'" class="compra-edit-costo" onfocus="this.select()" style="width:70px;padding:6px;border:1px solid #ddd;border-radius:6px;font-size:12px;text-align:center">'
+        +'<input type="text" inputmode="decimal" value="'+it.costo+'" data-i="'+i+'" class="compra-edit-costo" onfocus="this.select()" style="width:65px;padding:6px;border:1px solid #ddd;border-radius:6px;font-size:12px;text-align:center">'
         +'</div>'
-        +'</div>';
+        +'<div style="display:flex;align-items:center;gap:4px;margin-left:auto">'
+        +'<label style="font-size:11px;color:#1565C0;font-weight:700">Total línea:</label>'
+        +'<input type="text" inputmode="decimal" value="'+(it.cant*it.costo).toFixed(2)+'" data-i="'+i+'" class="compra-edit-total-linea" onfocus="this.select()" style="width:70px;padding:6px;border:1.5px solid #90CAF9;border-radius:6px;font-size:12px;text-align:center;color:#1565C0;font-weight:700;background:#E3F2FD">'
+        +'</div>'
+        +'</div>'
+        +'<div style="font-size:10px;color:#aaa;margin-top:4px">Tip: si tu factura solo trae el total de la línea -no el costo por unidad-, escríbelo en "Total línea" y el costo se calcula solo.</div>';
       itemsWrap.appendChild(row);
     });
     itemsWrap.querySelectorAll('.compra-edit-quitar').forEach(function(btn){
       btn.onclick = function(){ window._compraEditItems.splice(parseInt(btn.dataset.i),1); renderCompraEditItems(); };
     });
     itemsWrap.querySelectorAll('.compra-edit-cant').forEach(function(inp){
-      inp.oninput = function(){ window._compraEditItems[parseInt(inp.dataset.i)].cant = parseInt(inp.value)||1; };
+      inp.oninput = function(){
+        var i = parseInt(inp.dataset.i);
+        window._compraEditItems[i].cant = parseInt(inp.value)||1;
+        var totalLineaInp = itemsWrap.querySelector('.compra-edit-total-linea[data-i="'+i+'"]');
+        if(totalLineaInp) totalLineaInp.value = (window._compraEditItems[i].cant*window._compraEditItems[i].costo).toFixed(2);
+        actualizarTotalEdicionCompra();
+      };
     });
     itemsWrap.querySelectorAll('.compra-edit-costo').forEach(function(inp){
-      inp.oninput = function(){ formatoCostoPreciso(inp); window._compraEditItems[parseInt(inp.dataset.i)].costo = parseFloat(inp.value)||0; };
+      inp.oninput = function(){
+        formatoCostoPreciso(inp);
+        var i = parseInt(inp.dataset.i);
+        window._compraEditItems[i].costo = parseFloat(inp.value)||0;
+        var totalLineaInp = itemsWrap.querySelector('.compra-edit-total-linea[data-i="'+i+'"]');
+        if(totalLineaInp) totalLineaInp.value = (window._compraEditItems[i].cant*window._compraEditItems[i].costo).toFixed(2);
+        actualizarTotalEdicionCompra();
+      };
+    });
+    // LA GRAN IDEA: si se escribe el TOTAL de la linea en vez del costo por unidad -muy comun
+    // en facturas de suplidor que solo dan el total, no el precio unitario-, el costo por unidad
+    // se calcula solo dividiendo el total entre la cantidad.
+    itemsWrap.querySelectorAll('.compra-edit-total-linea').forEach(function(inp){
+      inp.oninput = function(){
+        formatoCostoPreciso(inp);
+        var i = parseInt(inp.dataset.i);
+        var totalEscrito = parseFloat(inp.value) || 0;
+        var cantActual = window._compraEditItems[i].cant || 1;
+        var costoCalculado = Math.round((totalEscrito / cantActual) * 1000000) / 1000000;
+        window._compraEditItems[i].costo = costoCalculado;
+        var costoInp = itemsWrap.querySelector('.compra-edit-costo[data-i="'+i+'"]');
+        if(costoInp) costoInp.value = costoCalculado;
+        actualizarTotalEdicionCompra();
+      };
     });
   }
   renderCompraEditItems();
@@ -5576,9 +5610,10 @@ function renderICC(){
       +'<span style="width:26px;text-align:center;font-size:13px;font-weight:700">'+it.cant+'</span>'
       +'<button data-i="'+i+'" data-d="1" class="icc-cant" style="width:28px;height:28px;background:var(--nbs-green-bg);color:var(--nbs-green-text);border:none;border-radius:6px;cursor:pointer;font-size:14px;font-weight:700">+</button>'
       +'</div>'
-      +'<label style="font-size:11px;color:#aaa;margin-left:auto">Costo c/u:</label>'
-      +'<input type="text" inputmode="decimal" value="'+it.costo+'" data-i="'+i+'" class="icc-costo" onfocus="this.select()" style="width:70px;padding:6px;border:1px solid #ddd;border-radius:6px;font-size:12px;text-align:center">'
-      +'<span style="font-weight:700;color:#5D4037;font-size:13px">$'+fmtNum((it.cant*it.costo))+'</span>'
+      +'<label style="font-size:11px;color:#aaa">Costo c/u:</label>'
+      +'<input type="text" inputmode="decimal" value="'+it.costo+'" data-i="'+i+'" class="icc-costo" onfocus="this.select()" style="width:65px;padding:6px;border:1px solid #ddd;border-radius:6px;font-size:12px;text-align:center">'
+      +'<label style="font-size:11px;color:#1565C0;font-weight:700;margin-left:auto">Total línea:</label>'
+      +'<input type="text" inputmode="decimal" value="'+(it.cant*it.costo).toFixed(2)+'" data-i="'+i+'" class="icc-total-linea" onfocus="this.select()" style="width:65px;padding:6px;border:1.5px solid #90CAF9;border-radius:6px;font-size:12px;text-align:center;color:#1565C0;font-weight:700;background:#E3F2FD">'
       +'</div>';
     el.appendChild(row);
   });
@@ -5604,12 +5639,30 @@ function renderICC(){
       iCC[i].costo = parseFloat(inp.value)||0;
       // No se vuelve a dibujar toda la lista aqui -perderias el foco del campo mientras escribes-,
       // solo se actualiza el numero del total de esa linea y el total general.
-      var totalLineaEl = inp.parentElement.querySelector('span:last-child');
-      if(totalLineaEl) totalLineaEl.textContent = '$'+fmtNum(iCC[i].cant*iCC[i].costo);
+      var totalLineaInp = el.querySelector('.icc-total-linea[data-i="'+i+'"]');
+      if(totalLineaInp) totalLineaInp.value = (iCC[i].cant*iCC[i].costo).toFixed(2);
       var totGeneral = iCC.reduce(function(s,it){ return s+(it.cant*it.costo); },0);
       var costoEnvioEl2 = document.getElementById('cc-envio');
       var envio2 = costoEnvioEl2 ? (parseFloat(costoEnvioEl2.value)||0) : 0;
       document.getElementById('cctot').textContent = '$' + fmtNum(totGeneral + envio2);
+    };
+  });
+  // LA GRAN IDEA: si se escribe el TOTAL de la linea en vez del costo por unidad -muy comun en
+  // facturas de suplidor que solo dan el total, no el precio unitario-, el costo se calcula solo.
+  el.querySelectorAll('.icc-total-linea').forEach(function(inp){
+    inp.oninput = function(){
+      formatoCostoPreciso(inp);
+      var i = parseInt(inp.dataset.i);
+      var totalEscrito = parseFloat(inp.value) || 0;
+      var cantActual = iCC[i].cant || 1;
+      var costoCalculado = Math.round((totalEscrito / cantActual) * 1000000) / 1000000;
+      iCC[i].costo = costoCalculado;
+      var costoInp = el.querySelector('.icc-costo[data-i="'+i+'"]');
+      if(costoInp) costoInp.value = costoCalculado;
+      var totGeneral = iCC.reduce(function(s,it){ return s+(it.cant*it.costo); },0);
+      var costoEnvioEl3 = document.getElementById('cc-envio');
+      var envio3 = costoEnvioEl3 ? (parseFloat(costoEnvioEl3.value)||0) : 0;
+      document.getElementById('cctot').textContent = '$' + fmtNum(totGeneral + envio3);
     };
   });
   var costoEnvioEl = document.getElementById('cc-envio');

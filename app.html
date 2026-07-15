@@ -323,6 +323,7 @@ button:active{transform:scale(0.96);filter:brightness(0.93);}
 
     <div style="font-size:10px;color:var(--nbs-muted-2);font-weight:700;letter-spacing:1px;padding:12px 8px 4px">INVENTARIO</div>
     <button onclick="irMenuProtegido('p-cat')" class="mlb2"><span class="mlb2-icon"><span style="font-size:19px">📦</span></span>Catálogo</button>
+    <button onclick="irMenuProtegido('p-inv')" class="mlb2"><span class="mlb2-icon"><span style="font-size:19px">🏬</span></span>Inventario</button>
     <button onclick="irMenuProtegido('p-sup')" class="mlb2"><span class="mlb2-icon"><span style="font-size:19px">🏭</span></span>Suplidores</button>
     <button onclick="irMenuProtegido('p-comp')" class="mlb2"><span class="mlb2-icon"><span style="font-size:19px">🚚</span></span>Compras</button>
 
@@ -347,9 +348,9 @@ button:active{transform:scale(0.96);filter:brightness(0.93);}
     <div style="background:#F5F3EF;border-radius:10px;padding:12px;display:flex;justify-content:space-between;align-items:center">
       <span style="font-size:13px;font-weight:600;color:var(--nbs-ink);display:flex;align-items:center;gap:6px">🔒PIN</span>
       <div style="display:flex;align-items:center;gap:8px">
-        <span id="pin-status-txt" style="font-size:12px;color:var(--nbs-muted)">Desactivado</span>
-        <div id="pin-switch" onclick="togglePin()" style="width:44px;height:24px;border-radius:12px;background:#d8d8dc;cursor:pointer;position:relative">
-          <div id="pin-knob" style="position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:white;transition:left 0.2s"></div>
+        <span id="pin-status-txt2" style="font-size:12px;color:var(--nbs-muted)">Desactivado</span>
+        <div id="pin-switch2" onclick="togglePin()" style="width:44px;height:24px;border-radius:12px;background:#d8d8dc;cursor:pointer;position:relative">
+          <div id="pin-knob2" style="position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:white;transition:left 0.2s"></div>
         </div>
       </div>
     </div>
@@ -364,7 +365,7 @@ button:active{transform:scale(0.96);filter:brightness(0.93);}
       <div style="font-size:20px;font-weight:700;color:var(--nbs-ink);letter-spacing:-0.3px">Nunez Beauty Supply</div>
       <div style="font-size:12px;color:var(--nbs-muted);font-weight:500;margin-top:2px">Supply Manager</div>
     </div>
-    <button id="btn-menu-extra" style="background:#F0F0F2;color:var(--nbs-ink);border:none;border-radius:10px;padding:10px 14px;cursor:pointer;font-size:13px;font-weight:700;font-family:Inter,sans-serif;display:flex;align-items:center;gap:6px">⋯Más</button>
+    <button id="btn-menu-extra" onclick="toggleMenuExtra()" style="background:#F0F0F2;color:var(--nbs-ink);border:none;border-radius:10px;padding:10px 14px;cursor:pointer;font-size:13px;font-weight:700;font-family:Inter,sans-serif;display:flex;align-items:center;gap:6px">⋯Más</button>
   </div>
 
   <!-- Botones principales -->
@@ -402,16 +403,6 @@ button:active{transform:scale(0.96);filter:brightness(0.93);}
     <button class="mb2" id="btn-borrar" style="border-color:var(--nbs-red-bg)" onclick="adminAccion('borrar');toggleMenuExtra()"><span class="mb2-icon" style="background:var(--nbs-red-bg)"><span style="font-size:10px;font-weight:800;color:var(--nbs-red-dark);letter-spacing:0.3px">BO</span></span><span style="color:var(--nbs-red-dark)">Borrar todos los datos</span></button>
   </div>
 
-</div>
-
-<div id="p-mas" class="pg">
-  <div style="display:flex;gap:8px;margin-bottom:16px"><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="volverAtras()">← Atrás</button><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="ir('p-ped')">🏠 Inicio</button></div>
-  <h2 style="font-size:18px;font-weight:700;color:var(--nbs-ink);margin-bottom:16px">Más opciones</h2>
-  <button class="mb2" id="btn-rpt" onclick="irProtegido('p-rpt')"><span class="mb2-icon"><span style="font-size:10px;font-weight:800;color:var(--nbs-gold-dark);letter-spacing:0.3px">RE</span></span>Reportes</button>
-  <button class="mb2" id="btn-sup" onclick="irProtegido('p-sup')"><span class="mb2-icon"><span style="font-size:10px;font-weight:800;color:var(--nbs-gold-dark);letter-spacing:0.3px">SU</span></span>Suplidores</button>
-  <button class="mb2" id="btn-comp" onclick="irProtegido('p-comp')"><span class="mb2-icon"><span style="font-size:10px;font-weight:800;color:var(--nbs-gold-dark);letter-spacing:0.3px">CO</span></span>Compras</button>
-  <button class="mb2" onclick="adminAccion('huerfanas')"><span class="mb2-icon"><span style="font-size:10px;font-weight:800;color:var(--nbs-gold-dark);letter-spacing:0.3px">LI</span></span>Limpiar ventas de clientes eliminados</button>
-  <button class="mb2" id="btn-borrar" style="border-color:var(--nbs-red-bg)" onclick="adminAccion('borrar')"><span class="mb2-icon" style="background:var(--nbs-red-bg)"><span style="font-size:10px;font-weight:800;color:var(--nbs-red-dark);letter-spacing:0.3px">BO</span></span><span style="color:var(--nbs-red-dark)">Borrar todos los datos</span></button>
 </div>
 
 <div id="p-sup" class="pg">
@@ -1090,7 +1081,9 @@ function conLogoListo(cb){
 function LS(k,d){try{var v=localStorage.getItem(k);return v?JSON.parse(v):d;}catch(e){return d;}}
 
 function toggleMenuExtra(){
-  ir('p-mas');
+  var el = document.getElementById('menu-extra');
+  if(!el) return;
+  el.style.display = (el.style.display === 'block') ? 'none' : 'block';
 }
 
 function SS(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
@@ -1450,7 +1443,7 @@ function mostrarDirSugerencias(inputId, dropId, val){
 
 var historialPantallas = [];
 function pantallaActual(){
-  var all = ['menu','p-cl','p-v','p-rpt','p-cxc','p-cl-perfil','p-cl-factura','p-cat','p-sup','p-comp','p-ped','p-gastos','p-vip','p-mas','p-facturas','p-dashboard','p-rutas','p-manual','p-cxp'];
+  var all = ['menu','p-cl','p-v','p-rpt','p-cxc','p-cl-perfil','p-cl-factura','p-cat','p-inv','p-sup','p-comp','p-ped','p-gastos','p-vip','p-facturas','p-dashboard','p-rutas','p-manual','p-cxp'];
   for(var i=0;i<all.length;i++){
     var el = document.getElementById(all[i]);
     if(el && el.style.display === 'block') return all[i];
@@ -1515,7 +1508,7 @@ function ir(id, sinHistorial){
     if(actual && actual !== id) historialPantallas.push(actual);
   }
   window.scrollTo(0, 0);
-  var all = ['menu','p-cl','p-v','p-rpt','p-cxc','p-cl-perfil','p-cl-factura','p-cat','p-sup','p-comp','p-ped','p-gastos','p-vip','p-mas','p-facturas','p-dashboard','p-rutas','p-manual','p-cxp'];
+  var all = ['menu','p-cl','p-v','p-rpt','p-cxc','p-cl-perfil','p-cl-factura','p-cat','p-inv','p-sup','p-comp','p-ped','p-gastos','p-vip','p-facturas','p-dashboard','p-rutas','p-manual','p-cxp'];
   for(var i=0;i<all.length;i++) document.getElementById(all[i]).style.display='none';
   document.getElementById(id).style.display='block';
   if(id==='p-cl'){
@@ -1563,6 +1556,14 @@ function ir(id, sinHistorial){
       elCatSkel.innerHTML = filasSkel;
     }
     setTimeout(function(){ renderCatalogo(''); }, 200);
+  }
+  if(id==='p-inv'){
+    var invBuscar = document.getElementById('inv-buscar');
+    if(invBuscar) invBuscar.value = '';
+    window._invFiltroMarca = '';
+    window._invFiltroCat = '';
+    window._invOrden = 'alfabetico';
+    renderInventario('');
   }
   if(id==='p-sup'){
     document.getElementById('sup-lista-wrap').style.display='block';
@@ -2757,6 +2758,14 @@ var MANUAL_SECCIONES = [
     '"Editar toda una marca": corrige o actualiza varios productos de la misma marca a la vez, sin repetir uno por uno. También puedes duplicar o eliminar productos desde ahí mismo.',
     'Para la foto: toca el ícono de cámara → elige Tomar foto / Galería / Quitar foto → ajusta el recorte y confirma.'
   ]},
+  { t:'🏬 Inventario', c: [
+    'Panorama completo de tu mercancía: valor invertido -stock × costo-, valor de venta potencial, ganancia potencial y unidades totales.',
+    'Costo vendido -COGS- del mes: cuánto te costó, en total, todo lo que vendiste este mes.',
+    'Rotación de inventario: cuántas veces se "voltea" tu inventario en el mes -COGS ÷ valor de inventario-. Entre más alto, mejor: significa que tu dinero no se queda parado en el estante.',
+    'Inventario dormido: productos con stock que no se han vendido en 45 días o más -o nunca-. Aparecen resaltados para que decidas si liquidarlos o dejar de comprarlos.',
+    'La lista de productos se puede ordenar A-Z, por más vendidos -últimos 30 días- o mostrar solo los dormidos, y filtrar por marca o categoría.',
+    'Todo se lee en automático desde el Catálogo: si corriges un costo ahí, se actualiza aquí también sin hacer nada extra.'
+  ]},
   { t:'🏭 Suplidores', c: [
     'Lista de proveedores con nombre, teléfono y notas — se asignan a productos y se usan en el registro de compras.'
   ]},
@@ -3341,15 +3350,15 @@ function editarSuplidor(id){
     if(idx<0) return;
     var n = document.getElementById('esup-n').value.trim();
     if(!n){ alert('El nombre es requerido'); return; }
-    suplidores[idx].nombre = n;
-    suplidores[idx].contacto = document.getElementById('esup-ct').value.trim();
+    suplidores[idx].nombre = limpiarTexto(n);
+    suplidores[idx].contacto = limpiarTexto(document.getElementById('esup-ct').value.trim());
     suplidores[idx].tel = document.getElementById('esup-tel').value.trim();
     suplidores[idx].telContacto = document.getElementById('esup-telc').value.trim();
     suplidores[idx].email = document.getElementById('esup-em').value.trim();
-    suplidores[idx].dir = document.getElementById('esup-dir').value.trim();
-    suplidores[idx].ciudad = document.getElementById('esup-ciu').value.trim();
+    suplidores[idx].dir = limpiarTexto(document.getElementById('esup-dir').value.trim());
+    suplidores[idx].ciudad = limpiarTexto(document.getElementById('esup-ciu').value.trim());
     suplidores[idx].zip = document.getElementById('esup-zip').value.trim();
-    suplidores[idx].notas = document.getElementById('esup-notas').value.trim();
+    suplidores[idx].notas = limpiarTexto(document.getElementById('esup-notas').value.trim());
     SS('nsup', suplidores);
     overlay.style.display='none';
     verSup(sid);
@@ -4045,6 +4054,212 @@ function actualizarMarcasDetalle(){
       +'<span style="font-size:13px;color:#00838F;font-weight:800">'+porMarca[m]+'</span>'
       +'</div>';
   }).join('');
+}
+
+// ===== MÓDULO DE INVENTARIO =====
+
+function calcularUltimaVentaPorProducto(){
+  var mapa = {};
+  ventas.forEach(function(v){
+    if(v.cancelada || v.esBalanceInicial) return;
+    var f = parsearFechaVenta(v.fecha);
+    (v.items||[]).forEach(function(it){
+      if(it.pid === null || it.pid === undefined) return;
+      var key = String(it.pid);
+      if(!mapa[key] || f > mapa[key]) mapa[key] = f;
+    });
+  });
+  return mapa;
+}
+
+function calcularUnidadesVendidasPorProducto(diasAtras){
+  var mapa = {};
+  var limite = null;
+  if(diasAtras){ limite = new Date(); limite.setDate(limite.getDate() - diasAtras); }
+  ventas.forEach(function(v){
+    if(v.cancelada || v.esBalanceInicial) return;
+    if(limite && parsearFechaVenta(v.fecha) < limite) return;
+    (v.items||[]).forEach(function(it){
+      if(it.pid === null || it.pid === undefined) return;
+      var key = String(it.pid);
+      mapa[key] = (mapa[key]||0) + it.cant;
+    });
+  });
+  return mapa;
+}
+
+function calcularCOGSMes(){
+  var hoy = fechaHoy();
+  var mesActual = hoy.split('/')[0]+'/'+hoy.split('/')[2];
+  var cogs = 0;
+  ventas.forEach(function(v){
+    if(v.cancelada || v.esBalanceInicial) return;
+    var p = (v.fecha||'').split('/');
+    if(p[0]+'/'+p[2] !== mesActual) return;
+    (v.items||[]).forEach(function(it){ cogs += it.cant * (it.costo||0); });
+  });
+  return cogs;
+}
+
+function cambiarOrdenInventario(tipo){
+  window._invOrden = tipo;
+  var botones = { alfabetico:'inv-orden-alfa', masvendido:'inv-orden-venta', dormido:'inv-orden-dormido' };
+  Object.keys(botones).forEach(function(k){
+    var b = document.getElementById(botones[k]);
+    if(b){ b.style.background = (k===tipo) ? 'var(--nbs-gold)' : '#F0F0F2'; b.style.color = (k===tipo) ? 'white' : 'var(--nbs-ink)'; }
+  });
+  renderInventario(document.getElementById('inv-buscar') ? document.getElementById('inv-buscar').value : '');
+}
+
+function renderInventario(q){
+  loadProds();
+  ventas = LS('nv', []);
+  q = (q||'').toLowerCase().trim();
+
+  // Poblar selects de marca/categoría la primera vez que haya opciones
+  var selMarca = document.getElementById('inv-filtro-marca');
+  var selCat = document.getElementById('inv-filtro-cat');
+  if(selMarca && selMarca.options.length <= 1){
+    var marcas = Array.from(new Set(productos.map(marcaDe))).sort();
+    selMarca.innerHTML = '<option value="">Todas las marcas</option>' + marcas.map(function(m){ return '<option value="'+m+'">'+m+'</option>'; }).join('');
+  }
+  if(selCat && selCat.options.length <= 1){
+    var cats = Array.from(new Set(productos.map(function(p){ return p.cat||'Sin categoría'; }))).sort();
+    selCat.innerHTML = '<option value="">Todas las categorías</option>' + cats.map(function(c){ return '<option value="'+c+'">'+c+'</option>'; }).join('');
+  }
+  var filtroMarca = selMarca ? selMarca.value : '';
+  var filtroCat = selCat ? selCat.value : '';
+
+  // ===== Indicadores generales =====
+  var valorInventario = productos.reduce(function(s,p){ return s + (p.stock>0 ? p.stock*(p.costo||0) : 0); }, 0);
+  var valorVenta = productos.reduce(function(s,p){ return s + (p.stock>0 ? p.stock*(p.precio||0) : 0); }, 0);
+  var gananciaPotencial = valorVenta - valorInventario;
+  var unidadesTotales = productos.reduce(function(s,p){ return s + (p.stock>0?p.stock:0); }, 0);
+  var cogsMes = calcularCOGSMes();
+  var rotacion = valorInventario > 0 ? (cogsMes / valorInventario) : 0;
+  var diasInventario = rotacion > 0 ? Math.round(30/rotacion) : null;
+
+  var ultimaVentaPorPid = calcularUltimaVentaPorProducto();
+  var hoyDate = new Date();
+  var UMBRAL_DORMIDO = 45; // días sin venderse para considerarse dormido
+  var productosDormidos = productos.filter(function(p){
+    if(!(p.stock>0)) return false;
+    var ult = ultimaVentaPorPid[String(p.id)];
+    if(!ult) return true; // nunca se ha vendido
+    var dias = Math.floor((hoyDate-ult)/(1000*60*60*24));
+    return dias >= UMBRAL_DORMIDO;
+  });
+  var valorDormido = productosDormidos.reduce(function(s,p){ return s+(p.stock*(p.costo||0)); }, 0);
+
+  var elResumen = document.getElementById('inv-resumen');
+  if(elResumen){
+    elResumen.innerHTML = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">'
+      +'<div style="background:white;border-radius:12px;padding:12px;border:0.5px solid var(--nbs-line);box-shadow:var(--nbs-shadow-card)">'
+      +'<div style="font-size:10px;color:var(--nbs-muted);font-weight:600;margin-bottom:4px">VALOR INVENTARIO</div>'
+      +'<div style="font-size:17px;font-weight:700;color:var(--nbs-ink)">$'+fmtNum(valorInventario)+'</div>'
+      +'<div style="font-size:10px;color:var(--nbs-muted);margin-top:2px">lo que tienes invertido</div>'
+      +'</div>'
+      +'<div style="background:white;border-radius:12px;padding:12px;border:0.5px solid var(--nbs-line);box-shadow:var(--nbs-shadow-card)">'
+      +'<div style="font-size:10px;color:var(--nbs-muted);font-weight:600;margin-bottom:4px">VALOR DE VENTA</div>'
+      +'<div style="font-size:17px;font-weight:700;color:var(--nbs-ink)">$'+fmtNum(valorVenta)+'</div>'
+      +'<div style="font-size:10px;color:var(--nbs-muted);margin-top:2px">si vendieras todo</div>'
+      +'</div>'
+      +'</div>'
+      +'<div style="background:var(--nbs-green-bg);border-radius:12px;padding:12px;margin-bottom:8px;text-align:center">'
+      +'<div style="font-size:11px;color:var(--nbs-green-text);font-weight:700">💰 GANANCIA POTENCIAL</div>'
+      +'<div style="font-size:20px;font-weight:800;color:var(--nbs-green-text);margin-top:2px">$'+fmtNum(gananciaPotencial)+'</div>'
+      +'<div style="font-size:10px;color:var(--nbs-green-text);margin-top:1px">'+unidadesTotales+' unidades en stock</div>'
+      +'</div>'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">'
+      +'<div style="background:white;border-radius:12px;padding:12px;border:0.5px solid var(--nbs-line);box-shadow:var(--nbs-shadow-card)">'
+      +'<div style="font-size:10px;color:var(--nbs-muted);font-weight:600;margin-bottom:4px">COSTO VENDIDO -MES-</div>'
+      +'<div style="font-size:16px;font-weight:700;color:var(--nbs-ink)">$'+fmtNum(cogsMes)+'</div>'
+      +'<div style="font-size:10px;color:var(--nbs-muted);margin-top:2px">COGS del mes actual</div>'
+      +'</div>'
+      +'<div style="background:white;border-radius:12px;padding:12px;border:0.5px solid var(--nbs-line);box-shadow:var(--nbs-shadow-card)">'
+      +'<div style="font-size:10px;color:var(--nbs-muted);font-weight:600;margin-bottom:4px">ROTACIÓN -MES-</div>'
+      +'<div style="font-size:16px;font-weight:700;color:var(--nbs-ink)">'+rotacion.toFixed(2)+'x</div>'
+      +'<div style="font-size:10px;color:var(--nbs-muted);margin-top:2px">'+(diasInventario!==null?diasInventario+' días en promedio':'sin ventas este mes')+'</div>'
+      +'</div>'
+      +'</div>'
+      +(productosDormidos.length>0 ?
+        '<div style="background:#FFF3E0;border-radius:12px;padding:12px;margin-bottom:8px;cursor:pointer" onclick="cambiarOrdenInventario(\'dormido\')">'
+        +'<div style="font-size:11px;color:#E65100;font-weight:700">💤 INVENTARIO DORMIDO ('+productosDormidos.length+')</div>'
+        +'<div style="font-size:15px;font-weight:700;color:#E65100;margin-top:2px">$'+fmtNum(valorDormido)+' parados sin venderse hace '+UMBRAL_DORMIDO+'+ días</div>'
+        +'<div style="font-size:10px;color:#E65100;margin-top:2px">Toca para ver la lista</div>'
+        +'</div>' : '');
+  }
+
+  // ===== Lista de productos =====
+  var lista = productos.filter(function(p){
+    if(q && (p.nombre||'').toLowerCase().indexOf(q) === -1) return false;
+    if(filtroMarca && marcaDe(p) !== filtroMarca) return false;
+    if(filtroCat && (p.cat||'Sin categoría') !== filtroCat) return false;
+    return true;
+  });
+
+  var orden = window._invOrden || 'alfabetico';
+  if(orden === 'alfabetico'){
+    lista.sort(function(a,b){ return (a.nombre||'').localeCompare(b.nombre||''); });
+  } else if(orden === 'masvendido'){
+    var unidadesVendidas = calcularUnidadesVendidasPorProducto(30);
+    lista = lista.filter(function(p){ return unidadesVendidas[String(p.id)] > 0; });
+    lista.sort(function(a,b){ return (unidadesVendidas[String(b.id)]||0) - (unidadesVendidas[String(a.id)]||0); });
+  } else if(orden === 'dormido'){
+    lista = lista.filter(function(p){
+      if(!(p.stock>0)) return false;
+      var ult = ultimaVentaPorPid[String(p.id)];
+      if(!ult) return true;
+      var dias = Math.floor((hoyDate-ult)/(1000*60*60*24));
+      return dias >= UMBRAL_DORMIDO;
+    });
+    lista.sort(function(a,b){
+      var ua = ultimaVentaPorPid[String(a.id)] || new Date(0);
+      var ub = ultimaVentaPorPid[String(b.id)] || new Date(0);
+      return ua - ub;
+    });
+  }
+
+  var elLista = document.getElementById('inv-lista');
+  if(!elLista) return;
+  if(!lista.length){
+    elLista.innerHTML = '<div style="text-align:center;color:var(--nbs-muted);font-size:13px;padding:20px">No hay productos que coincidan</div>';
+    return;
+  }
+
+  var html = '';
+  var letraActual = '';
+  var unidadesVendidasMes = orden==='masvendido' ? calcularUnidadesVendidasPorProducto(30) : null;
+
+  lista.forEach(function(p){
+    if(orden === 'alfabetico'){
+      var letra = (p.nombre||'?').trim().charAt(0).toUpperCase();
+      if(letra !== letraActual){
+        letraActual = letra;
+        html += '<div style="padding:5px 4px;font-size:11px;font-weight:700;color:var(--nbs-muted);background:var(--nbs-bg2,#F7F7F8);border-radius:6px;margin-top:8px">'+letraActual+'</div>';
+      }
+    }
+    var margenPct = p.precio>0 ? Math.round(((p.precio-(p.costo||0))/p.precio)*100) : 0;
+    var colorMargen = margenPct < 20 ? 'var(--nbs-red-dark)' : (margenPct < 35 ? '#E65100' : 'var(--nbs-green-text)');
+    var subInfo = marcaDe(p)+' · '+(p.cat||'Sin categoría')+' · '+p.stock+' en stock';
+    if(orden==='masvendido' && unidadesVendidasMes) subInfo += ' · '+(unidadesVendidasMes[String(p.id)]||0)+' vendidas -30d-';
+    if(orden==='dormido'){
+      var ult = ultimaVentaPorPid[String(p.id)];
+      subInfo += ult ? (' · última venta hace '+Math.floor((hoyDate-ult)/(1000*60*60*24))+' días') : ' · nunca se ha vendido';
+    }
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;background:white;border-radius:10px;padding:10px 12px;margin-bottom:6px;border:0.5px solid var(--nbs-line)">'
+      +'<div style="flex:1;min-width:0">'
+      +'<div style="font-size:13px;font-weight:600;color:var(--nbs-ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+p.nombre+'</div>'
+      +'<div style="font-size:11px;color:var(--nbs-muted);margin-top:2px">'+subInfo+'</div>'
+      +'</div>'
+      +'<div style="text-align:right;margin-left:10px">'
+      +'<div style="font-size:12px;color:var(--nbs-ink)">Costo: $'+fmtNum(p.costo||0)+'</div>'
+      +'<div style="font-size:11px;font-weight:700;color:'+colorMargen+'">Margen '+margenPct+'%</div>'
+      +'<div style="font-size:11px;color:var(--nbs-muted)">Inv: $'+fmtNum(p.stock*(p.costo||0))+'</div>'
+      +'</div>'
+      +'</div>';
+  });
+  elLista.innerHTML = html;
 }
 
 function renderCatalogo(q){
@@ -5417,56 +5632,6 @@ var pedidos = LS('npedidos', []);
 var pedItemsTemp = [];
 var pedidoEditandoIdx = null;
 
-function renderPedidos(){
-  pedidos = LS('npedidos', []);
-  var el = document.getElementById('pedlista');
-  el.innerHTML = '';
-  if(!pedidos.length){ el.innerHTML = '<div class="card"><p style="color:#aaa;text-align:center;padding:20px">Sin pedidos pendientes</p></div>'; return; }
-
-  // Agrupar por barbería
-  var grupos = {};
-  pedidos.forEach(function(p, idx){
-    var b = p.barberia || 'Sin barbería';
-    if(!grupos[b]) grupos[b] = [];
-    grupos[b].push({p:p, idx:idx});
-  });
-
-  Object.keys(grupos).sort().forEach(function(barberia){
-    var header = document.createElement('div');
-    header.style.cssText = 'font-size:12px;font-weight:700;color:#F57F17;text-transform:uppercase;padding:8px 0 4px;margin-top:8px';
-    header.textContent = '🏪 ' + barberia;
-    el.appendChild(header);
-
-    grupos[barberia].forEach(function(item){
-      var p = item.p; var idx = item.idx;
-      var card = document.createElement('div');
-      card.className = 'card';
-      card.style.cssText = 'border-left:4px solid #F9A825;cursor:pointer;margin-bottom:8px';
-      var totalItems = p.items.reduce(function(s,it){ return s+it.cant; },0);
-      card.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center">'
-        +'<div style="flex:1">'
-        +'<div style="font-size:18px;font-weight:800;color:#1a237e">✂️ '+p.nombre+'</div>'
-        +'<div style="font-size:12px;color:#aaa;margin-top:3px">'+p.items.length+' producto(s) · '+totalItems+' unidad(es)</div>'
-        +'<div style="font-size:11px;color:#F9A825;margin-top:3px">Tocar para editar</div>'
-        +'</div>'
-        +'<span style="color:#ddd;font-size:20px">›</span></div>'
-        +'<div style="display:flex;gap:8px;margin-top:10px">'
-        +'<button id="btnconv-'+idx+'" style="flex:1;padding:12px;background:#2E7D32;color:white;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:700">🧾 Convertir a venta</button>'
-        +'<button id="btndel-'+idx+'" style="padding:12px 16px;background:#B71C1C;color:white;border:none;border-radius:8px;cursor:pointer;font-size:14px">🗑️</button>'
-        +'</div>';
-      card.onclick = (function(i){ return function(){ editarPedido(i); }; })(idx);
-      el.appendChild(card);
-    });
-  });
-
-  pedidos.forEach(function(p, idx){
-    var bc = document.getElementById('btnconv-'+idx);
-    var bd = document.getElementById('btndel-'+idx);
-    if(bc) bc.onclick = (function(i){ return function(e){ e.stopPropagation(); convertirPedidoAVenta(i); }; })(idx);
-    if(bd) bd.onclick = (function(i){ return function(e){ e.stopPropagation(); eliminarPedido(i); }; })(idx);
-  });
-}
-
 function eliminarPedido(idx){
   if(!confirm('¿Eliminar este pedido?')) return;
   pedidos = LS('npedidos', []);
@@ -6578,16 +6743,19 @@ function togglePin(){
   var sw = document.getElementById('pin-switch');
   var knob = document.getElementById('pin-knob');
   var txt = document.getElementById('pin-status-txt');
+  var sw2 = document.getElementById('pin-switch2');
+  var knob2 = document.getElementById('pin-knob2');
+  var txt2 = document.getElementById('pin-status-txt2');
   var icons = ['btn-cat','btn-sup','btn-comp','btn-rpt','btn-gastos','btn-borrar','btn-exp','btn-imp'];
   if(PIN_ACTIVO){
-    sw.style.background = '#2E7D32';
-    knob.style.left = '22px';
-    txt.textContent = 'Activado';
+    [sw,sw2].forEach(function(el){ if(el) el.style.background = '#2E7D32'; });
+    [knob,knob2].forEach(function(el){ if(el) el.style.left = '22px'; });
+    [txt,txt2].forEach(function(el){ if(el) el.textContent = 'Activado'; });
     icons.forEach(function(id){ var b=document.getElementById(id); if(b) b.textContent = b.textContent.replace(' 🔒',''); });
   } else {
-    sw.style.background = '#aaa';
-    knob.style.left = '3px';
-    txt.textContent = 'Desactivado';
+    [sw,sw2].forEach(function(el){ if(el) el.style.background = '#aaa'; });
+    [knob,knob2].forEach(function(el){ if(el) el.style.left = '3px'; });
+    [txt,txt2].forEach(function(el){ if(el) el.textContent = 'Desactivado'; });
   }
 }
 
@@ -7070,13 +7238,13 @@ function guardarProductoIndividualDeMarca(i){
   var fotoInput = document.getElementById('epml-foto-data-'+i);
   if(!nombreInput) return;
 
-  var marcaFinal = (marcaSelInput.value === '__otra__' ? marcaInput.value.trim() : marcaSelInput.value);
-  var restoFinal = nombreInput.value.trim();
+  var marcaFinal = limpiarTexto((marcaSelInput.value === '__otra__' ? marcaInput.value.trim() : marcaSelInput.value));
+  var restoFinal = limpiarTexto(nombreInput.value.trim());
   p.nombre = (marcaFinal ? marcaFinal + ' ' : '') + restoFinal;
   p.nombreCorto = restoFinal;
   p.marca = marcaFinal;
   p.foto = fotoInput ? fotoInput.value : (p.foto || '');
-  p.cat = (catSelInput.value === '__otra__' ? catInput.value.trim() : catSelInput.value);
+  p.cat = limpiarTexto((catSelInput.value === '__otra__' ? catInput.value.trim() : catSelInput.value));
   p.costo = parseFloat(costoInput.value) || 0;
   p.precio = parseFloat(precioInput.value) || 0;
   p.proveedorPref = supInput.value;
@@ -7120,13 +7288,13 @@ function guardarTodosLosProductosDeMarca(){
     var supInput = document.getElementById('epml-suplidor-'+i);
     var fotoInput = document.getElementById('epml-foto-data-'+i);
     if(!nombreInput) return;
-    var marcaFinal = (marcaSelInput.value === '__otra__' ? marcaInput.value.trim() : marcaSelInput.value);
-    var restoFinal = nombreInput.value.trim();
+    var marcaFinal = limpiarTexto((marcaSelInput.value === '__otra__' ? marcaInput.value.trim() : marcaSelInput.value));
+    var restoFinal = limpiarTexto(nombreInput.value.trim());
     p.nombre = (marcaFinal ? marcaFinal + ' ' : '') + restoFinal;
     p.nombreCorto = restoFinal;
     p.marca = marcaFinal;
     p.foto = fotoInput ? fotoInput.value : (p.foto || '');
-    p.cat = (catSelInput.value === '__otra__' ? catInput.value.trim() : catSelInput.value);
+    p.cat = limpiarTexto((catSelInput.value === '__otra__' ? catInput.value.trim() : catSelInput.value));
     p.costo = parseFloat(costoInput.value) || 0;
     p.precio = parseFloat(precioInput.value) || 0;
     p.proveedorPref = supInput.value;
@@ -9816,7 +9984,7 @@ function irMenuProtegido(id){
   setTimeout(function(){ irProtegido(id); }, 150);
 }
 
-function toggleMenuExtra(){ /* legacy - ya no se usa */ }
+// (toggleMenuExtra ahora se muestra/oculta el panel "menu-extra"; ver definición arriba)
 
 function verificarBackup(){
   var hoy = new Date().getTime();
@@ -10283,6 +10451,10 @@ function renderDashboard(){
     +(negociosPendientesVisita.length>3?'<div style="font-size:11px;color:var(--nbs-muted)">...y '+(negociosPendientesVisita.length-3)+' más — toca para ver en Ruta de Visitas</div>':'<div style="font-size:11px;color:var(--nbs-muted)">Toca para ver en Ruta de Visitas</div>')
     +'</div>' : '')
 
+  // Inventario -panorama completo, conectado con el módulo de Inventario-
+  +'<h3 style="font-size:12px;color:var(--nbs-muted);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;display:flex;align-items:center;gap:5px">🏬Inventario</h3>'
+  +renderResumenInventarioDashboard()
+
   // Productos más vendidos
   +'<h3 style="font-size:12px;color:var(--nbs-muted);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;display:flex;align-items:center;gap:5px">🏆Más vendidos este mes</h3>'
   +renderTopProductos(ventasMes)
@@ -10353,6 +10525,35 @@ function renderTopProductos(ventasMes){
         +'<div style="background:'+colores[i]+';height:100%;width:'+pct+'%;border-radius:20px"></div>'
         +'</div></div>';
     }).join('')+'</div>';
+}
+
+function renderResumenInventarioDashboard(){
+  loadProds();
+  var valorInventario = productos.reduce(function(s,p){ return s + (p.stock>0 ? p.stock*(p.costo||0) : 0); }, 0);
+  var valorVenta = productos.reduce(function(s,p){ return s + (p.stock>0 ? p.stock*(p.precio||0) : 0); }, 0);
+  var gananciaPotencial = valorVenta - valorInventario;
+  var cogsMes = calcularCOGSMes();
+  var rotacion = valorInventario > 0 ? (cogsMes / valorInventario) : 0;
+
+  var ultimaVentaPorPid = calcularUltimaVentaPorProducto();
+  var hoyDate = new Date();
+  var dormidos = productos.filter(function(p){
+    if(!(p.stock>0)) return false;
+    var ult = ultimaVentaPorPid[String(p.id)];
+    if(!ult) return true;
+    return Math.floor((hoyDate-ult)/(1000*60*60*24)) >= 45;
+  });
+
+  return '<div onclick="ir(\'p-inv\')" style="background:white;border-radius:12px;padding:14px;margin-bottom:16px;border:0.5px solid var(--nbs-line);box-shadow:var(--nbs-shadow-card);cursor:pointer">'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:'+(dormidos.length>0?'10px':'0')+'">'
+    +'<div><div style="font-size:10px;color:var(--nbs-muted);font-weight:600">VALOR INVENTARIO</div><div style="font-size:16px;font-weight:700;color:var(--nbs-ink)">$'+fmtNum(valorInventario)+'</div></div>'
+    +'<div><div style="font-size:10px;color:var(--nbs-muted);font-weight:600">GANANCIA POTENCIAL</div><div style="font-size:16px;font-weight:700;color:var(--nbs-green-text)">$'+fmtNum(gananciaPotencial)+'</div></div>'
+    +'<div><div style="font-size:10px;color:var(--nbs-muted);font-weight:600">ROTACIÓN -MES-</div><div style="font-size:14px;font-weight:700;color:var(--nbs-ink)">'+rotacion.toFixed(2)+'x</div></div>'
+    +'<div><div style="font-size:10px;color:var(--nbs-muted);font-weight:600">COSTO VENDIDO -MES-</div><div style="font-size:14px;font-weight:700;color:var(--nbs-ink)">$'+fmtNum(cogsMes)+'</div></div>'
+    +'</div>'
+    +(dormidos.length>0 ? '<div style="font-size:11px;color:#E65100;font-weight:600;border-top:0.5px solid var(--nbs-line);padding-top:8px">💤 '+dormidos.length+' producto(s) dormidos -sin venderse hace 45+ días-</div>' : '')
+    +'<div style="font-size:11px;color:var(--nbs-gold-dark);font-weight:600;margin-top:6px">Ver inventario completo →</div>'
+    +'</div>';
 }
 
 function renderHistorialPrecios(){
@@ -12433,6 +12634,24 @@ function verHistorialCliente(cid, modo){
   <div style="display:flex;gap:8px;margin-bottom:16px"><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="volverAtras()">← Atrás</button><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="ir('p-ped')">🏠 Inicio</button></div>
   <h2 style="font-size:24px;font-weight:800;color:#1a237e;margin-bottom:16px;text-align:center;padding-bottom:12px;border-bottom:2px solid #E8EAF6">📊 Resumen Financiero del Negocio</h2>
   <div id="dashboard-contenido"></div>
+</div>
+
+<div id="p-inv" class="pg">
+  <div style="display:flex;gap:8px;margin-bottom:16px"><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="volverAtras()">← Atrás</button><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="ir('p-ped')">🏠 Inicio</button></div>
+  <h2 style="font-size:20px;font-weight:700;color:#1a237e;margin-bottom:4px">🏬 Inventario</h2>
+  <p style="font-size:12px;color:var(--nbs-muted);margin-bottom:14px">Panorama completo de lo que tienes invertido en mercancía</p>
+  <div id="inv-resumen"></div>
+  <div style="display:flex;gap:8px;margin-top:12px;margin-bottom:8px">
+    <select class="inp" id="inv-filtro-marca" onchange="renderInventario(document.getElementById('inv-buscar').value)" style="flex:1;margin-bottom:0"><option value="">Todas las marcas</option></select>
+    <select class="inp" id="inv-filtro-cat" onchange="renderInventario(document.getElementById('inv-buscar').value)" style="flex:1;margin-bottom:0"><option value="">Todas las categorías</option></select>
+  </div>
+  <div style="display:flex;gap:6px;margin-bottom:10px">
+    <button id="inv-orden-alfa" class="btn" style="flex:1;padding:8px;font-size:11px;background:var(--nbs-gold);color:white;margin-bottom:0" onclick="cambiarOrdenInventario('alfabetico')">A-Z</button>
+    <button id="inv-orden-venta" class="btn" style="flex:1;padding:8px;font-size:11px;background:#F0F0F2;color:var(--nbs-ink);margin-bottom:0" onclick="cambiarOrdenInventario('masvendido')">🏆 Más vendido</button>
+    <button id="inv-orden-dormido" class="btn" style="flex:1;padding:8px;font-size:11px;background:#F0F0F2;color:var(--nbs-ink);margin-bottom:0" onclick="cambiarOrdenInventario('dormido')">💤 Dormidos</button>
+  </div>
+  <input class="inp" id="inv-buscar" type="text" placeholder="Buscar producto por nombre..." oninput="renderInventario(this.value)">
+  <div id="inv-lista"></div>
 </div>
 
 <div id="p-rutas" class="pg">

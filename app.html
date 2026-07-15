@@ -3662,6 +3662,67 @@ function editarCompra(cid, sid){
   itemsWrap.id = 'compra-edit-items-wrap';
   wrap.appendChild(itemsWrap);
 
+  // Agregar un producto que faltaba -por ejemplo, si el suplidor mando algo de mas o distinto
+  // a lo que decia la factura original-
+  var agregarLabel = document.createElement('div');
+  agregarLabel.style.cssText = 'font-size:11px;color:#aaa;font-weight:700;text-transform:uppercase;margin:16px 0 8px';
+  agregarLabel.textContent = 'Agregar un producto que faltaba';
+  wrap.appendChild(agregarLabel);
+
+  var buscarAgregar = document.createElement('input');
+  buscarAgregar.className = 'inp';
+  buscarAgregar.type = 'text';
+  buscarAgregar.placeholder = 'Buscar producto del catálogo...';
+  wrap.appendChild(buscarAgregar);
+
+  var resultadosAgregar = document.createElement('div');
+  resultadosAgregar.style.cssText = 'display:none;max-height:200px;overflow-y:auto;background:white;border:1px solid #ddd;border-radius:8px;margin-top:4px;margin-bottom:8px';
+  wrap.appendChild(resultadosAgregar);
+
+  var btnProductoNuevo = document.createElement('button');
+  btnProductoNuevo.textContent = '+ Agregar un producto que no está en el catálogo';
+  btnProductoNuevo.style.cssText = 'width:100%;padding:9px;background:#EFEBE9;color:#5D4037;border:1px dashed #A1887F;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;margin-bottom:10px';
+  btnProductoNuevo.onclick = function(){
+    var nombreNuevo = prompt('Nombre del producto que faltaba:');
+    if(nombreNuevo === null) return;
+    nombreNuevo = limpiarTexto(nombreNuevo.trim());
+    if(!nombreNuevo){ alert('Tienes que escribir un nombre.'); return; }
+    var costoNuevo = parseFloat(prompt('Costo por unidad -lo que pagaste-:')) || 0;
+    var cantNueva = parseInt(prompt('Cantidad recibida:')) || 1;
+    var precioVentaNuevo = parseFloat(prompt('¿A qué precio lo vas a vender? -puedes ajustarlo después en Catálogo-:')) || 0;
+    window._compraEditItems.push({ nombre: nombreNuevo, cant: cantNueva, costo: costoNuevo, pid: null, esNuevo: true, marca: '', cat: '', precioVenta: precioVentaNuevo });
+    renderCompraEditItems();
+  };
+  wrap.appendChild(btnProductoNuevo);
+
+  buscarAgregar.addEventListener('input', function(){
+    var q = buscarAgregar.value.trim().toLowerCase();
+    if(!q){ resultadosAgregar.style.display='none'; return; }
+    loadProds();
+    var lista = productos.filter(function(p){ return p.nombre.toLowerCase().indexOf(q)>=0; }).slice(0,15);
+    if(!lista.length){
+      resultadosAgregar.innerHTML = '<div style="padding:10px;font-size:12px;color:#aaa">Sin resultados -puedes agregarlo como producto que no está en el catálogo, abajo-</div>';
+      resultadosAgregar.style.display = 'block';
+      return;
+    }
+    resultadosAgregar.innerHTML = lista.map(function(p){
+      return '<div data-pid="'+p.id+'" style="padding:10px;border-bottom:1px solid #f0f0f0;cursor:pointer;font-size:13px">'
+        +'<div style="font-weight:600">'+p.nombre+'</div><div style="font-size:11px;color:#aaa">Costo actual: $'+fmtNum(p.costo)+'</div></div>';
+    }).join('');
+    resultadosAgregar.style.display = 'block';
+    Array.from(resultadosAgregar.children).forEach(function(el){
+      el.onclick = function(){
+        var pid = el.getAttribute('data-pid');
+        var p = productos.find(function(x){ return String(x.id)===String(pid); });
+        if(!p) return;
+        window._compraEditItems.push({ nombre: p.nombre, cant: 1, costo: p.costo, pid: p.id, esNuevo: false, marca: p.marca||'', cat: p.cat||'' });
+        buscarAgregar.value = '';
+        resultadosAgregar.style.display = 'none';
+        renderCompraEditItems();
+      };
+    });
+  });
+
   function renderCompraEditItems(){
     itemsWrap.innerHTML = '';
     window._compraEditItems.forEach(function(it, i){
@@ -3695,6 +3756,45 @@ function editarCompra(cid, sid){
   }
   renderCompraEditItems();
 
+  // ALERTA DE RIESGO: si esta compra ya tiene pagos registrados, cambiar el total aqui
+  // afecta el balance pendiente -el pago ya hecho no se ajusta solo-. Se avisa claramente.
+  var totalPagadoYa = (c.pagosFactura||[]).filter(function(p){return typeof p.monto==='number';}).reduce(function(s,p){return s+p.monto;},0);
+  if(totalPagadoYa > 0.005){
+    var avisoRiesgo = document.createElement('div');
+    avisoRiesgo.style.cssText = 'background:#FFEBEE;border:1.5px solid #E53935;border-radius:10px;padding:12px;margin:14px 0';
+    avisoRiesgo.innerHTML = '<div style="font-size:12px;font-weight:800;color:#C62828">⚠️ CUIDADO: esta compra ya tiene $'+fmtNum(totalPagadoYa)+' pagado(s)</div>'
+      +'<div style="font-size:11px;color:#C62828;margin-top:4px">Si cambias productos, cantidades, costos, o el envío, el TOTAL de la compra va a cambiar, pero lo que ya pagaste se queda igual -el balance pendiente con el suplidor se va a ajustar según el nuevo total, no según lo que pagaste antes de este cambio.</div>';
+    wrap.appendChild(avisoRiesgo);
+  }
+
+  var envioLabel = document.createElement('label');
+  envioLabel.className = 'lbl';
+  envioLabel.textContent = 'Costo de envío -shipping-';
+  wrap.appendChild(envioLabel);
+  var envioInput = document.createElement('input');
+  envioInput.className = 'inp';
+  envioInput.type = 'text';
+  envioInput.inputMode = 'numeric';
+  envioInput.id = 'compra-edit-envio';
+  envioInput.value = (c.envio||0).toFixed(2);
+  envioInput.onfocus = function(){ envioInput.select(); };
+  wrap.appendChild(envioInput);
+
+  var totalEditWrap = document.createElement('div');
+  totalEditWrap.style.cssText = 'background:#EFEBE9;border-radius:8px;padding:12px;margin:10px 0;display:flex;justify-content:space-between';
+  totalEditWrap.innerHTML = '<span style="font-size:13px;color:#5D4037">Total de la compra</span><span id="compra-edit-total" style="font-weight:700;font-size:18px;color:#5D4037">$0.00</span>';
+  wrap.appendChild(totalEditWrap);
+
+  function actualizarTotalEdicionCompra(){
+    var totItems = window._compraEditItems.reduce(function(s,it){ return s+(it.cant*it.costo); },0);
+    var envio = parseFloat(document.getElementById('compra-edit-envio').value)||0;
+    document.getElementById('compra-edit-total').textContent = '$'+fmtNum(totItems+envio);
+  }
+  envioInput.addEventListener('input', function(){ formatoMoneda(envioInput); actualizarTotalEdicionCompra(); });
+  var renderOriginal = renderCompraEditItems;
+  renderCompraEditItems = function(){ renderOriginal(); actualizarTotalEdicionCompra(); };
+  setTimeout(actualizarTotalEdicionCompra, 0);
+
   var btnGuardarCompra = document.createElement('button');
   btnGuardarCompra.textContent = '✓ Guardar cambios';
   btnGuardarCompra.style.cssText = 'width:100%;padding:12px;background:#1565C0;color:white;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;margin-top:14px';
@@ -3723,14 +3823,24 @@ function guardarEdicionCompra(){
   window._compraEditItems.forEach(function(it){
     var p = it.pid ? productos.find(function(x){ return String(x.id)===String(it.pid); }) : null;
     if(!p && it.esNuevo) p = productos.find(function(x){ return (x.marca||'').toLowerCase()===(it.marca||'').toLowerCase() && (x.nombreCorto||'').toLowerCase()===(it.nombre||'').toLowerCase(); });
-    if(p) p.stock = (p.stock||0) + (it.cant||1);
+    if(p){
+      p.stock = (p.stock||0) + (it.cant||1);
+    } else if(it.esNuevo){
+      // Producto genuinamente nuevo -nunca existio en el catalogo-, hay que crearlo de verdad,
+      // no solo dejarlo como texto dentro de la compra, o se pierde el control del inventario.
+      var nuevoId = 'custom_' + Date.now() + '_' + Math.floor(Math.random()*1000);
+      productos.push({ id: nuevoId, marca: it.marca||'', nombreCorto: it.nombre, nombre: it.nombre, cat: it.cat||'', sku: '', costo: it.costo||0, precio: it.precioVenta||0, stock: it.cant||1, min: 5 });
+      it.pid = nuevoId; // guardar la referencia para la proxima vez que se edite esta compra
+    }
   });
   SS('np', productos);
 
   compras[idx].items = window._compraEditItems.map(function(it){
     return { nombre: (it.nombre||'').trim(), cant: it.cant||1, costo: it.costo||0, pid: it.pid||null, esNuevo: it.esNuevo||false, marca: it.marca||'', cat: it.cat||'' };
   });
-  compras[idx].total = compras[idx].items.reduce(function(s,it){ return s+(it.cant*it.costo); },0);
+  var envioEditado = parseFloat(document.getElementById('compra-edit-envio').value) || 0;
+  compras[idx].envio = envioEditado;
+  compras[idx].total = compras[idx].items.reduce(function(s,it){ return s+(it.cant*it.costo); },0) + envioEditado;
 
   var fechaEl = document.getElementById('compra-edit-fecha');
   if(fechaEl && fechaEl.value){
@@ -5282,7 +5392,7 @@ function procesarDictadoCompra(textoOriginal){
 
   var textoProducto = palabras.join(' ').trim();
   if(!textoProducto){
-    wrap.innerHTML = '<div style="font-size:13px;color:#C62828">No se entendió qué producto buscar. Escuché: "'+textoOriginal+'"</div>';
+    wrap.innerHTML = '<div style="font-size:13px;color:#C62828">No se entendió qué producto buscar. Escuché: "'+limpiarTexto(textoOriginal)+'"</div>';
     return;
   }
 
@@ -5301,13 +5411,13 @@ function procesarDictadoCompra(textoOriginal){
   }
 
   if(!coincidencias.length){
-    wrap.innerHTML = '<div style="font-size:13px;color:#333">Escuché: <b>"'+textoOriginal+'"</b></div>'
-      + '<div style="font-size:12px;color:#C62828;margin-top:6px">No encontré ningún producto parecido a "'+textoProducto+'". Búscalo escribiendo, o agrégalo como producto nuevo.</div>';
+    wrap.innerHTML = '<div style="font-size:13px;color:#333">Escuché: <b>"'+limpiarTexto(textoOriginal)+'"</b></div>'
+      + '<div style="font-size:12px;color:#C62828;margin-top:6px">No encontré ningún producto parecido a "'+limpiarTexto(textoProducto)+'". Búscalo escribiendo, o agrégalo como producto nuevo.</div>';
     return;
   }
 
   var mejor = coincidencias[0];
-  wrap.innerHTML = '<div style="font-size:13px;color:#333">Escuché: <b>"'+textoOriginal+'"</b></div>'
+  wrap.innerHTML = '<div style="font-size:13px;color:#333">Escuché: <b>"'+limpiarTexto(textoOriginal)+'"</b></div>'
     + '<div style="background:white;border-radius:8px;padding:10px;margin-top:8px">'
     + '<div style="font-size:13px;font-weight:700">'+mejor.nombre+'</div>'
     + '<div style="font-size:12px;color:#777">Cantidad: '+cantidad+' · Costo actual: $'+fmtNum(mejor.costo)+' c/u</div>'
@@ -6080,7 +6190,7 @@ function procesarDictadoPedido(textoOriginal){
   var textoProducto = palabras.join(' ').trim();
 
   if(!textoProducto){
-    wrap.innerHTML = '<div style="font-size:13px;color:#C62828">No se entendió qué producto buscar. Escuché: "'+textoOriginal+'"</div>';
+    wrap.innerHTML = '<div style="font-size:13px;color:#C62828">No se entendió qué producto buscar. Escuché: "'+limpiarTexto(textoOriginal)+'"</div>';
     return;
   }
 
@@ -6102,13 +6212,13 @@ function procesarDictadoPedido(textoOriginal){
   }
 
   if(!coincidencias.length){
-    wrap.innerHTML = '<div style="font-size:13px;color:#333">Escuché: <b>"'+textoOriginal+'"</b></div>'
-      + '<div style="font-size:12px;color:#C62828;margin-top:6px">No encontré ningún producto parecido a "'+textoProducto+'". Intenta describirlo distinto, o búscalo escribiendo.</div>';
+    wrap.innerHTML = '<div style="font-size:13px;color:#333">Escuché: <b>"'+limpiarTexto(textoOriginal)+'"</b></div>'
+      + '<div style="font-size:12px;color:#C62828;margin-top:6px">No encontré ningún producto parecido a "'+limpiarTexto(textoProducto)+'". Intenta describirlo distinto, o búscalo escribiendo.</div>';
     return;
   }
 
   var mejor = coincidencias[0];
-  wrap.innerHTML = '<div style="font-size:13px;color:#333">Escuché: <b>"'+textoOriginal+'"</b></div>'
+  wrap.innerHTML = '<div style="font-size:13px;color:#333">Escuché: <b>"'+limpiarTexto(textoOriginal)+'"</b></div>'
     + '<div style="background:white;border-radius:8px;padding:10px;margin-top:8px">'
     + '<div style="font-size:13px;font-weight:700">'+mejor.nombre+'</div>'
     + '<div style="font-size:12px;color:#777">Cantidad: '+cantidad+' · $'+fmtNum(mejor.precio)+' c/u · Stock: '+mejor.stock+'</div>'

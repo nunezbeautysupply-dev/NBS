@@ -323,6 +323,7 @@ button:active{transform:scale(0.96);filter:brightness(0.93);}
 
     <div style="font-size:10px;color:var(--nbs-muted-2);font-weight:700;letter-spacing:1px;padding:12px 8px 4px">INVENTARIO</div>
     <button onclick="irMenuProtegido('p-cat')" class="mlb2"><span class="mlb2-icon"><span style="font-size:19px">📦</span></span>Catálogo</button>
+    <button onclick="irMenuProtegido('p-inventario')" class="mlb2"><span class="mlb2-icon"><span style="font-size:19px">💰</span></span>Inventario</button>
     <button onclick="irMenuProtegido('p-sup')" class="mlb2"><span class="mlb2-icon"><span style="font-size:19px">🏭</span></span>Suplidores</button>
     <button onclick="irMenuProtegido('p-comp')" class="mlb2"><span class="mlb2-icon"><span style="font-size:19px">🚚</span></span>Compras</button>
 
@@ -559,6 +560,20 @@ button:active{transform:scale(0.96);filter:brightness(0.93);}
       <div class="snk" id="mk-ep">Producto actualizado</div>
     </div>
   </div>
+</div>
+
+<div id="p-inventario" class="pg">
+  <h2 style="font-size:20px;font-weight:700;color:#1a237e;margin-bottom:4px">💰 Inventario</h2>
+  <p style="font-size:12px;color:var(--nbs-muted);margin-bottom:14px">Cuánto dinero tienes invertido en mercancía, y cuánto ganarías si la vendieras toda. Esta información es 100% interna — nunca la ve un cliente.</p>
+
+  <div id="inv-resumen" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px"></div>
+
+  <input class="inp" id="invbuscar" type="text" placeholder="Buscar producto por nombre..." oninput="renderInventario(this.value)">
+  <div style="display:flex;gap:8px;margin-bottom:10px">
+    <select class="inp" id="inv-filtro-marca" onchange="renderInventario(document.getElementById('invbuscar').value)" style="flex:1"><option value="">Todas las marcas</option></select>
+    <select class="inp" id="inv-filtro-cat" onchange="renderInventario(document.getElementById('invbuscar').value)" style="flex:1"><option value="">Todas las categorías</option></select>
+  </div>
+  <div id="invlista"></div>
 </div>
 
 <div id="p-cl" class="pg">
@@ -1453,7 +1468,7 @@ function mostrarDirSugerencias(inputId, dropId, val){
 
 var historialPantallas = [];
 function pantallaActual(){
-  var all = ['menu','p-cl','p-v','p-rpt','p-cxc','p-cl-perfil','p-cl-factura','p-cat','p-sup','p-comp','p-ped','p-gastos','p-vip','p-mas','p-facturas','p-dashboard','p-rutas','p-manual','p-cxp'];
+  var all = ['menu','p-cl','p-v','p-rpt','p-cxc','p-cl-perfil','p-cl-factura','p-cat','p-inventario','p-sup','p-comp','p-ped','p-gastos','p-vip','p-mas','p-facturas','p-dashboard','p-rutas','p-manual','p-cxp'];
   for(var i=0;i<all.length;i++){
     var el = document.getElementById(all[i]);
     if(el && el.style.display === 'block') return all[i];
@@ -1518,7 +1533,7 @@ function ir(id, sinHistorial){
     if(actual && actual !== id) historialPantallas.push(actual);
   }
   window.scrollTo(0, 0);
-  var all = ['menu','p-cl','p-v','p-rpt','p-cxc','p-cl-perfil','p-cl-factura','p-cat','p-sup','p-comp','p-ped','p-gastos','p-vip','p-mas','p-facturas','p-dashboard','p-rutas','p-manual','p-cxp'];
+  var all = ['menu','p-cl','p-v','p-rpt','p-cxc','p-cl-perfil','p-cl-factura','p-cat','p-inventario','p-sup','p-comp','p-ped','p-gastos','p-vip','p-mas','p-facturas','p-dashboard','p-rutas','p-manual','p-cxp'];
   for(var i=0;i<all.length;i++) document.getElementById(all[i]).style.display='none';
   document.getElementById(id).style.display='block';
   if(id==='p-cl'){
@@ -1595,6 +1610,7 @@ function ir(id, sinHistorial){
   }
   if(id==='p-facturas'){ var bf=document.getElementById('fact-buscar'); if(bf) bf.value=''; renderFacturas(''); }
   if(id==='p-dashboard') renderDashboard();
+  if(id==='p-inventario') renderInventario('');
   if(id==='p-rutas') renderRutas();
   if(id==='p-gastos'){
     document.getElementById('gastos-l').style.display='block';
@@ -4340,6 +4356,88 @@ function actualizarMarcasDetalle(){
     return '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #E0F2F1">'
       +'<span style="font-size:13px;color:#00695C;font-weight:600">'+m+'</span>'
       +'<span style="font-size:13px;color:#00838F;font-weight:800">'+porMarca[m]+'</span>'
+      +'</div>';
+  }).join('');
+}
+
+function renderInventario(q){
+  loadProds();
+  q = (q||'').toLowerCase();
+  var marcaFiltro = document.getElementById('inv-filtro-marca') ? document.getElementById('inv-filtro-marca').value : '';
+  var catFiltro = document.getElementById('inv-filtro-cat') ? document.getElementById('inv-filtro-cat').value : '';
+
+  // Los totales del RESUMEN se calculan sobre TODO el catalogo -no solo lo que este buscando o
+  // filtrando en ese momento-, para que siempre reflejen el panorama completo del negocio.
+  var totalInvertido = 0, totalVenta = 0, totalUnidades = 0, productosConStock = 0;
+  productos.forEach(function(p){
+    if(p.stock > 0){
+      totalInvertido += p.stock * (p.costo||0);
+      totalVenta += p.stock * (p.precio||0);
+      totalUnidades += p.stock;
+      productosConStock++;
+    }
+  });
+  var gananciaPotencial = totalVenta - totalInvertido;
+
+  var resumenEl = document.getElementById('inv-resumen');
+  resumenEl.innerHTML =
+    '<div style="background:white;border-radius:12px;padding:14px;border:0.5px solid var(--nbs-line);box-shadow:var(--nbs-shadow-card)">'
+    +'<div style="font-size:11px;color:var(--nbs-muted);font-weight:600;margin-bottom:6px">TOTAL INVERTIDO</div>'
+    +'<div style="font-size:19px;font-weight:700;color:var(--nbs-ink)">$'+fmtNum(totalInvertido)+'</div>'
+    +'<div style="font-size:10px;color:var(--nbs-muted);margin-top:2px">Lo que te costó tu mercancía</div></div>'
+    +'<div style="background:white;border-radius:12px;padding:14px;border:0.5px solid var(--nbs-line);box-shadow:var(--nbs-shadow-card)">'
+    +'<div style="font-size:11px;color:var(--nbs-muted);font-weight:600;margin-bottom:6px">VALOR DE VENTA</div>'
+    +'<div style="font-size:19px;font-weight:700;color:var(--nbs-ink)">$'+fmtNum(totalVenta)+'</div>'
+    +'<div style="font-size:10px;color:var(--nbs-muted);margin-top:2px">Si vendieras todo al precio de lista</div></div>'
+    +'<div style="background:var(--nbs-green-bg);border-radius:12px;padding:14px">'
+    +'<div style="font-size:11px;color:var(--nbs-green-text);font-weight:600;margin-bottom:6px">GANANCIA POTENCIAL</div>'
+    +'<div style="font-size:19px;font-weight:700;color:var(--nbs-green-text)">$'+fmtNum(gananciaPotencial)+'</div>'
+    +'<div style="font-size:10px;color:var(--nbs-green-text);margin-top:2px">Si se vende todo lo que tienes</div></div>'
+    +'<div style="background:white;border-radius:12px;padding:14px;border:0.5px solid var(--nbs-line);box-shadow:var(--nbs-shadow-card)">'
+    +'<div style="font-size:11px;color:var(--nbs-muted);font-weight:600;margin-bottom:6px">UNIDADES / PRODUCTOS</div>'
+    +'<div style="font-size:19px;font-weight:700;color:var(--nbs-ink)">'+totalUnidades+'</div>'
+    +'<div style="font-size:10px;color:var(--nbs-muted);margin-top:2px">en '+productosConStock+' producto(s) distinto(s)</div></div>';
+
+  // Llenar los filtros de marca/categoria solo la primera vez -si ya tienen opciones, no se vuelven a construir-
+  var selMarca = document.getElementById('inv-filtro-marca');
+  if(selMarca.options.length <= 1){
+    var marcas = Array.from(new Set(productos.map(function(p){ return p.marca||''; }).filter(Boolean))).sort();
+    marcas.forEach(function(m){ var o=document.createElement('option'); o.value=m; o.textContent=m; selMarca.appendChild(o); });
+  }
+  var selCat = document.getElementById('inv-filtro-cat');
+  if(selCat.options.length <= 1){
+    var cats = Array.from(new Set(productos.map(function(p){ return p.cat||''; }).filter(Boolean))).sort();
+    cats.forEach(function(c){ var o=document.createElement('option'); o.value=c; o.textContent=c; selCat.appendChild(o); });
+  }
+
+  // La TABLA si respeta la busqueda y los filtros, ordenada alfabeticamente para encontrar rapido
+  var lista = productos.filter(function(p){
+    if(q && p.nombre.toLowerCase().indexOf(q) < 0) return false;
+    if(marcaFiltro && p.marca !== marcaFiltro) return false;
+    if(catFiltro && p.cat !== catFiltro) return false;
+    return true;
+  }).sort(function(a,b){ return a.nombre.localeCompare(b.nombre); });
+
+  var listaEl = document.getElementById('invlista');
+  if(!lista.length){
+    listaEl.innerHTML = '<div style="text-align:center;color:var(--nbs-muted);padding:20px;font-size:13px">No se encontró ningún producto.</div>';
+    return;
+  }
+  listaEl.innerHTML = lista.map(function(p){
+    var costoTotal = (p.stock||0) * (p.costo||0);
+    var valorTotal = (p.stock||0) * (p.precio||0);
+    var margen = p.precio > 0 ? ((p.precio - (p.costo||0)) / p.precio * 100) : 0;
+    var sinStock = !p.stock || p.stock <= 0;
+    return '<div class="card" style="'+(sinStock?'opacity:0.55':'')+'">'
+      +'<div style="font-size:14px;font-weight:700;color:var(--nbs-ink)">'+p.nombre+'</div>'
+      +'<div style="font-size:11px;color:var(--nbs-muted);margin-bottom:8px">'+(p.marca||'')+(p.cat?' · '+p.cat:'')+' · Stock: '+(p.stock||0)+'</div>'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px">'
+      +'<div>Costo c/u: <b>$'+fmtNum(p.costo||0)+'</b></div>'
+      +'<div>Precio venta: <b>$'+fmtNum(p.precio||0)+'</b></div>'
+      +'<div>Costo total: <b>$'+fmtNum(costoTotal)+'</b></div>'
+      +'<div>Valor total: <b style="color:var(--nbs-green-text)">$'+fmtNum(valorTotal)+'</b></div>'
+      +'</div>'
+      +'<div style="margin-top:6px;font-size:11px;color:'+(margen>=30?'var(--nbs-green-text)':'var(--nbs-gold-dark)')+';font-weight:700">Margen: '+margen.toFixed(1)+'%</div>'
       +'</div>';
   }).join('');
 }

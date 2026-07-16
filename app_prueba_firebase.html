@@ -10588,7 +10588,13 @@ function exportD(){
   creditos = LS('ncr', []);
   suplidores = LS('nsup', []);
   var gastos = LS('ngastos', []);
-  var d = {v:1, productos:productos, ventas:ventas, compras:compras, creditos:creditos, clientes:clientes, suplidores:suplidores, gastos:gastos};
+  var tarjetas = LS('ntarjetas', []);
+  var otrasDeudas = LS('notrasdeudas', []);
+  var pedidos = LS('npedidos', []);
+  var devoluciones = LS('ndevoluciones', []);
+  var productosEliminados = LS('np_eliminados', []);
+  var d = {v:2, productos:productos, ventas:ventas, compras:compras, creditos:creditos, clientes:clientes, suplidores:suplidores, gastos:gastos,
+    tarjetas:tarjetas, otrasDeudas:otrasDeudas, pedidos:pedidos, devoluciones:devoluciones, productosEliminados:productosEliminados};
   var json = JSON.stringify(d);
 
   // Registrar fecha del backup
@@ -10677,6 +10683,11 @@ function importD(inp){
       if(d.productos){productos=d.productos;SS('np',productos);}
       if(d.suplidores){suplidores=d.suplidores;SS('nsup',suplidores);}
       if(d.gastos){SS('ngastos',d.gastos);}
+      if(d.tarjetas){SS('ntarjetas',d.tarjetas);}
+      if(d.otrasDeudas){SS('notrasdeudas',d.otrasDeudas);}
+      if(d.pedidos){SS('npedidos',d.pedidos);}
+      if(d.devoluciones){SS('ndevoluciones',d.devoluciones);}
+      if(d.productosEliminados){SS('np_eliminados',d.productosEliminados);}
       alert('Datos importados correctamente');
       ir('p-ped');
     }catch(err){alert('Error al importar');}

@@ -9795,14 +9795,16 @@ function dibujarContenidoFactura(ctx, W, pad, v, cl, pagado, saldo, numFact, abo
   var maxNegocio = colorMode ? 24 : 15; // solo se usa en el modo a color
   var maxDir = colorMode ? 34 : 22; // solo se usa en el modo a color
 
-  // Header con logo -mas chico que antes, para que no compita con la informacion del cliente-
-  var logoW = colorMode ? Math.min(W*0.62, 260) : Math.min(W*0.45, 170);
-  var logoH = logoW * (245/300);
+  // Header con logo -se usa la proporcion REAL de cada imagen, ya que el logo a color y el
+  // logo en blanco y negro no tienen exactamente las mismas proporciones; antes se forzaba la
+  // misma proporcion a los dos, estirando el logo a color-. Tambien un poco mas grande que antes.
   var logoActivo = colorMode ? LOGO_IMG_COLOR : LOGO_IMG;
   if(colorMode && (!logoActivo || logoActivo.naturalWidth === 0)) logoActivo = LOGO_IMG;
+  var logoW = colorMode ? Math.min(W*0.68, 290) : Math.min(W*0.5, 190);
   if(logoActivo && logoActivo.naturalWidth > 0){
+    var logoH = logoW * (logoActivo.naturalHeight / logoActivo.naturalWidth);
     ctx.drawImage(logoActivo, W/2 - logoW/2, 10, logoW, logoH);
-    y = 10 + logoH + 14;
+    y = 10 + logoH + 16;
   } else {
     // Respaldo si el logo no cargo a tiempo
     ctx.fillStyle = colorMode ? '#1a237e' : '#000';
@@ -9812,14 +9814,15 @@ function dibujarContenidoFactura(ctx, W, pad, v, cl, pagado, saldo, numFact, abo
     y = 50;
   }
   // Direccion y telefono del NEGOCIO -visibles pero discretos, sin negrita, para no competir
-  // con la informacion del cliente que viene despues-.
-  ctx.font = fs.dir+'px Georgia, serif';
+  // con la informacion del cliente que viene despues-. Un poco mas grande y con mas espaciado
+  // que antes, para que se lea mejor incluso con zoom/impreso.
+  ctx.font = (fs.dir+2)+'px Georgia, serif';
   ctx.fillStyle = colorMode ? '#888' : '#555';
   ctx.textAlign = 'center';
   ctx.fillText('964 Atwells Ave, Providence, RI 02909', W/2, y);
-  y += colorMode?15:18;
+  y += colorMode?19:22;
   ctx.fillText('401-305-0188', W/2, y);
-  y += colorMode?24:26;
+  y += colorMode?28:30;
 
   if(colorMode){
     // ===== Formato original, sin cambios (version a color para compartir) =====

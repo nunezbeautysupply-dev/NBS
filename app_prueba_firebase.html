@@ -10520,10 +10520,28 @@ function limpiarVentasHuerfanas(){
 }
 
 function borrarTodo(){
-  if(confirm("Borrar TODOS los datos?")){
-    localStorage.clear();
-    alert("Datos borrados");
-    location.reload();
+  if(confirm("Borrar TODOS los datos? Esto también borrará la copia en la nube.")){
+    // Si hay sesion iniciada, primero se borran los documentos en Firestore -la nube-,
+    // para que al recargar la app no se vuelvan a bajar datos viejos por accidente.
+    var terminarBorrado = function(){
+      localStorage.clear();
+      alert("Datos borrados");
+      location.reload();
+    };
+    if(typeof fbAuth !== 'undefined' && fbAuth.currentUser){
+      fbDb.collection('nbs_data').get().then(function(snapshot){
+        var borrados = [];
+        snapshot.forEach(function(doc){
+          borrados.push(fbDb.collection('nbs_data').doc(doc.id).delete());
+        });
+        return Promise.all(borrados);
+      }).then(terminarBorrado).catch(function(e){
+        console.error('No se pudo borrar todo en la nube:', e);
+        alert('No se pudo borrar la copia en la nube -revisa tu conexión-. El teléfono no se borró, para evitar que los datos vuelvan a bajarse de la nube después.');
+      });
+    } else {
+      terminarBorrado();
+    }
   }
 }
 

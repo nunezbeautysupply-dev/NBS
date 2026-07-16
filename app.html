@@ -5389,12 +5389,14 @@ function guardarEdicionProducto(){
 
   // -confirmacion redundante quitada, el boton de Guardar ya es la confirmacion-
 
+  var costoAntes = null;
   if(productoEditandoId === null){
     var nuevoId = 'custom_' + Date.now();
     productos.push({ id: nuevoId, marca: marca, nombreCorto: nombre, nombre: nombreCompleto, cat: cat, sku: sku, costo: costo, precio: precio, stock: stock, min: min, foto: foto, unidad: unidad, proveedorPref: proveedorPref, desc: desc });
   } else {
     var p = productos.find(function(x){ return String(x.id) === String(productoEditandoId); });
     if(!p) return;
+    costoAntes = p.costo || 0;
     p.marca = marca;
     p.nombreCorto = nombre;
     p.nombre = nombreCompleto;
@@ -5414,8 +5416,37 @@ function guardarEdicionProducto(){
     var pAntes = productos.find(function(x){ return String(x.id)===String(productoEditandoId); });
     if(pAntes && pAntes.precio !== precio) registrarCambioPrecio(nombreCompleto, pAntes.precio, precio);
   }
+  var idProductoEditado = productoEditandoId;
   SS('np', productos);
   flash('mk-ep');
+  // Si el COSTO cambio en un producto ya existente, preguntar si fue un error de captura
+  // -en cuyo caso se corrige tambien en las ventas ya registradas, para que la ganancia de
+  // los reportes pasados quede correcta- o si el costo realmente cambio con el proveedor
+  // -en cuyo caso las ventas pasadas se dejan tal cual, porque en su momento ese fue el
+  // costo real y no se debe alterar un registro financiero historico valido-.
+  if(costoAntes !== null && costoAntes !== costo){
+    var corregirHistorial = confirm(
+      'El costo de este producto cambió de $'+costoAntes.toFixed(2)+' a $'+costo.toFixed(2)+'.\n\n'+
+      'Presiona ACEPTAR si el costo anterior estaba MAL -un error tuyo- y quieres corregirlo también en las ventas ya registradas, para que la ganancia de tus reportes pasados quede correcta.\n\n'+
+      'Presiona CANCELAR si el proveedor realmente cambió el precio -en ese caso las ventas pasadas se dejan tal cual, ya que en su momento ese fue el costo real.'
+    );
+    if(corregirHistorial){
+      var ventasCorregir = LS('nv', []);
+      var lineasCorregidas = 0;
+      ventasCorregir.forEach(function(v){
+        (v.items||[]).forEach(function(it){
+          if(it.pid && String(it.pid) === String(idProductoEditado)){
+            it.costo = costo;
+            lineasCorregidas++;
+          }
+        });
+      });
+      if(lineasCorregidas > 0){
+        SS('nv', ventasCorregir);
+        setTimeout(function(){ alert('Corregido: '+lineasCorregidas+' línea(s) en ventas ya registradas ahora reflejan el costo correcto de $'+costo.toFixed(2)+'.'); }, 300);
+      }
+    }
+  }
   setTimeout(function(){
     cerrarEdicionProducto();
     renderCatalogo(document.getElementById('catbuscar').value || '');
@@ -9668,8 +9699,20 @@ function imprimirFacturaBT(vid){
   }
   lineas.push('--------------------------------');
   v.items.forEach(function(it){
-    var nom = it.nombre.substring(0,32);
-    lineas.push(nom);
+    // Antes se cortaba el nombre a la fuerza a 32 caracteres con substring, perdiendo partes
+    // importantes como "700ml"/"220ml" que distinguen productos con el mismo nombre base.
+    // Ahora se envuelve en varias lineas completas, sin perder ninguna palabra.
+    var palabras = (it.nombre||'').split(' ');
+    var lineaActual = '';
+    palabras.forEach(function(palabra){
+      if((lineaActual+' '+palabra).trim().length <= 32){
+        lineaActual = (lineaActual+' '+palabra).trim();
+      } else {
+        if(lineaActual) lineas.push(lineaActual);
+        lineaActual = palabra;
+      }
+    });
+    if(lineaActual) lineas.push(lineaActual);
     var cant = ' '+it.cant+' x $'+fmtNum(it.precio);
     var tot = '$'+fmtNum(it.cant*it.precio);
     lineas.push(linea(cant, tot));
@@ -9764,7 +9807,7 @@ function dibujarContenidoFactura(ctx, W, pad, v, cl, pagado, saldo, numFact, abo
     // Respaldo si el logo no cargo a tiempo
     ctx.fillStyle = colorMode ? '#1a237e' : '#000';
     ctx.textAlign = 'center';
-    ctx.font = 'bold 23px Georgia, serif';
+    ctx.font = '23px Georgia, serif';
     ctx.fillText('Nunez Beauty Supply', W/2, 32);
     y = 50;
   }
@@ -9780,11 +9823,11 @@ function dibujarContenidoFactura(ctx, W, pad, v, cl, pagado, saldo, numFact, abo
 
   if(colorMode){
     // ===== Formato original, sin cambios (version a color para compartir) =====
-    ctx.font = 'bold '+fs.lbl+'px Georgia, serif';
+    ctx.font = ''+fs.lbl+'px Georgia, serif';
     ctx.textAlign = 'left'; ctx.fillStyle = '#aaa'; ctx.fillText('CLIENTE', pad, y);
     ctx.textAlign = 'right'; ctx.fillText('FACTURA', W-pad, y);
     y += 20;
-    ctx.font = 'bold '+fs.cliente+'px Georgia, serif';
+    ctx.font = ''+fs.cliente+'px Georgia, serif';
     ctx.fillStyle = '#1a237e';
     // Misma prioridad que en la vista digital: para Tiendas -no barberias-, el negocio va
     // primero y mas grande, el dueño/encargado mas chico debajo.
@@ -9794,7 +9837,7 @@ function dibujarContenidoFactura(ctx, W, pad, v, cl, pagado, saldo, numFact, abo
     ctx.textAlign = 'left'; ctx.fillText(lineaGrande.substring(0,maxCliente), pad, y);
     ctx.textAlign = 'right'; ctx.fillText('#'+numFact, W-pad, y);
     y += 19;
-    ctx.font = 'bold '+fs.negocio+'px Georgia, serif';
+    ctx.font = ''+fs.negocio+'px Georgia, serif';
     ctx.fillStyle = '#555';
     if(lineaChica){ ctx.textAlign='left'; ctx.fillText(lineaChica.substring(0,maxNegocio), pad, y); }
     ctx.textAlign='right'; ctx.fillText(v.fecha, W-pad, y);
@@ -9806,7 +9849,7 @@ function dibujarContenidoFactura(ctx, W, pad, v, cl, pagado, saldo, numFact, abo
       ctx.textAlign='left'; ctx.fillText(dirClColor.substring(0,maxDir), pad, y);
       ctx.textAlign='right'; ctx.fillText(v.hora, W-pad, y);
       y += 15;
-      ctx.font = 'bold '+fs.negocio+'px Georgia, serif';
+      ctx.font = ''+fs.negocio+'px Georgia, serif';
       ctx.fillStyle = '#555';
     } else {
       ctx.textAlign='right'; ctx.fillText(v.hora, W-pad, y);
@@ -9819,7 +9862,7 @@ function dibujarContenidoFactura(ctx, W, pad, v, cl, pagado, saldo, numFact, abo
 
     // Fila 1: fecha (izquierda) | numero de factura (derecha) -sin la hora, que solo se
     // muestra en la factura interna/digital, no en la de impresion-
-    ctx.font = 'bold '+fs.lbl+'px Georgia, serif';
+    ctx.font = ''+fs.lbl+'px Georgia, serif';
     ctx.textAlign='left'; ctx.fillText(v.fecha, pad, y);
     ctx.textAlign='right'; ctx.fillText('Factura No. '+numFact, W-pad, y);
     y += 34;
@@ -9832,21 +9875,21 @@ function dibujarContenidoFactura(ctx, W, pad, v, cl, pagado, saldo, numFact, abo
     var nombreCl = esNegocioPrioritarioBN ? cl.negocio : (v.cn || '');
     var nombreChico = esNegocioPrioritarioBN ? (v.cn || '') : '';
     var telCl = (cl && cl.tel) ? formatearTelefonoFactura(cl.tel) : '';
-    ctx.font = 'bold '+fs.cliente+'px Georgia, serif';
+    ctx.font = ''+fs.cliente+'px Georgia, serif';
     var anchoNombreCl = ctx.measureText(nombreCl).width;
-    ctx.font = 'bold '+fs.negocio+'px Georgia, serif';
+    ctx.font = ''+fs.negocio+'px Georgia, serif';
     var anchoTelCl = telCl ? ctx.measureText(telCl).width : 0;
     var cabenJuntos = telCl && (anchoNombreCl + anchoTelCl + 16) <= (W-2*pad);
 
-    ctx.font = 'bold '+fs.cliente+'px Georgia, serif';
+    ctx.font = ''+fs.cliente+'px Georgia, serif';
     ctx.textAlign='left'; ctx.fillText(nombreCl, pad, y);
     if(telCl && cabenJuntos){
-      ctx.font = 'bold '+fs.negocio+'px Georgia, serif';
+      ctx.font = ''+fs.negocio+'px Georgia, serif';
       ctx.textAlign='right'; ctx.fillText(telCl, W-pad, y);
     }
     y += 36;
     if(telCl && !cabenJuntos){
-      ctx.font = 'bold '+fs.negocio+'px Georgia, serif';
+      ctx.font = ''+fs.negocio+'px Georgia, serif';
       ctx.textAlign='left'; ctx.fillText(telCl, pad, y);
       y += 32;
     }
@@ -9891,7 +9934,7 @@ function dibujarContenidoFactura(ctx, W, pad, v, cl, pagado, saldo, numFact, abo
   ctx.beginPath(); ctx.moveTo(pad,y); ctx.lineTo(W-pad,y); ctx.stroke();
   y += colorMode?22:26;
 
-  ctx.font = 'bold '+fs.prodLbl+'px Arial, sans-serif';
+  ctx.font = ''+fs.prodLbl+'px Arial, sans-serif';
   ctx.fillStyle = colorMode ? '#aaa' : '#555';
   ctx.textAlign='left'; ctx.fillText('PRODUCTO', pad, y);
   ctx.textAlign='right'; ctx.fillText('TOTAL', W-pad, y);
@@ -9903,7 +9946,7 @@ function dibujarContenidoFactura(ctx, W, pad, v, cl, pagado, saldo, numFact, abo
   (v.items||[]).forEach(function(it){
     // Nombre del producto -con algo de peso, pero ya no tan fuerte como antes-, en una
     // fuente sans-serif limpia que se lee mejor a tamaños chicos que el serif del encabezado.
-    ctx.font = '600 '+fs.item+'px Arial, sans-serif';
+    ctx.font = ''+fs.item+'px Arial, sans-serif';
     ctx.fillStyle = colorMode ? '#1a1a2e' : '#000';
     var precioTxt = '$'+fmtNum(it.cant*it.precio);
     if(colorMode){
@@ -9913,23 +9956,22 @@ function dibujarContenidoFactura(ctx, W, pad, v, cl, pagado, saldo, numFact, abo
       ctx.fillText(precioTxt, W-pad, y);
       y += 18;
     } else {
-      // Version termica: el nombre del producto va solo, en su(s) propia(s) linea(s) sin cortarse.
-      // El precio total se alinea con la fila de "cantidad x precio unitario" de abajo.
-      var lineas = envolverTexto(ctx, it.nombre||'', W-2*pad, 3);
+      // Version termica: el nombre del producto va solo, en hasta 2 lineas sin cortarse.
+      var lineas = envolverTexto(ctx, it.nombre||'', W-2*pad, 2);
       ctx.textAlign='left';
       lineas.forEach(function(linea){
         ctx.fillText(linea, pad, y);
         y += 26;
       });
     }
-    // "Cantidad x precio unitario" -informacion de apoyo, ya NO en negrita, mas chica y gris,
-    // para que no compita con el nombre del producto ni con el total-.
+    // "Cantidad x precio unitario" -tamaño de apoyo, pero en color normal como el resto del
+    // detalle de la compra del cliente, no en gris-.
     ctx.font='400 '+fs.itemQty+'px Arial, sans-serif';
-    ctx.fillStyle = '#888';
+    ctx.fillStyle = colorMode ? '#777' : '#000';
     ctx.textAlign='left';
     ctx.fillText(it.cant+' x $'+fmtNum(it.precio), pad, y);
     if(!colorMode){
-      ctx.font='600 '+fs.itemQty+'px Arial, sans-serif';
+      ctx.font=(fs.itemQty+2)+'px Arial, sans-serif';
       ctx.fillStyle = '#000';
       ctx.textAlign='right'; ctx.fillText(precioTxt, W-pad, y);
     }
@@ -9942,14 +9984,14 @@ function dibujarContenidoFactura(ctx, W, pad, v, cl, pagado, saldo, numFact, abo
   y += colorMode?26:29;
 
   if(colorMode){
-    ctx.font='bold '+fs.pago+'px Georgia, serif';
+    ctx.font=''+fs.pago+'px Georgia, serif';
     ctx.fillStyle = '#555';
     ctx.textAlign='left'; ctx.fillText('Tipo de pago:', pad, y);
     ctx.fillStyle = (v.tipo==='credito' ? '#E65100' : '#2E7D32');
     ctx.textAlign='right'; ctx.fillText(v.tipo==='credito'?'A credito':'Contado', W-pad, y);
     y += 30;
 
-    ctx.font='bold '+fs.total+'px Georgia, serif';
+    ctx.font=''+fs.total+'px Georgia, serif';
     ctx.fillStyle = '#1a237e';
     ctx.textAlign='left'; ctx.fillText('TOTAL', pad, y);
     ctx.fillStyle = '#1565C0';
@@ -9962,11 +10004,11 @@ function dibujarContenidoFactura(ctx, W, pad, v, cl, pagado, saldo, numFact, abo
       var boxHeight = 22 + abonos.length*20 + 12;
       ctx.fillStyle = '#F1F8E9';
       ctx.fillRect(pad-6, boxTop, W-2*pad+12, boxHeight);
-      ctx.font='bold 12px Georgia, serif';
+      ctx.font='12px Georgia, serif';
       ctx.fillStyle = '#2E7D32';
       ctx.textAlign='left'; ctx.fillText('HISTORIAL DE ABONOS', pad, y);
       y += 22;
-      ctx.font='bold 13px Georgia, serif';
+      ctx.font='13px Georgia, serif';
       abonos.forEach(function(p){
         ctx.fillStyle = '#555';
         ctx.textAlign='left'; ctx.fillText(((p.fecha||'')+(p.nota?' - '+p.nota:'')).substring(0,24), pad, y);
@@ -9974,7 +10016,7 @@ function dibujarContenidoFactura(ctx, W, pad, v, cl, pagado, saldo, numFact, abo
         ctx.textAlign='right'; ctx.fillText('$'+fmtNum(p.monto), W-pad, y);
         y += 20;
       });
-      ctx.font='bold 14px Georgia, serif';
+      ctx.font='14px Georgia, serif';
       ctx.fillStyle = '#2E7D32';
       ctx.textAlign='left'; ctx.fillText('Total abonado:', pad, y);
       ctx.textAlign='right'; ctx.fillText('$'+fmtNum(pagado), W-pad, y);
@@ -9987,7 +10029,7 @@ function dibujarContenidoFactura(ctx, W, pad, v, cl, pagado, saldo, numFact, abo
       var bt = y - 18;
       ctx.fillStyle = '#FFEBEE';
       ctx.fillRect(pad-6, bt, W-2*pad+12, 26);
-      ctx.font='bold 15px Georgia, serif';
+      ctx.font='15px Georgia, serif';
       ctx.fillStyle = '#C62828';
       ctx.textAlign='left'; ctx.fillText('BALANCE PENDIENTE:', pad, y);
       ctx.textAlign='right'; ctx.fillText('$'+fmtNum(saldo), W-pad, y);
@@ -9995,36 +10037,37 @@ function dibujarContenidoFactura(ctx, W, pad, v, cl, pagado, saldo, numFact, abo
     } else {
       ctx.fillStyle = '#E8F5E9';
       ctx.fillRect(pad-6, y-18, W-2*pad+12, 26);
-      ctx.font='bold 15px Georgia, serif';
+      ctx.font='15px Georgia, serif';
       ctx.fillStyle = '#2E7D32';
       ctx.textAlign='center'; ctx.fillText('\u2713 PAGADO COMPLETO', W/2, y);
       y += 32;
     }
   } else {
     // ===== Formato nuevo y simple, SOLO para impresion termica =====
-    // Linea 1: TOTAL ESTA FACTURA $00.00
-    ctx.font='bold '+fs.pago+'px Georgia, serif';
+    // Linea 1: TOTAL ESTA FACTURA $00.00 -el mas importante de los 3, pero ya moderado-
+    ctx.font='16px Georgia, serif';
     ctx.fillStyle = '#000';
     ctx.textAlign='left'; ctx.fillText('TOTAL ESTA FACTURA', pad, y);
     ctx.textAlign='right'; ctx.fillText('$'+fmtNum(v.total), W-pad, y);
-    y += 32;
+    y += 26;
 
-    // Linea 2: PAGO $00.00
-    ctx.font='bold '+fs.pago+'px Georgia, serif';
+    // Linea 2: PAGO $00.00 -informacion secundaria, mas chica y gris-
+    ctx.font='13px Georgia, serif';
+    ctx.fillStyle = '#777';
     ctx.textAlign='left'; ctx.fillText('PAGO', pad, y);
     ctx.textAlign='right'; ctx.fillText('$'+fmtNum(pagado), W-pad, y);
-    y += 30;
+    y += 22;
 
-    // Linea 3: BALANCE PENDIENTE $00.00 -o $0.00 si esta saldada-
-    ctx.font='bold '+fs.pago+'px Georgia, serif';
-    ctx.fillStyle = esSaldoPendiente(saldo) ? '#000' : '#000';
+    // Linea 3: BALANCE PENDIENTE $00.00 -o $0.00 si esta saldada- -tambien secundaria-
+    ctx.font='13px Georgia, serif';
+    ctx.fillStyle = '#777';
     ctx.textAlign='left'; ctx.fillText('BALANCE PENDIENTE', pad, y);
     ctx.textAlign='right'; ctx.fillText('$'+fmtNum(saldo), W-pad, y);
-    y += 34;
+    y += 30;
   }
 
   y += 16;
-  ctx.font='bold '+(colorMode?12:16)+'px Georgia, serif';
+  ctx.font=''+(colorMode?12:16)+'px Georgia, serif';
   ctx.fillStyle = colorMode ? '#aaa' : '#000';
   ctx.textAlign='center';
   ctx.fillText('Gracias por su preferencia', W/2, y);
@@ -10048,6 +10091,22 @@ function generarFacturaCanvas(v, cl, pagado, saldo, numFact, colorMode){
   ctxTmp.imageSmoothingQuality = 'high';
   ctxTmp.fillStyle = '#fff'; ctxTmp.fillRect(0,0,W,2200);
   var finalY = dibujarContenidoFactura(ctxTmp, W, pad, v, cl, pagado, saldo, numFact, abonos, colorMode);
+
+  // Sello de "PAGADO COMPLETO" -diagonal y bien tenue, para que no tape ningun detalle-.
+  // Solo en la version a color: la version blanco y negro fuerza todo a blanco o negro puro
+  // mas abajo -para que la impresora termica no manche el papel-, asi que un sello sutil con
+  // transparencia no se veria bien ahi; no tendria sentido en un recibo termico real tampoco.
+  if(colorMode && !esSaldoPendiente(saldo)){
+    ctxTmp.save();
+    ctxTmp.translate(W/2, finalY/2);
+    ctxTmp.rotate(-28 * Math.PI/180);
+    ctxTmp.globalAlpha = 0.13;
+    ctxTmp.fillStyle = '#0F6E56';
+    ctxTmp.font = '700 34px Georgia, serif';
+    ctxTmp.textAlign = 'center';
+    ctxTmp.fillText('PAGADO COMPLETO', 0, 0);
+    ctxTmp.restore();
+  }
 
   var finalH = Math.ceil(finalY) + (colorMode ? 16 : 100);
   var canvas = document.createElement('canvas');

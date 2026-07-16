@@ -384,6 +384,7 @@ button:active{transform:scale(0.96);filter:brightness(0.93);}
         </div>
       </div>
     </div>
+    <button onclick="cerrarSesionNBS()" style="width:100%;margin-top:14px;background:none;border:1px solid #e0574a;color:#e0574a;padding:11px;border-radius:10px;cursor:pointer;font-size:13px;font-weight:600">🚪 Cerrar sesión</button>
   </div>
 </div>
 
@@ -10762,9 +10763,45 @@ function iniciarAppDespuesDeLogin(){
 
   // === SISTEMA DE RECORDATORIO DE VISITAS A NEGOCIOS (tiendas, meat market, etc) ===
   setTimeout(verificarVisitasNegocios, 2500);
+
+  // === CIERRE DE SESION AUTOMATICO POR INACTIVIDAD -1 hora-, por seguridad ===
+  iniciarVigilanteDeInactividad();
+}
+
+// Cierra la sesion sola si pasa 1 hora completa sin ningun toque, clic, o tecla -por
+// seguridad, para que el telefono no se quede con la sesion abierta indefinidamente si
+// se pierde o alguien mas lo toma-. Cualquier interaccion reinicia el conteo desde cero.
+var LIMITE_INACTIVIDAD_MS = 60 * 60 * 1000; // 1 hora
+var temporizadorInactividad = null;
+function iniciarVigilanteDeInactividad(){
+  reiniciarTemporizadorInactividad();
+  ['click','touchstart','keydown','scroll'].forEach(function(evento){
+    document.addEventListener(evento, reiniciarTemporizadorInactividad, {passive:true});
+  });
+}
+function reiniciarTemporizadorInactividad(){
+  if(temporizadorInactividad) clearTimeout(temporizadorInactividad);
+  temporizadorInactividad = setTimeout(function(){
+    if(fbAuth.currentUser){
+      fbAuth.signOut().catch(function(e){ console.error('Error al cerrar sesion por inactividad:', e); });
+    }
+  }, LIMITE_INACTIVIDAD_MS);
 }
 
 // ===== LOGIN Y SINCRONIZACION CON LA NUBE =====
+
+function cerrarSesionNBS(){
+  cerrarMenuLateral();
+  if(!confirm('¿Cerrar sesión? Vas a necesitar tu correo y contraseña para volver a entrar.')) return;
+  fbAuth.signOut().then(function(){
+    // No se borra nada de localStorage -tus datos siguen en la nube y en este dispositivo-,
+    // solo se cierra la sesion. La pantalla de login se muestra sola gracias al listener
+    // de onAuthStateChanged que ya esta escuchando este cambio.
+  }).catch(function(e){
+    console.error('Error al cerrar sesion:', e);
+    alert('No se pudo cerrar sesión. Intenta de nuevo.');
+  });
+}
 
 function configurarPantallaLogin(){
   document.getElementById('login-pass').addEventListener('keydown', function(e){

@@ -4366,6 +4366,80 @@ function actualizarMarcasDetalle(){
   }).join('');
 }
 
+// Calcula todos los numeros del panorama de inventario -reutilizable tanto en la pantalla
+// completa de Inventario como en el resumen chiquito dentro del Resumen Financiero, para que
+// ambos lugares siempre muestren exactamente lo mismo, sin duplicar la logica en 2 sitios.
+function calcularResumenInventario(){
+  loadProds();
+  var totalInvertido = 0, totalVenta = 0, totalUnidades = 0, productosConStock = 0;
+  productos.forEach(function(p){
+    if(p.stock > 0){
+      totalInvertido += p.stock * (p.costo||0);
+      totalVenta += p.stock * (p.precio||0);
+      totalUnidades += p.stock;
+      productosConStock++;
+    }
+  });
+  var gananciaPotencial = totalVenta - totalInvertido;
+
+  ventas = LS('nv', []);
+  var ahora = new Date();
+  var mesActual = ahora.getMonth(), anioActual = ahora.getFullYear();
+  var cogsDelMes = 0;
+  var ultimaVentaPorProducto = {};
+  var unidadesVendidas30d = {};
+  var hace30dias = new Date(ahora.getTime() - 30*24*60*60*1000);
+  ventas.forEach(function(v){
+    if(v.cancelada) return;
+    var partesFecha = (v.fecha||'').split('/');
+    if(partesFecha.length !== 3) return;
+    var fechaVenta = new Date(parseInt(partesFecha[2]), parseInt(partesFecha[0])-1, parseInt(partesFecha[1]));
+    var esDeEsteMes = fechaVenta.getMonth()===mesActual && fechaVenta.getFullYear()===anioActual;
+    (v.items||[]).forEach(function(it){
+      if(esDeEsteMes) cogsDelMes += (it.cant||0) * (it.costo||0);
+      if(it.pid){
+        var keyPid = String(it.pid);
+        if(!ultimaVentaPorProducto[keyPid] || fechaVenta > ultimaVentaPorProducto[keyPid]) ultimaVentaPorProducto[keyPid] = fechaVenta;
+        if(fechaVenta >= hace30dias) unidadesVendidas30d[keyPid] = (unidadesVendidas30d[keyPid]||0) + (it.cant||0);
+      }
+    });
+  });
+  var rotacion = totalInvertido > 0 ? (cogsDelMes / totalInvertido) : 0;
+
+  var UMBRAL_DORMIDO_DIAS = 45;
+  var productosDormidos = productos.filter(function(p){
+    if(!p.stock || p.stock <= 0) return false;
+    var ultimaVenta = ultimaVentaPorProducto[String(p.id)];
+    if(!ultimaVenta) return true;
+    var diasSinVenderse = Math.floor((ahora - ultimaVenta) / (1000*60*60*24));
+    return diasSinVenderse >= UMBRAL_DORMIDO_DIAS;
+  });
+
+  return {
+    totalInvertido: totalInvertido, totalVenta: totalVenta, gananciaPotencial: gananciaPotencial,
+    totalUnidades: totalUnidades, productosConStock: productosConStock,
+    cogsDelMes: cogsDelMes, rotacion: rotacion, productosDormidos: productosDormidos,
+    unidadesVendidas30d: unidadesVendidas30d, UMBRAL_DORMIDO_DIAS: UMBRAL_DORMIDO_DIAS
+  };
+}
+
+// Tarjeta chiquita de Inventario para el Resumen Financiero -con enlace directo al modulo
+// completo-, aportada desde una revision hecha en paralelo y ahora integrada aqui, reutilizando
+// el mismo calculo ya probado en el modulo completo de Inventario.
+function renderResumenInventarioDashboard(){
+  var r = calcularResumenInventario();
+  return '<div onclick="irMenuProtegido(\'p-inventario\')" style="background:white;border-radius:12px;padding:14px;margin-bottom:16px;border:0.5px solid var(--nbs-line);box-shadow:var(--nbs-shadow-card);cursor:pointer">'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:'+(r.productosDormidos.length>0?'10px':'0')+'">'
+    +'<div><div style="font-size:10px;color:var(--nbs-muted);font-weight:600">VALOR INVENTARIO</div><div style="font-size:16px;font-weight:700;color:var(--nbs-ink)">$'+fmtNum(r.totalInvertido)+'</div></div>'
+    +'<div><div style="font-size:10px;color:var(--nbs-muted);font-weight:600">GANANCIA POTENCIAL</div><div style="font-size:16px;font-weight:700;color:var(--nbs-green-text)">$'+fmtNum(r.gananciaPotencial)+'</div></div>'
+    +'<div><div style="font-size:10px;color:var(--nbs-muted);font-weight:600">ROTACIÓN -MES-</div><div style="font-size:14px;font-weight:700;color:var(--nbs-ink)">'+r.rotacion.toFixed(2)+'x</div></div>'
+    +'<div><div style="font-size:10px;color:var(--nbs-muted);font-weight:600">COSTO VENDIDO -MES-</div><div style="font-size:14px;font-weight:700;color:var(--nbs-ink)">$'+fmtNum(r.cogsDelMes)+'</div></div>'
+    +'</div>'
+    +(r.productosDormidos.length>0 ? '<div style="font-size:11px;color:#E65100;font-weight:600;border-top:0.5px solid var(--nbs-line);padding-top:8px">💤 '+r.productosDormidos.length+' producto(s) dormidos -sin venderse hace 45+ días-</div>' : '')
+    +'<div style="font-size:11px;color:var(--nbs-gold-dark);font-weight:600;margin-top:6px">Ver inventario completo →</div>'
+    +'</div>';
+}
+
 function cambiarOrdenInventario(modo){
   window._ordenInventario = modo;
   ['az','vendido','dormido'].forEach(function(m){
@@ -4382,55 +4456,12 @@ function renderInventario(q){
   var marcaFiltro = document.getElementById('inv-filtro-marca') ? document.getElementById('inv-filtro-marca').value : '';
   var catFiltro = document.getElementById('inv-filtro-cat') ? document.getElementById('inv-filtro-cat').value : '';
 
-  // Los totales del RESUMEN se calculan sobre TODO el catalogo -no solo lo que este buscando o
-  // filtrando en ese momento-, para que siempre reflejen el panorama completo del negocio.
-  var totalInvertido = 0, totalVenta = 0, totalUnidades = 0, productosConStock = 0;
-  productos.forEach(function(p){
-    if(p.stock > 0){
-      totalInvertido += p.stock * (p.costo||0);
-      totalVenta += p.stock * (p.precio||0);
-      totalUnidades += p.stock;
-      productosConStock++;
-    }
-  });
-  var gananciaPotencial = totalVenta - totalInvertido;
-
-  // COGS del mes -costo de la mercancia que realmente vendiste este mes, no lo que tienes
-  // guardado- y rotacion de inventario -que tan rapido se mueve tu dinero-. Esto es lo que
-  // usan las empresas serias para saber si el dinero esta trabajando o dormido en el estante.
-  ventas = LS('nv', []);
+  var r = calcularResumenInventario();
+  var totalInvertido = r.totalInvertido, totalVenta = r.totalVenta, gananciaPotencial = r.gananciaPotencial;
+  var totalUnidades = r.totalUnidades, productosConStock = r.productosConStock;
+  var cogsDelMes = r.cogsDelMes, rotacion = r.rotacion, productosDormidos = r.productosDormidos;
+  var unidadesVendidas30d = r.unidadesVendidas30d, UMBRAL_DORMIDO_DIAS = r.UMBRAL_DORMIDO_DIAS;
   var ahora = new Date();
-  var mesActual = ahora.getMonth(), anioActual = ahora.getFullYear();
-  var cogsDelMes = 0;
-  var ultimaVentaPorProducto = {}; // pid -> fecha mas reciente en que se vendio, para "dormidos"
-  ventas.forEach(function(v){
-    if(v.cancelada) return;
-    var partesFecha = (v.fecha||'').split('/'); // MM/DD/AAAA
-    if(partesFecha.length !== 3) return;
-    var fechaVenta = new Date(parseInt(partesFecha[2]), parseInt(partesFecha[0])-1, parseInt(partesFecha[1]));
-    var esDeEsteMes = fechaVenta.getMonth()===mesActual && fechaVenta.getFullYear()===anioActual;
-    (v.items||[]).forEach(function(it){
-      if(esDeEsteMes) cogsDelMes += (it.cant||0) * (it.costo||0);
-      if(it.pid){
-        var keyPid = String(it.pid);
-        if(!ultimaVentaPorProducto[keyPid] || fechaVenta > ultimaVentaPorProducto[keyPid]) ultimaVentaPorProducto[keyPid] = fechaVenta;
-      }
-    });
-  });
-  // Rotacion = COGS del mes ÷ valor de inventario actual -aproximacion practica, ya que no
-  // guardamos un promedio historico del inventario dia por dia-.
-  var rotacion = totalInvertido > 0 ? (cogsDelMes / totalInvertido) : 0;
-
-  // Inventario dormido: productos con stock que no se han vendido en los ultimos 45 dias
-  // -o nunca se han vendido-.
-  var UMBRAL_DORMIDO_DIAS = 45;
-  var productosDormidos = productos.filter(function(p){
-    if(!p.stock || p.stock <= 0) return false;
-    var ultimaVenta = ultimaVentaPorProducto[String(p.id)];
-    if(!ultimaVenta) return true; // nunca se ha vendido
-    var diasSinVenderse = Math.floor((ahora - ultimaVenta) / (1000*60*60*24));
-    return diasSinVenderse >= UMBRAL_DORMIDO_DIAS;
-  });
 
   var resumenEl = document.getElementById('inv-resumen');
   resumenEl.innerHTML =
@@ -4481,22 +4512,6 @@ function renderInventario(q){
     var cats = Array.from(new Set(productos.map(function(p){ return p.cat||''; }).filter(Boolean))).sort();
     cats.forEach(function(c){ var o=document.createElement('option'); o.value=c; o.textContent=c; selCat.appendChild(o); });
   }
-
-  // Unidades vendidas en los ultimos 30 dias por producto, para el orden "Mas vendido"
-  var unidadesVendidas30d = {};
-  var hace30dias = new Date(ahora.getTime() - 30*24*60*60*1000);
-  ventas.forEach(function(v){
-    if(v.cancelada) return;
-    var partesF = (v.fecha||'').split('/');
-    if(partesF.length !== 3) return;
-    var fV = new Date(parseInt(partesF[2]), parseInt(partesF[0])-1, parseInt(partesF[1]));
-    if(fV < hace30dias) return;
-    (v.items||[]).forEach(function(it){
-      if(!it.pid) return;
-      var k = String(it.pid);
-      unidadesVendidas30d[k] = (unidadesVendidas30d[k]||0) + (it.cant||0);
-    });
-  });
 
   var modoOrden = window._ordenInventario || 'az';
   // La TABLA respeta la busqueda y los filtros, y se ordena segun el boton elegido -A-Z,
@@ -11112,6 +11127,10 @@ function renderDashboard(){
     +productosStockBajo.slice(0,3).map(function(p){ return '<div style="font-size:12px;color:var(--nbs-ink);padding:3px 0">• '+p.nombre+' -quedan '+p.stock+' unidades-</div>'; }).join('')
     +(productosStockBajo.length>3?'<div style="font-size:11px;color:var(--nbs-muted)">...y '+(productosStockBajo.length-3)+' más</div>':'')
     +'</div>' : '')
+
+  // Panorama de Inventario -conectado con el modulo completo, toca para ver todos los detalles-
+  +'<h3 style="font-size:12px;color:var(--nbs-muted);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;display:flex;align-items:center;gap:5px">🏬 Inventario</h3>'
+  +renderResumenInventarioDashboard()
 
   // Alerta de negocios para visitar (tiendas, meat market, etc)
   +(negociosPendientesVisita.length > 0 ?

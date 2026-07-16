@@ -10546,7 +10546,17 @@ function exportD(){
   creditos = LS('ncr', []);
   suplidores = LS('nsup', []);
   var gastos = LS('ngastos', []);
-  var d = {v:1, productos:productos, ventas:ventas, compras:compras, creditos:creditos, clientes:clientes, suplidores:suplidores, gastos:gastos};
+  // Antes el respaldo NO incluia estas 5 cosas -un error que ya existia, encontrado el
+  // 16 de julio 2026-: tarjetas de credito, otras deudas -Cuentas por Pagar-, pedidos,
+  // devoluciones, y la lista de productos eliminados -importante para que al restaurar
+  // un respaldo, los productos que habias borrado no vuelvan a aparecer-.
+  var tarjetas = LS('ntarjetas', []);
+  var otrasDeudas = LS('notrasdeudas', []);
+  var pedidos = LS('npedidos', []);
+  var devoluciones = LS('ndevoluciones', []);
+  var productosEliminados = LS('np_eliminados', []);
+  var d = {v:2, productos:productos, ventas:ventas, compras:compras, creditos:creditos, clientes:clientes, suplidores:suplidores, gastos:gastos,
+    tarjetas:tarjetas, otrasDeudas:otrasDeudas, pedidos:pedidos, devoluciones:devoluciones, productosEliminados:productosEliminados};
   var json = JSON.stringify(d);
 
   // Registrar fecha del backup
@@ -10635,6 +10645,14 @@ function importD(inp){
       if(d.productos){productos=d.productos;SS('np',productos);}
       if(d.suplidores){suplidores=d.suplidores;SS('nsup',suplidores);}
       if(d.gastos){SS('ngastos',d.gastos);}
+      // Estos 5 campos son nuevos -agregados el 16 de julio 2026-; los respaldos hechos
+      // ANTES de esa fecha no los van a tener, y eso esta bien: simplemente no se tocan
+      // esas claves si no vienen en el archivo, para no borrar nada por accidente.
+      if(d.tarjetas){SS('ntarjetas',d.tarjetas);}
+      if(d.otrasDeudas){SS('notrasdeudas',d.otrasDeudas);}
+      if(d.pedidos){SS('npedidos',d.pedidos);}
+      if(d.devoluciones){SS('ndevoluciones',d.devoluciones);}
+      if(d.productosEliminados){SS('np_eliminados',d.productosEliminados);}
       alert('Datos importados correctamente');
       ir('p-ped');
     }catch(err){alert('Error al importar');}

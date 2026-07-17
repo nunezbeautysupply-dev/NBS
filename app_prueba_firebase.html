@@ -398,6 +398,11 @@ button:active{transform:scale(0.96);filter:brightness(0.93);}
       </div>
     </div>
     <button id="btn-huella" onclick="activarHuella()" style="width:100%;margin-top:14px;background:none;border:1px solid var(--nbs-gold, #D4A017);color:var(--nbs-gold-dark, #8a6a10);padding:11px;border-radius:10px;cursor:pointer;font-size:13px;font-weight:600">👆 Activar huella digital</button>
+    <div style="background:#F5F3EF;border-radius:10px;padding:10px 12px;margin-top:8px;display:flex;justify-content:space-between;align-items:center;gap:8px">
+      <span style="font-size:12px;font-weight:600;color:var(--nbs-ink)">🔒 Bloquear tras</span>
+      <select id="sel-minutos-bloqueo" onchange="cambiarMinutosBloqueo(this.value)" style="border:0.5px solid #ddd;border-radius:7px;padding:5px 6px;font-size:12px;background:white"></select>
+    </div>
+    <button onclick="bloquearAhora()" style="width:100%;margin-top:8px;background:none;border:1px solid #546E7A;color:#546E7A;padding:11px;border-radius:10px;cursor:pointer;font-size:13px;font-weight:600">🔒 Bloquear ahora</button>
     <button onclick="cerrarSesionNBS()" style="width:100%;margin-top:8px;background:none;border:1px solid #e0574a;color:#e0574a;padding:11px;border-radius:10px;cursor:pointer;font-size:13px;font-weight:600">🚪 Cerrar sesión</button>
   </div>
 </div>
@@ -11285,7 +11290,82 @@ function usarContrasenaEnVezDeHuella(){
 // Guardando la hora de la ultima actividad, se puede comparar contra la hora actual en
 // cualquier momento -al volver a la app, al abrirla de nuevo, o cada 20 segundos- y cerrar
 // la sesion de verdad si ya se paso del limite.
-var LIMITE_INACTIVIDAD_MS = 15 * 60 * 1000; // 15 minutos
+// El tiempo de bloqueo se puede cambiar desde el menu -asi se puede probar con 1 minuto sin
+// tener que tocar el codigo, y cambiarlo cualquier dia segun te convenga-. Por defecto 15 min.
+var CLAVE_MINUTOS_BLOQUEO = 'nbs_minutos_bloqueo';
+var PRESETS_BLOQUEO = [1, 5, 10, 15, 20, 30, 45, 60, 90, 120];
+
+function limiteInactividadMs(){
+  var mins = parseInt(localStorage.getItem(CLAVE_MINUTOS_BLOQUEO) || '15', 10);
+  if(!mins || mins < 1) mins = 15;
+  return mins * 60 * 1000;
+}
+
+function etiquetaMinutos(m){
+  if(m === 1) return '1 min (prueba)';
+  if(m < 60) return m + ' min';
+  if(m === 60) return '1 hora';
+  if(m % 60 === 0) return (m/60) + ' horas';
+  return Math.floor(m/60) + 'h ' + (m%60) + 'min';
+}
+
+// Arma el selector del menu. Si tienes un tiempo personalizado -por ejemplo 37 min-, se agrega
+// solo a la lista para que lo veas elegido, aunque no sea uno de los tiempos comunes.
+function renderSelectorBloqueo(){
+  var sel = document.getElementById('sel-minutos-bloqueo');
+  if(!sel) return;
+  var actual = parseInt(localStorage.getItem(CLAVE_MINUTOS_BLOQUEO) || '15', 10);
+  if(!actual || actual < 1) actual = 15;
+  var valores = PRESETS_BLOQUEO.slice();
+  if(valores.indexOf(actual) < 0) valores.push(actual);
+  valores.sort(function(a,b){ return a-b; });
+  sel.innerHTML = '';
+  valores.forEach(function(m){
+    var o = document.createElement('option');
+    o.value = String(m);
+    o.textContent = etiquetaMinutos(m);
+    if(m === actual) o.selected = true;
+    sel.appendChild(o);
+  });
+  var otro = document.createElement('option');
+  otro.value = 'otro';
+  otro.textContent = '✏️ Otro...';
+  sel.appendChild(otro);
+}
+
+function cambiarMinutosBloqueo(valor){
+  if(valor === 'otro'){
+    var r = prompt('¿Cuántos minutos sin usar la app antes de que se bloquee?\n\nEscribe el número que quieras (ejemplo: 45)');
+    if(r === null){ renderSelectorBloqueo(); return; } // cancelo, se deja como estaba
+    var m = parseInt(r, 10);
+    if(!m || m < 1 || m > 480){
+      alert('Escribe un número entre 1 y 480 minutos (8 horas).');
+      renderSelectorBloqueo();
+      return;
+    }
+    localStorage.setItem(CLAVE_MINUTOS_BLOQUEO, String(m));
+    renderSelectorBloqueo();
+    registrarActividad();
+    alert('✅ La app se bloqueará tras ' + etiquetaMinutos(m) + ' sin usarla.');
+    return;
+  }
+  var mins = parseInt(valor, 10);
+  if(!mins || mins < 1) mins = 15;
+  localStorage.setItem(CLAVE_MINUTOS_BLOQUEO, String(mins));
+  renderSelectorBloqueo();
+  registrarActividad(); // reiniciar el conteo con el tiempo nuevo
+}
+
+function bloquearAhora(){
+  cerrarMenuLateral();
+  if(hayHuellaRegistrada()){
+    bloquearApp();
+  } else {
+    if(!confirm('No tienes huella activada, así que se cerrará la sesión y tendrás que entrar con tu correo y contraseña. ¿Continuar?')) return;
+    try{ localStorage.removeItem(CLAVE_ULTIMA_ACTIVIDAD); }catch(e){}
+    fbAuth.signOut().catch(function(e){ console.error('Error al cerrar sesion:', e); });
+  }
+}
 var CLAVE_ULTIMA_ACTIVIDAD = 'nbs_ultima_actividad';
 var intervaloVigilante = null;
 
@@ -11297,7 +11377,7 @@ function registrarActividad(){
 function sesionVencidaPorInactividad(){
   var ultima = parseInt(localStorage.getItem(CLAVE_ULTIMA_ACTIVIDAD) || '0', 10);
   if(!ultima) return false; // nunca se registro actividad -sesion recien iniciada-
-  return (Date.now() - ultima) >= LIMITE_INACTIVIDAD_MS;
+  return (Date.now() - ultima) >= limiteInactividadMs();
 }
 
 // Al vencerse el tiempo: si hay huella registrada, se BLOQUEA la app -mas comodo-; si no,
@@ -11320,6 +11400,7 @@ function revisarInactividad(){
 function iniciarVigilanteDeInactividad(){
   registrarActividad();
   actualizarBotonHuella();
+  renderSelectorBloqueo(); // deja el selector del menu mostrando el tiempo que ya tenias elegido
   ['click','touchstart','keydown','scroll','mousemove'].forEach(function(evento){
     document.addEventListener(evento, registrarActividad, {passive:true});
   });

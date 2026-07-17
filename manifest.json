@@ -2,7 +2,7 @@
   "name": "Nunez Beauty Supply",
   "short_name": "NBS",
   "description": "Gestión de negocio para Nunez Beauty Supply - Distribución a barberías en Providence, RI",
-  "start_url": "./index.html",
+  "start_url": "./app_prueba_firebase.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",

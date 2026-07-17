@@ -3856,7 +3856,7 @@ function editarCompra(cid, sid){
     var q = buscarAgregar.value.trim().toLowerCase();
     if(!q){ resultadosAgregar.style.display='none'; return; }
     loadProds();
-    var lista = productos.filter(function(p){ return p.nombre.toLowerCase().indexOf(q)>=0; }).slice(0,15);
+    var lista = filtrarPorBusqueda(productos, q, function(p){ return p.nombre; }).slice(0,15);
     if(!lista.length){
       resultadosAgregar.innerHTML = '<div style="padding:10px;font-size:12px;color:#aaa">Sin resultados -puedes agregarlo como producto que no está en el catálogo, abajo-</div>';
       resultadosAgregar.style.display = 'block';
@@ -4580,7 +4580,7 @@ function renderInventario(q){
   // La TABLA respeta la busqueda y los filtros, y se ordena segun el boton elegido -A-Z,
   // mas vendido en los ultimos 30 dias, o solo los productos dormidos-.
   var lista = productos.filter(function(p){
-    if(q && p.nombre.toLowerCase().indexOf(q) < 0) return false;
+    if(q && puntajeBusqueda(p.nombre, q) < 0) return false;
     if(marcaFiltro && p.marca !== marcaFiltro) return false;
     if(catFiltro && p.cat !== catFiltro) return false;
     if(modoOrden === 'dormido' && (window._productosDormidosIds||[]).indexOf(String(p.id)) < 0) return false;
@@ -4708,6 +4708,104 @@ function formatFechaInput(input){
 // limpiarTexto() protege al GUARDAR; esta protege al MOSTRAR. Son dos capas distintas:
 // si por lo que sea entra un dato sucio -por ejemplo, de un respaldo viejo o manipulado-,
 // esta se asegura de que se vea como texto y nunca se ejecute como codigo.
+// ===== BUSQUEDA LISTA -instantanea, sin descargar nada, funciona sin internet- =====
+// Antes se buscaba el texto EXACTO y en ese mismo orden, asi que "dorco azul" no encontraba
+// "Navaja DORCO Azul", y "silla" no encontraba "Sillon". Ahora:
+//   - ignora acentos y simbolos      -> "cafe" encuentra "Café"
+//   - el orden no importa            -> "azul dorco" encuentra "Navaja DORCO Azul"
+//   - aguanta faltas de ortografia   -> "gumi" encuentra "GUMMY", "silla" encuentra "Sillon"
+// Esto sirve igual escribiendo o dictando por voz, ya que el microfono escribe en el buscador.
+function normalizarTextoBusqueda(txt){
+  return String(txt == null ? '' : txt)
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // quita acentos: á->a, ñ->n
+    .replace(/[^a-z0-9\s]/g, ' ')                      // quita simbolos: #, -, /, etc
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+// Cuenta cuantos cambios hacen falta para convertir una palabra en otra -para aguantar faltas-
+function distanciaTexto(a, b){
+  if(a === b) return 0;
+  if(!a.length) return b.length;
+  if(!b.length) return a.length;
+  var fila = [];
+  for(var j=0; j<=b.length; j++) fila[j] = j;
+  for(var i=1; i<=a.length; i++){
+    var anterior = fila[0];
+    fila[0] = i;
+    for(var k=1; k<=b.length; k++){
+      var temp = fila[k];
+      fila[k] = Math.min(
+        fila[k] + 1,                                       // borrar
+        fila[k-1] + 1,                                     // insertar
+        anterior + (a[i-1] === b[k-1] ? 0 : 1)             // cambiar
+      );
+      anterior = temp;
+    }
+  }
+  return fila[b.length];
+}
+
+// ¿Que tan parecida es esta palabra que dijiste a esta palabra del producto?
+// Devuelve -1 si no se parecen; si se parecen, devuelve QUE TAN LEJOS esta -0 = identica-.
+// Es importante devolver la distancia y no solo si/no: sin eso, "silla" le daba el mismo
+// puntaje a "Sillon" -1 cambio- que a "Silver" -2 cambios-, y ganaba el equivocado.
+function calidadParecido(loQueDijiste, palabraDelProducto){
+  if(loQueDijiste.length < 3) return -1; // muy corta: no arriesgar falsos positivos
+  if(palabraDelProducto === loQueDijiste) return 0;
+  if(palabraDelProducto.indexOf(loQueDijiste) === 0) return 0.5; // "gel" -> "gelatina"
+  // Comparar contra el pedazo del mismo largo: "silla" contra "sillo" -de "sillon"-
+  var pedazo = palabraDelProducto.substring(0, loQueDijiste.length);
+  var tolerancia = loQueDijiste.length <= 4 ? 1 : (loQueDijiste.length <= 7 ? 2 : 3);
+  var d = distanciaTexto(loQueDijiste, pedazo);
+  return d <= tolerancia ? d : -1;
+}
+
+// Devuelve un puntaje: -1 si no coincide, y mientras mas alto mejor coincide -para poder
+// poner primero lo que mejor calza-.
+function puntajeBusqueda(textoProducto, consulta){
+  var normProd = normalizarTextoBusqueda(textoProducto);
+  var normCons = normalizarTextoBusqueda(consulta);
+  if(!normCons) return 0; // sin busqueda: todo pasa
+  if(normProd.indexOf(normCons) >= 0) return 100; // calza tal cual, tal como lo dijiste
+
+  var palabrasConsulta = normCons.split(' ').filter(function(p){ return p; });
+  var palabrasProducto = normProd.split(' ').filter(function(p){ return p; });
+  var puntaje = 0;
+
+  for(var i=0; i<palabrasConsulta.length; i++){
+    var pal = palabrasConsulta[i];
+    if(normProd.indexOf(pal) >= 0){ puntaje += 10; continue; } // la palabra esta, en cualquier orden
+
+    // Si no esta tal cual, buscar la palabra MAS parecida del producto y premiar segun
+    // que tan cerca este: mientras menos cambios haga falta, mas puntaje.
+    var mejorDistancia = -1;
+    for(var j=0; j<palabrasProducto.length; j++){
+      var d = calidadParecido(pal, palabrasProducto[j]);
+      if(d >= 0 && (mejorDistancia < 0 || d < mejorDistancia)) mejorDistancia = d;
+    }
+    if(mejorDistancia >= 0){ puntaje += (8 - mejorDistancia * 2); continue; }
+    return -1; // esta palabra no aparece de ninguna forma: no es este producto
+  }
+  return puntaje;
+}
+
+// Filtra y ordena una lista poniendo primero lo que mejor coincide
+function filtrarPorBusqueda(lista, consulta, sacarTexto){
+  if(!consulta || !consulta.trim()) return lista;
+  var conPuntaje = [];
+  for(var i=0; i<lista.length; i++){
+    var p = puntajeBusqueda(sacarTexto(lista[i]), consulta);
+    if(p >= 0) conPuntaje.push({ item: lista[i], puntaje: p, orden: i });
+  }
+  conPuntaje.sort(function(a,b){
+    if(b.puntaje !== a.puntaje) return b.puntaje - a.puntaje;
+    return a.orden - b.orden; // si empatan, respetar el orden original -alfabetico-
+  });
+  return conPuntaje.map(function(x){ return x.item; });
+}
+
 function escaparHtml(txt){
   if(txt === null || txt === undefined) return '';
   return String(txt)
@@ -5569,7 +5667,7 @@ function filterV(q){
   var el = document.getElementById('vlist');
   el.innerHTML = '';
   var list = [].concat(productos).sort(function(a,b){return a.nombre.localeCompare(b.nombre);});
-  if(q && q.trim()) list = list.filter(function(p){return p.nombre.toLowerCase().includes(q.toLowerCase());});
+  if(q && q.trim()) list = filtrarPorBusqueda(list, q, function(p){ return p.nombre; });
   if(!list.length){ el.style.display='none'; return; }
   el.style.display = 'block';
   list.forEach(function(p){
@@ -5948,18 +6046,8 @@ function procesarDictadoCompra(textoOriginal){
   }
 
   loadProds();
-  var q = textoProducto.toLowerCase();
-  var coincidencias = productos.filter(function(p){ return p.nombre.toLowerCase().indexOf(q) >= 0; });
-  if(!coincidencias.length){
-    var palabrasClave = q.split(/\s+/).filter(function(w){ return w.length > 2; });
-    var conPuntaje = productos.map(function(p){
-      var nombreLower = p.nombre.toLowerCase();
-      var puntaje = palabrasClave.filter(function(w){ return nombreLower.indexOf(w) >= 0; }).length;
-      return { producto: p, puntaje: puntaje };
-    }).filter(function(x){ return x.puntaje > 0; });
-    conPuntaje.sort(function(a,b){ return b.puntaje - a.puntaje; });
-    coincidencias = conPuntaje.map(function(x){ return x.producto; });
-  }
+  // Busqueda lista: ignora acentos, el orden no importa, y aguanta faltas de ortografia
+  var coincidencias = filtrarPorBusqueda(productos, textoProducto, function(p){ return p.nombre; });
 
   if(!coincidencias.length){
     wrap.innerHTML = '<div style="font-size:13px;color:#333">Escuché: <b>"'+limpiarTexto(textoOriginal)+'"</b></div>'
@@ -6011,7 +6099,7 @@ function filterCC(q){
   var el = document.getElementById('cclist');
   el.innerHTML = '';
   var list = [].concat(productos).sort(function(a,b){return a.nombre.localeCompare(b.nombre);});
-  if(q && q.trim()) list = list.filter(function(p){return p.nombre.toLowerCase().includes(q.toLowerCase());});
+  if(q && q.trim()) list = filtrarPorBusqueda(list, q, function(p){ return p.nombre; });
   if(!list.length){ el.style.display='none'; return; }
   el.style.display = 'block';
   list.forEach(function(p){
@@ -6524,14 +6612,46 @@ function renderBarberiasInicio(q){
     var barberos = barberias[neg];
     var abierta = barberiasAbiertas[neg];
     var selCount = barberos.filter(function(c){ return barberosSel[String(c.id)]; }).length;
+    var todosSel = barberos.length > 0 && selCount === barberos.length;
+    var algunoSel = selCount > 0 && !todosSel;
 
     var wrap = document.createElement('div');
     wrap.style.cssText = 'background:white;border-radius:12px;margin-bottom:8px;border:0.5px solid var(--nbs-line);overflow:hidden;box-shadow:var(--nbs-shadow-card)';
 
     var header = document.createElement('div');
-    header.style.cssText = 'padding:13px 14px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;background:white';
-    header.innerHTML = '<div style="font-size:14px;font-weight:600;color:var(--nbs-ink);display:flex;align-items:center;gap:8px">🏪'+neg+'</div>'
-      +'<div style="font-size:12px;color:var(--nbs-muted);display:flex;align-items:center;gap:4px">'+barberos.length+' barbero(s) <span style="font-size:11px">'+(abierta?'▲':'▼')+'</span></div>';
+    header.style.cssText = 'padding:13px 14px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;background:'+(selCount>0?'var(--nbs-gold-bg)':'white')+';gap:10px';
+
+    // Casilla para elegir TODOS los barberos de esta barberia de un solo toque -en las
+    // barberias donde todos te compran, evita tener que tocarlos uno por uno-.
+    var chkTodos = document.createElement('div');
+    chkTodos.style.cssText = 'width:26px;height:26px;border-radius:7px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;'
+      + (todosSel ? 'background:var(--nbs-gold);color:white;' : (algunoSel ? 'background:var(--nbs-gold-bg);color:var(--nbs-gold-dark);border:1.5px solid var(--nbs-gold);' : 'border:1.5px solid #d8d8dc;color:transparent;'));
+    chkTodos.textContent = todosSel ? '✓' : (algunoSel ? '−' : '');
+    chkTodos.title = todosSel ? 'Quitar todos' : 'Elegir todos';
+    chkTodos.onclick = (function(negocio, listaBarberos, yaEstabanTodos){
+      return function(e){
+        e.stopPropagation(); // que no abra/cierre la barberia al tocar la casilla
+        if(yaEstabanTodos){
+          listaBarberos.forEach(function(c){ delete barberosSel[String(c.id)]; });
+        } else {
+          listaBarberos.forEach(function(c){ barberosSel[String(c.id)] = {cliente: c, barberia: negocio}; });
+          barberiasAbiertas[negocio] = true; // abrirla para que veas a quien elegiste
+        }
+        renderBarberiasInicio(document.getElementById('ped-inicio-buscar') ? document.getElementById('ped-inicio-buscar').value : '');
+      };
+    })(neg, barberos, todosSel);
+
+    var titulo = document.createElement('div');
+    titulo.style.cssText = 'font-size:14px;font-weight:600;color:var(--nbs-ink);flex:1;min-width:0';
+    titulo.innerHTML = '🏪'+escaparHtml(neg);
+
+    var contador = document.createElement('div');
+    contador.style.cssText = 'font-size:12px;color:'+(selCount>0?'var(--nbs-gold-dark)':'var(--nbs-muted)')+';display:flex;align-items:center;gap:4px;flex-shrink:0;font-weight:'+(selCount>0?'700':'400');
+    contador.innerHTML = (selCount>0 ? selCount+' de '+barberos.length : barberos.length+' barbero(s)')+' <span style="font-size:11px">'+(abierta?'▲':'▼')+'</span>';
+
+    header.appendChild(chkTodos);
+    header.appendChild(titulo);
+    header.appendChild(contador);
 
     var lista = document.createElement('div');
     lista.style.cssText = 'padding:8px;display:'+(abierta?'block':'none');
@@ -6634,6 +6754,47 @@ function abrirPantallaMultiple(){
   window.scrollTo(0,0);
 }
 
+// Saca los productos que este barbero SUELE comprar, mirando sus ultimas 5 ventas reales.
+// Los ordena por cuantas veces los ha comprado, y recuerda la cantidad de la ultima vez.
+// Sirve para agregarlos de un toque sin tener que buscarlos.
+function productosHabituales(cid, ventasTodas){
+  if(!cid) return [];
+  var delCliente = (ventasTodas || []).filter(function(v){
+    return !v.cancelada && String(v.cid) === String(cid);
+  });
+  var recientes = delCliente.slice(-5); // las ultimas 5 compras
+  var mapa = {};
+  recientes.forEach(function(v){
+    (v.items||[]).forEach(function(it){
+      if(!it.pid) return;
+      var k = String(it.pid);
+      if(!mapa[k]) mapa[k] = { veces: 0, cant: it.cant || 1 };
+      mapa[k].veces++;
+      mapa[k].cant = it.cant || 1; // la cantidad de la vez mas reciente
+    });
+  });
+  var lista = [];
+  Object.keys(mapa).forEach(function(k){
+    var prod = productos.find(function(x){ return String(x.id) === k; });
+    if(!prod) return; // ese producto ya no existe en el catalogo
+    lista.push({ prod: prod, veces: mapa[k].veces, cant: mapa[k].cant });
+  });
+  lista.sort(function(a,b){ return b.veces - a.veces; });
+  return lista.slice(0, 6);
+}
+
+function agregarHabitualMulti(idx, hi){
+  var p = pedidosMultiTemp[idx];
+  if(!p || !p._habituales || !p._habituales[hi]) return;
+  var h = p._habituales[hi];
+  var yaEsta = false;
+  for(var j=0; j<p.items.length; j++){
+    if(String(p.items[j].pid) === String(h.prod.id)){ p.items[j].cant += h.cant; yaEsta = true; break; }
+  }
+  if(!yaEsta) p.items.push({ pid: h.prod.id, nombre: h.prod.nombre, cant: h.cant, precio: h.prod.precio, costo: h.prod.costo });
+  renderPedidosMultiples();
+}
+
 function renderPedidosMultiples(){
   var el = document.getElementById('ped-multi-lista');
   if(!el) return;
@@ -6646,6 +6807,9 @@ function renderPedidosMultiples(){
   document.getElementById('ped-multi-sub').textContent = pedidosMultiTemp.length + ' barbero(s) · agrégale a cualquiera, en el orden que quieras';
 
   var totalGeneral = 0;
+  // Se leen las ventas UNA sola vez aqui -no una por cada barbero- para que dibujar la
+  // pantalla siga siendo instantaneo aunque tengas cientos de ventas guardadas.
+  var ventasParaHabituales = LS('nv', []);
 
   pedidosMultiTemp.forEach(function(p, idx){
     var totalBarbero = p.items.reduce(function(s,it){ return s + (it.cant * it.precio); }, 0);
@@ -6669,6 +6833,23 @@ function renderPedidosMultiples(){
       +'<div id="multi-total-'+idx+'" style="font-size:15px;font-weight:800;color:'+(totalBarbero>0?'var(--nbs-green-text)':'#bbb')+'">$'+fmtNum(totalBarbero)+'</div>'
       +'<button onclick="quitarBarberoMulti('+idx+')" title="Hoy no compró" style="background:rgba(255,255,255,0.75);color:var(--nbs-red-dark);border:none;border-radius:7px;width:30px;height:30px;cursor:pointer;font-size:14px;flex-shrink:0">✕</button>'
       +'</div>';
+
+    // --- Lo que suele comprar: un toque y se agrega, sin tener que buscarlo ---
+    p._habituales = productosHabituales(p.cliente.id, ventasParaHabituales);
+    if(p._habituales.length){
+      html += '<div style="padding:9px 12px 2px">'
+        +'<div style="font-size:10px;color:#999;font-weight:700;margin-bottom:5px">⚡ LO QUE SUELE COMPRAR · toca para agregar</div>'
+        +'<div style="display:flex;flex-wrap:wrap;gap:5px">';
+      p._habituales.forEach(function(h, hi){
+        var nombreChip = h.prod.nombreCorto || h.prod.nombre;
+        if(nombreChip.length > 24) nombreChip = nombreChip.substring(0,24)+'…';
+        html += '<button onclick="agregarHabitualMulti('+idx+','+hi+')" style="background:white;border:1px solid '+col.fuerte+'55;color:'+col.fuerte+';border-radius:14px;padding:6px 10px;font-size:11px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:5px">'
+          +escaparHtml(nombreChip)
+          +'<span style="background:'+col.fuerte+';color:white;border-radius:8px;padding:1px 5px;font-size:10px;font-weight:800">'+h.cant+'</span>'
+          +'</button>';
+      });
+      html += '</div></div>';
+    }
 
     // --- Buscador propio de esta tarjeta ---
     html += '<div style="padding:9px 12px 4px">'
@@ -6743,7 +6924,7 @@ function filterPedMulti(idx, q){
   if(!el) return;
   el.innerHTML = '';
   var list = [].concat(productos).sort(function(a,b){ return a.nombre.localeCompare(b.nombre); });
-  if(q && q.trim()) list = list.filter(function(p){ return p.nombre.toLowerCase().includes(q.toLowerCase()); });
+  if(q && q.trim()) list = filtrarPorBusqueda(list, q, function(p){ return p.nombre; });
   if(!list.length){ el.style.display='none'; return; }
   el.style.display = 'block';
   list.slice(0,40).forEach(function(p){
@@ -7020,7 +7201,7 @@ function filterPed(q){
   var el = document.getElementById('pedplist');
   el.innerHTML = '';
   var list = [].concat(productos).sort(function(a,b){return a.nombre.localeCompare(b.nombre);});
-  if(q && q.trim()) list = list.filter(function(p){return p.nombre.toLowerCase().includes(q.toLowerCase());});
+  if(q && q.trim()) list = filtrarPorBusqueda(list, q, function(p){ return p.nombre; });
   if(!list.length){ el.style.display='none'; return; }
   el.style.display = 'block';
   list.forEach(function(p){
@@ -7144,20 +7325,9 @@ function procesarDictadoPedido(textoOriginal){
 
   loadProds();
   var candidatos = productos.filter(function(p){ return p.stock > 0; });
-  var q = textoProducto.toLowerCase();
-  var coincidencias = candidatos.filter(function(p){ return p.nombre.toLowerCase().indexOf(q) >= 0; });
-  // Si no hubo coincidencia exacta de texto, buscar por palabras sueltas -mas flexible-,
-  // ordenando por cuantas palabras de lo dicho aparecen en el nombre -mejor coincidencia primero-
-  if(!coincidencias.length){
-    var palabrasClave = q.split(/\s+/).filter(function(w){ return w.length > 2; });
-    var conPuntaje = candidatos.map(function(p){
-      var nombreLower = p.nombre.toLowerCase();
-      var puntaje = palabrasClave.filter(function(w){ return nombreLower.indexOf(w) >= 0; }).length;
-      return { producto: p, puntaje: puntaje };
-    }).filter(function(x){ return x.puntaje > 0; });
-    conPuntaje.sort(function(a,b){ return b.puntaje - a.puntaje; });
-    coincidencias = conPuntaje.map(function(x){ return x.producto; });
-  }
+  // Busqueda lista: ignora acentos, el orden de las palabras no importa, y aguanta faltas de
+  // ortografia -importante al dictar, porque el telefono no siempre escribe el nombre exacto-.
+  var coincidencias = filtrarPorBusqueda(candidatos, textoProducto, function(p){ return p.nombre; });
 
   if(!coincidencias.length){
     wrap.innerHTML = '<div style="font-size:13px;color:#333">Escuché: <b>"'+limpiarTexto(textoOriginal)+'"</b></div>'

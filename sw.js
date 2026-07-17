@@ -10,11 +10,10 @@
 // index.html (ese numero cambia cada vez, y si no lo ignoramos nunca encontraria
 // la copia guardada).
 
-var CACHE_NAME = 'nbs-cache-v2';
+var CACHE_NAME = 'nbs-cache-v3';
 var ARCHIVOS_BASE = [
   './',
   './index.html',
-  './app.html',
   './app_prueba_firebase.html',
   './manifest.json',
   './icon-192.png',
@@ -74,7 +73,7 @@ self.addEventListener('fetch', function(event) {
     }).catch(function() {
       // No hay internet: buscamos la ultima copia guardada
       return caches.match(keyLimpia).then(function(respuestaCache){
-        return respuestaCache || caches.match('./app_prueba_firebase.html') || caches.match('./app.html');
+        return respuestaCache || caches.match('./app_prueba_firebase.html');
       });
     })
   );

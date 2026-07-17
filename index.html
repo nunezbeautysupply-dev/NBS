@@ -26,8 +26,13 @@
     });
   }
   // Siempre agrega un valor unico (la hora exacta) para forzar que el telefono
-  // pida SIEMPRE la version mas nueva de app.html, nunca una copia guardada.
-  location.replace('app.html?v=' + Date.now());
+  // pida SIEMPRE la version mas nueva, nunca una copia guardada.
+  //
+  // CAMBIO IMPORTANTE -17 de julio de 2026-: antes esto redirigia a app.html, que era la app
+  // VIEJA sin Firebase. Por eso el icono de la pantalla de inicio abria la app equivocada, y
+  // lo que se registraba ahi no subia a la nube y despues se borraba. Costo un dia completo
+  // de ventas. La app vieja ya se saco de GitHub; ahora esto lleva SIEMPRE a la de Firebase.
+  location.replace('app_prueba_firebase.html?v=' + Date.now());
 </script>
 </body>
 </html>

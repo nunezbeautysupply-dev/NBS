@@ -368,6 +368,7 @@ button:active{transform:scale(0.96);filter:brightness(0.93);}
     <button onclick="irMenuProtegido('p-cat')" class="mlb2"><span class="mlb2-icon"><span style="font-size:19px">📦</span></span>Catálogo</button>
     <button onclick="irMenuProtegido('p-inventario')" class="mlb2"><span class="mlb2-icon"><span style="font-size:19px">💰</span></span>Inventario</button>
     <button onclick="irMenuProtegido('p-relleno')" class="mlb2"><span class="mlb2-icon"><span style="font-size:19px">🚐</span></span>Lista de Relleno</button>
+    <button onclick="irMenuProtegido('p-copias')" class="mlb2"><span class="mlb2-icon"><span style="font-size:19px">🛡️</span></span>Copias de Seguridad</button>
     <button onclick="irMenuProtegido('p-relleno')" class="mlb2"><span class="mlb2-icon"><span style="font-size:19px">📦</span></span>Relleno de la Van</button>
     <button onclick="irMenuProtegido('p-sup')" class="mlb2"><span class="mlb2-icon"><span style="font-size:19px">🏭</span></span>Suplidores</button>
     <button onclick="irMenuProtegido('p-comp')" class="mlb2"><span class="mlb2-icon"><span style="font-size:19px">🚚</span></span>Compras</button>
@@ -638,6 +639,31 @@ button:active{transform:scale(0.96);filter:brightness(0.93);}
 <!-- Fondo flotante: aqui se mete el panel de producto nuevo cuando se abre desde una
      tarjeta de barbero, para que se vea encima de la pantalla de tarjetas -->
 <div id="ped-nuevo-prod-flotante" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:99997;align-items:center;justify-content:center;padding:16px"></div>
+
+<!-- ===== COPIAS DE SEGURIDAD - para volver atras si algo se rompe ===== -->
+<div id="p-copias" class="pg">
+  <div style="display:flex;gap:8px;margin-bottom:16px"><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="volverAtras()">← Atrás</button><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="ir('p-ped')">🏠 Inicio</button></div>
+  <h2 style="font-size:20px;font-weight:700;color:#1a237e;margin-bottom:4px">🛡️ Copias de Seguridad</h2>
+  <p style="font-size:12px;color:var(--nbs-muted);margin-bottom:14px">La app guarda sola una copia completa <b>cada 2 horas</b> y conserva las de los últimos <b>30 días</b>. Si algo se borra o se rompe, aquí puedes volver a como estaba.</p>
+
+  <div class="card" style="margin-bottom:10px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:9px">
+      <div>
+        <div style="font-size:11px;color:var(--nbs-muted);font-weight:700">ÚLTIMA COPIA</div>
+        <div id="copias-ultima" style="font-size:14px;font-weight:700;color:var(--nbs-ink);margin-top:2px">—</div>
+      </div>
+      <div id="copias-estado" style="font-size:11px;font-weight:700"></div>
+    </div>
+    <button class="btn" style="background:#2E7D32;color:white;margin:0" onclick="copiarAhoraManual()">🛡️ Hacer una copia ahora</button>
+  </div>
+
+  <div style="font-size:11px;color:var(--nbs-muted);font-weight:700;margin:14px 0 8px">📱 EN ESTE TELÉFONO · sin internet</div>
+  <p style="font-size:11px;color:var(--nbs-muted);margin:0 0 8px">Se guardan solas cada 5 facturas, aunque estés sin señal en la ruta.</p>
+  <div id="copias-locales-lista"></div>
+
+  <div style="font-size:11px;color:var(--nbs-muted);font-weight:700;margin:18px 0 8px">☁️ EN LA NUBE · cada 2 horas</div>
+  <div id="copias-lista"></div>
+</div>
 
 <div id="p-relleno" class="pg">
   <div style="display:flex;gap:8px;margin-bottom:16px"><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="volverAtras()">← Atrás</button><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="ir('p-ped')">🏠 Inicio</button></div>
@@ -1215,6 +1241,351 @@ function toggleMenuExtra(){
 // no hay forma de saber cual version es mas nueva -si la del telefono o la de la nube- y se
 // puede terminar borrando trabajo nuevo con datos viejos. Eso paso el 16 de julio 2026 y
 // costo un dia entero de ventas.
+// ===== COMPRIMIR / DESCOMPRIMIR =====
+// Firebase no acepta guardar mas de 1 MB de una sola vez. Comprimiendo, lo mismo ocupa
+// entre un 35% y un 90% menos, asi que cabe de sobra y las copias son mas rapidas.
+// Si el navegador fuera muy viejo y no supiera comprimir, se guarda sin comprimir -la app
+// sigue funcionando igual, solo ocupa mas-.
+function navegadorSabeComprimir(){
+  return typeof CompressionStream === 'function' && typeof DecompressionStream === 'function';
+}
+
+function comprimirTexto(txt){
+  if(!navegadorSabeComprimir()) return Promise.resolve(null);
+  try{
+    var cs = new CompressionStream('gzip');
+    var flujo = new Blob([txt]).stream().pipeThrough(cs);
+    return new Response(flujo).arrayBuffer().then(function(buf){
+      // Se pasa a texto para poder guardarlo en Firebase -que solo acepta texto-.
+      // Se hace por pedazos para no reventar la memoria con datos grandes.
+      var bytes = new Uint8Array(buf);
+      var binario = '';
+      var pedazo = 8192;
+      for(var i=0; i<bytes.length; i+=pedazo){
+        binario += String.fromCharCode.apply(null, bytes.subarray(i, i+pedazo));
+      }
+      return btoa(binario);
+    }).catch(function(){ return null; });
+  }catch(e){ return Promise.resolve(null); }
+}
+
+function descomprimirTexto(base64){
+  if(!navegadorSabeComprimir()) return Promise.resolve(null);
+  try{
+    var binario = atob(base64);
+    var bytes = new Uint8Array(binario.length);
+    for(var i=0; i<binario.length; i++) bytes[i] = binario.charCodeAt(i);
+    var ds = new DecompressionStream('gzip');
+    var flujo = new Blob([bytes]).stream().pipeThrough(ds);
+    return new Response(flujo).text().catch(function(){ return null; });
+  }catch(e){ return Promise.resolve(null); }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//   COPIAS AUTOMATICAS CADA 2 HORAS  —  construido el 17 de julio de 2026
+// ═══════════════════════════════════════════════════════════════════════════════
+// POR QUE EXISTE ESTO:
+// El 16 de julio de 2026 se perdio un dia COMPLETO de ventas por un error de esta app.
+// No habia forma de volver atras. Ahora la app guarda sola una copia completa cada 2 horas
+// en la nube, y conserva las de los ultimos 30 dias. Si algo se rompe -por un error mio, por
+// un borrado sin querer, por lo que sea-, se puede volver a como estaba, con un boton.
+//
+// La idea de fondo: la app NO debe depender de que nadie no se equivoque. Debe poder VOLVER
+// ATRAS. Eso es lo que le faltaba.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+var CLAVES_A_RESPALDAR = ['ncl','nv','nc','ncr','np','nsup','ngastos','ntarjetas','notrasdeudas','npedidos','ndevoluciones','np_eliminados','nvisitas_barberos','historial_precios','rutas_por_dia'];
+var HORAS_ENTRE_COPIAS = 2;
+var DIAS_QUE_SE_GUARDAN = 30;
+var CLAVE_ULTIMA_COPIA = 'nbs_ultima_copia_auto';
+
+function toca_hacer_copia(){
+  var ultima = parseInt(localStorage.getItem(CLAVE_ULTIMA_COPIA) || '0', 10);
+  if(!ultima) return true; // nunca se ha hecho ninguna
+  return (Date.now() - ultima) >= HORAS_ENTRE_COPIAS * 60 * 60 * 1000;
+}
+
+// Cuenta lo que hay ahora, para poder detectar despues si algo se borro
+function contarTodo(){
+  var c = {};
+  CLAVES_A_RESPALDAR.forEach(function(k){
+    var v = LS(k, null);
+    if(Array.isArray(v)) c[k] = v.length;
+    else if(v && typeof v === 'object') c[k] = Object.keys(v).length;
+  });
+  return c;
+}
+
+function hacerCopiaAutomatica(forzada){
+  if(typeof fbAuth === 'undefined' || !fbAuth.currentUser) return Promise.resolve(false);
+  if(!navigator.onLine) return Promise.resolve(false);
+  if(!forzada && !toca_hacer_copia()) return Promise.resolve(false);
+
+  var idCopia = String(Date.now());
+  var conteo = contarTodo();
+  var promesas = [];
+  var guardadas = 0;
+
+  CLAVES_A_RESPALDAR.forEach(function(k){
+    var crudo = localStorage.getItem(k);
+    if(crudo === null) return; // no existe: no hay nada que copiar
+    promesas.push(
+      comprimirTexto(crudo).then(function(comprimido){
+        var doc = { clave: k, hora: Date.now() };
+        if(comprimido){ doc.zip = comprimido; }
+        else { doc.valor = crudo; } // el navegador no supo comprimir: se guarda tal cual
+        return fbDb.collection('nbs_copias').doc(idCopia + '__' + k).set(doc)
+          .then(function(){ guardadas++; });
+      })
+    );
+  });
+
+  return Promise.all(promesas).then(function(){
+    // El indice: la ficha de esta copia, con que trae y cuanto de cada cosa
+    return fbDb.collection('nbs_copias').doc(idCopia).set({
+      esIndice: true,
+      hora: Date.now(),
+      fecha: fechaHoy(),
+      horaTexto: new Date().toLocaleTimeString('es', {hour:'2-digit', minute:'2-digit'}),
+      claves: CLAVES_A_RESPALDAR.filter(function(k){ return localStorage.getItem(k) !== null; }),
+      conteo: conteo,
+      automatica: !forzada
+    });
+  }).then(function(){
+    localStorage.setItem(CLAVE_ULTIMA_COPIA, String(Date.now()));
+    console.log('Copia automatica guardada: '+guardadas+' parte(s)');
+    limpiarCopiasViejas();
+    return true;
+  }).catch(function(e){
+    console.error('No se pudo hacer la copia automatica:', e);
+    return false;
+  });
+}
+
+// Borra las copias de mas de 30 dias, para no llenar el espacio de la nube
+function limpiarCopiasViejas(){
+  var limite = Date.now() - DIAS_QUE_SE_GUARDAN * 24 * 60 * 60 * 1000;
+  fbDb.collection('nbs_copias').get().then(function(snap){
+    var borrar = [];
+    snap.forEach(function(doc){
+      var id = String(doc.id).split('__')[0];
+      var t = parseInt(id, 10);
+      if(t && t < limite) borrar.push(fbDb.collection('nbs_copias').doc(doc.id).delete());
+    });
+    if(borrar.length){
+      Promise.all(borrar).then(function(){ console.log('Se borraron '+borrar.length+' parte(s) de copias viejas'); });
+    }
+  }).catch(function(e){ console.error('No se pudieron limpiar las copias viejas:', e); });
+}
+
+// Trae la lista de copias disponibles, de la mas nueva a la mas vieja
+function listarCopias(){
+  return fbDb.collection('nbs_copias').get().then(function(snap){
+    var copias = [];
+    snap.forEach(function(doc){
+      var d = doc.data();
+      if(d && d.esIndice) copias.push({ id: doc.id, datos: d });
+    });
+    copias.sort(function(a,b){ return (b.datos.hora||0) - (a.datos.hora||0); });
+    return copias;
+  });
+}
+
+// Vuelve a como estaba en el momento de esa copia
+function restaurarCopia(idCopia){
+  return fbDb.collection('nbs_copias').doc(idCopia).get().then(function(doc){
+    if(!doc.exists) throw new Error('No se encontró esa copia');
+    var indice = doc.data();
+    var claves = indice.claves || [];
+    var promesas = claves.map(function(k){
+      return fbDb.collection('nbs_copias').doc(idCopia + '__' + k).get().then(function(d){
+        if(!d.exists) return null;
+        var dd = d.data();
+        if(dd.zip){
+          return descomprimirTexto(dd.zip).then(function(txt){
+            return txt ? { clave: k, valor: txt } : null;
+          });
+        }
+        return dd.valor ? { clave: k, valor: dd.valor } : null;
+      });
+    });
+    return Promise.all(promesas).then(function(partes){
+      var buenas = partes.filter(function(p){ return p; });
+      if(!buenas.length) throw new Error('No se pudo leer el contenido de esa copia');
+      buenas.forEach(function(p){
+        localStorage.setItem(p.clave, p.valor);
+        localStorage.setItem('_hora_'+p.clave, String(Date.now())); // ahora ES lo mas nuevo
+        marcarPendienteDeSubir(p.clave); // y hay que subirlo para que la nube tambien lo tenga
+      });
+      return buenas.length;
+    });
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//   DETECTOR DE QUE ALGO SE BORRO
+// ═══════════════════════════════════════════════════════════════════════════════
+// Si al abrir la app hay MENOS ventas o clientes que la ultima vez, algo paso. Antes eso
+// ocurria en silencio y te enterabas semanas despues -o nunca-. Ahora te avisa en el momento
+// y te ofrece volver a una copia anterior.
+var CLAVE_ULTIMO_CONTEO = 'nbs_ultimo_conteo';
+var NOMBRES_BONITOS = { ncl:'clientes', nv:'ventas', nc:'compras', np:'productos', ngastos:'gastos', npedidos:'pedidos', nsup:'suplidores', ntarjetas:'tarjetas' };
+
+function revisarSiFaltaAlgo(){
+  var ahora = contarTodo();
+  var antes;
+  try{ antes = JSON.parse(localStorage.getItem(CLAVE_ULTIMO_CONTEO) || 'null'); }catch(e){ antes = null; }
+
+  if(!antes){
+    localStorage.setItem(CLAVE_ULTIMO_CONTEO, JSON.stringify(ahora));
+    return;
+  }
+
+  var perdidas = [];
+  Object.keys(antes).forEach(function(k){
+    var a = antes[k] || 0;
+    var b = ahora[k] || 0;
+    // Solo avisa si la caida es de verdad -mas de 2, o mas del 10%-, para no molestar
+    // cuando borras un cliente o cancelas una venta a proposito.
+    if(b < a && (a - b) > 2 && (a - b) / a > 0.10){
+      perdidas.push({ que: NOMBRES_BONITOS[k] || k, antes: a, ahora: b, faltan: a - b });
+    }
+  });
+
+  localStorage.setItem(CLAVE_ULTIMO_CONTEO, JSON.stringify(ahora));
+
+  if(perdidas.length){
+    var msj = '⚠️ ATENCIÓN: parece que se borraron datos.\n\n';
+    perdidas.forEach(function(p){
+      msj += '   ' + p.que.toUpperCase() + ': tenías ' + p.antes + ', ahora hay ' + p.ahora + ' (faltan ' + p.faltan + ')\n';
+    });
+    msj += '\nSi tú no los borraste, puedes volver a una copia anterior.\n\n¿Quieres ver las copias guardadas?';
+    setTimeout(function(){
+      if(confirm(msj)) irMenuProtegido('p-copias');
+    }, 1200);
+  }
+}
+
+function iniciarCopiasAutomaticas(){
+  revisarSiFaltaAlgo();
+  // La primera copia se intenta a los 20 segundos de abrir -sin estorbar el arranque-
+  setTimeout(function(){ hacerCopiaAutomatica(false); }, 20000);
+  // Y despues se revisa cada 10 minutos si ya toca hacer la siguiente
+  setInterval(function(){ hacerCopiaAutomatica(false); }, 10 * 60 * 1000);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//   COPIAS DENTRO DEL PROPIO TELEFONO  —  cada 5 facturas, SIN internet
+// ═══════════════════════════════════════════════════════════════════════════════
+// Idea de Sensei, y cubre un hueco real: las copias de la nube NECESITAN INTERNET, y en la
+// van, entre barberia y barberia, muchas veces no hay señal. Ahi no se hace ninguna copia.
+// Estas se guardan DENTRO del telefono cada 5 facturas, sin internet y sin tocar un boton.
+//
+// Se guardan con localStorage directo -NO con SS()- a proposito: asi nunca se suben a la
+// nube y, sobre todo, la nube NUNCA las puede sobrescribir. Ese fue el error del 16 de julio.
+//
+// Solo se guardan los datos del NEGOCIO -ventas, clientes, compras, cobros...-, no los
+// productos: las fotos de productos pesan 1 MB y llenarian la memoria del telefono en 10
+// copias. Los productos casi no cambian y estan a salvo en las copias de la nube.
+var CLAVES_COPIA_LOCAL = ['nv','ncl','nc','ncr','ngastos','ntarjetas','notrasdeudas','npedidos','ndevoluciones','nvisitas_barberos'];
+var FACTURAS_ENTRE_COPIAS = 5;
+var COPIAS_LOCALES_QUE_SE_GUARDAN = 10;
+var CLAVE_COPIAS_LOCALES = 'nbs_copias_locales';
+var CLAVE_CONTEO_NV_COPIA = 'nbs_nv_ultima_copia_local';
+
+function leerCopiasLocales(){
+  try{ return JSON.parse(localStorage.getItem(CLAVE_COPIAS_LOCALES) || '[]'); }catch(e){ return []; }
+}
+
+function hacerCopiaLocal(){
+  var partes = {};
+  var promesas = [];
+  CLAVES_COPIA_LOCAL.forEach(function(k){
+    var crudo = localStorage.getItem(k);
+    if(crudo === null) return;
+    promesas.push(comprimirTexto(crudo).then(function(z){
+      partes[k] = z ? { zip: z } : { valor: crudo };
+    }));
+  });
+  return Promise.all(promesas).then(function(){
+    var copias = leerCopiasLocales();
+    copias.unshift({
+      hora: Date.now(),
+      fecha: fechaHoy(),
+      horaTexto: new Date().toLocaleTimeString('es', {hour:'2-digit', minute:'2-digit'}),
+      conteo: contarTodo(),
+      partes: partes
+    });
+    copias = copias.slice(0, COPIAS_LOCALES_QUE_SE_GUARDAN); // solo las ultimas 10
+    try{
+      localStorage.setItem(CLAVE_COPIAS_LOCALES, JSON.stringify(copias));
+      localStorage.setItem(CLAVE_CONTEO_NV_COPIA, String((LS('nv',[]) || []).length));
+      console.log('Copia guardada en el telefono. Total: '+copias.length);
+      return true;
+    }catch(e){
+      // Si la memoria del telefono se lleno, se van botando las mas viejas
+      console.error('No cupo la copia en el telefono, se quitan las mas viejas:', e);
+      try{
+        localStorage.setItem(CLAVE_COPIAS_LOCALES, JSON.stringify(copias.slice(0, 3)));
+        return true;
+      }catch(e2){ return false; }
+    }
+  });
+}
+
+// Se llama sola cada vez que se guardan ventas: si ya hay 5 facturas nuevas, hace la copia
+function revisarSiTocaCopiaLocal(k, v){
+  if(k !== 'nv' || !Array.isArray(v)) return;
+  var ultimo = parseInt(localStorage.getItem(CLAVE_CONTEO_NV_COPIA) || '0', 10);
+  if(v.length >= ultimo + FACTURAS_ENTRE_COPIAS){
+    hacerCopiaLocal().then(function(){ mostrarAvisoRespaldo(); });
+  }
+}
+
+function restaurarCopiaLocal(hora){
+  var copias = leerCopiasLocales();
+  var c = copias.find(function(x){ return String(x.hora) === String(hora); });
+  if(!c) return Promise.reject(new Error('No se encontró esa copia'));
+  var promesas = Object.keys(c.partes).map(function(k){
+    var p = c.partes[k];
+    if(p.zip){
+      return descomprimirTexto(p.zip).then(function(txt){ return txt ? {clave:k, valor:txt} : null; });
+    }
+    return Promise.resolve(p.valor ? {clave:k, valor:p.valor} : null);
+  });
+  return Promise.all(promesas).then(function(partes){
+    var buenas = partes.filter(function(x){ return x; });
+    if(!buenas.length) throw new Error('No se pudo leer esa copia');
+    buenas.forEach(function(p){
+      localStorage.setItem(p.clave, p.valor);
+      localStorage.setItem('_hora_'+p.clave, String(Date.now())); // ahora ES lo mas nuevo
+      marcarPendienteDeSubir(p.clave);
+    });
+    return buenas.length;
+  });
+}
+
+// ===== EL AVISO DISCRETO DE BAJAR UN RESPALDO =====
+// Una barrita que NO te bloquea: la puedes ignorar mientras atiendes al barbero, y sigue
+// ahi cuando tengas un momento. Nada de ventanas que te paren en medio de la ruta.
+function mostrarAvisoRespaldo(){
+  var a = document.getElementById('aviso-bajar-respaldo');
+  if(!a){
+    a = document.createElement('div');
+    a.id = 'aviso-bajar-respaldo';
+    a.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:#1a237e;color:white;padding:9px 12px;font-size:12px;font-weight:600;z-index:99989;display:flex;align-items:center;gap:8px;box-shadow:0 -2px 8px rgba(0,0,0,0.2)';
+    a.innerHTML = '<span style="flex:1">💾 Ya llevas varias facturas · baja un respaldo cuando puedas</span>'
+      + '<button onclick="exportD();ocultarAvisoRespaldo()" style="background:white;color:#1a237e;border:none;border-radius:7px;padding:6px 11px;font-size:11px;font-weight:800;cursor:pointer;flex-shrink:0">Bajar</button>'
+      + '<button onclick="ocultarAvisoRespaldo()" style="background:none;border:none;color:rgba(255,255,255,0.65);font-size:17px;cursor:pointer;flex-shrink:0;padding:0 4px">✕</button>';
+    document.body.appendChild(a);
+  }
+  a.style.display = 'flex';
+}
+function ocultarAvisoRespaldo(){
+  var a = document.getElementById('aviso-bajar-respaldo');
+  if(a) a.style.display = 'none';
+}
+
 function marcarHoraLocal(k){
   try{ localStorage.setItem('_hora_'+k, String(Date.now())); }catch(e){}
 }
@@ -1226,6 +1597,7 @@ function SS(k,v){
   try{
     localStorage.setItem(k,JSON.stringify(v));
     marcarHoraLocal(k);
+    revisarSiTocaCopiaLocal(k, v); // cada 5 facturas guarda una copia DENTRO del telefono
   }catch(e){}
   // Ademas de guardar local -como siempre-, se manda una copia a la nube en segundo plano.
   // Si no hay internet o falla, la app sigue funcionando igual con lo que ya guardo local;
@@ -1626,7 +1998,7 @@ function mostrarDirSugerencias(inputId, dropId, val){
 
 var historialPantallas = [];
 function pantallaActual(){
-  var all = ['menu','p-cl','p-v','p-rpt','p-cxc','p-cl-perfil','p-cl-factura','p-cat','p-inventario','p-relleno','p-sup','p-comp','p-ped','p-gastos','p-vip','p-mas','p-facturas','p-dashboard','p-rutas','p-manual','p-cxp'];
+  var all = ['menu','p-cl','p-v','p-rpt','p-cxc','p-cl-perfil','p-cl-factura','p-cat','p-inventario','p-relleno','p-copias','p-sup','p-comp','p-ped','p-gastos','p-vip','p-mas','p-facturas','p-dashboard','p-rutas','p-manual','p-cxp'];
   for(var i=0;i<all.length;i++){
     var el = document.getElementById(all[i]);
     if(el && el.style.display === 'block') return all[i];
@@ -1691,7 +2063,7 @@ function ir(id, sinHistorial){
     if(actual && actual !== id) historialPantallas.push(actual);
   }
   window.scrollTo(0, 0);
-  var all = ['menu','p-cl','p-v','p-rpt','p-cxc','p-cl-perfil','p-cl-factura','p-cat','p-inventario','p-relleno','p-sup','p-comp','p-ped','p-gastos','p-vip','p-mas','p-facturas','p-dashboard','p-rutas','p-manual','p-cxp'];
+  var all = ['menu','p-cl','p-v','p-rpt','p-cxc','p-cl-perfil','p-cl-factura','p-cat','p-inventario','p-relleno','p-copias','p-sup','p-comp','p-ped','p-gastos','p-vip','p-mas','p-facturas','p-dashboard','p-rutas','p-manual','p-cxp'];
   for(var i=0;i<all.length;i++) document.getElementById(all[i]).style.display='none';
   document.getElementById(id).style.display='block';
   if(id==='p-cl'){
@@ -1772,6 +2144,7 @@ function ir(id, sinHistorial){
   if(id==='p-dashboard') renderDashboard();
   if(id==='p-inventario') renderInventario('');
   if(id==='p-relleno') abrirRelleno();
+  if(id==='p-copias') abrirCopias();
   if(id==='p-rutas') renderRutas();
   if(id==='p-gastos'){
     document.getElementById('gastos-l').style.display='block';
@@ -4908,6 +5281,177 @@ function fechaISOhace(dias){
   var d = new Date();
   d.setDate(d.getDate() - dias);
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+
+function renderCopiasLocales(){
+  var el = document.getElementById('copias-locales-lista');
+  if(!el) return;
+  var copias = leerCopiasLocales();
+  if(!copias.length){
+    el.innerHTML = '<div class="card" style="text-align:center;color:#bbb;font-size:12px;padding:14px">Todavía no hay ninguna.<br>Se guardará sola cuando lleves 5 facturas.</div>';
+    return;
+  }
+  var html = '';
+  copias.forEach(function(c){
+    var cn = c.conteo || {};
+    var cuando = new Date(c.hora || 0);
+    var hoy = new Date();
+    var ayer = new Date(hoy); ayer.setDate(hoy.getDate()-1);
+    var etiqueta = cuando.toDateString() === hoy.toDateString() ? 'HOY'
+                 : (cuando.toDateString() === ayer.toDateString() ? 'AYER' : (c.fecha || ''));
+    html += '<div class="card" style="margin-bottom:8px;padding:11px;border-left:4px solid #1a237e">'
+      +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">'
+      +'<div style="font-size:13px;font-weight:800;color:var(--nbs-ink)">📱 '+etiqueta+' · '+(c.horaTexto||'')+'</div>'
+      +'<button onclick="pedirRestaurarLocal(\''+c.hora+'\')" style="background:#E8EAF6;color:#1a237e;border:1px solid #1a237e;border-radius:8px;padding:7px 12px;font-size:12px;font-weight:700;cursor:pointer">↺ Volver a esta</button>'
+      +'</div>'
+      +'<div style="font-size:11px;color:#888;background:#FAFAFA;border-radius:6px;padding:6px 8px">'
+      +'📋 '+(cn.nv||0)+' ventas · 👥 '+(cn.ncl||0)+' clientes · 🧾 '+(cn.nc||0)+' compras'
+      +'</div></div>';
+  });
+  el.innerHTML = html;
+}
+
+function pedirRestaurarLocal(hora){
+  var copias = leerCopiasLocales();
+  var c = copias.find(function(x){ return String(x.hora) === String(hora); });
+  if(!c) return;
+  var cn = c.conteo || {};
+  var ahora = contarTodo();
+  var msj = '↺ VOLVER A LA COPIA DEL TELÉFONO\n' + (c.fecha||'') + ' a las ' + (c.horaTexto||'') + '\n\n';
+  msj += 'Así quedarían tus datos:\n\n';
+  [['nv','Ventas'],['ncl','Clientes'],['nc','Compras']].forEach(function(par){
+    var a = ahora[par[0]] || 0, b = cn[par[0]] || 0;
+    var f = b > a ? '  ↑ recuperas ' + (b-a) : (b < a ? '  ↓ PIERDES ' + (a-b) : '');
+    msj += '   ' + par[1] + ': ' + a + ' → ' + b + f + '\n';
+  });
+  msj += '\nNota: esta copia NO trae los productos (esos están en las copias de la nube).\n';
+  msj += '\n⚠️ Todo lo que hayas hecho DESPUÉS de esa copia se va a perder.\n\n¿Continuar?';
+  if(!confirm(msj)) return;
+
+  hacerCopiaLocal().then(function(){          // red de seguridad: guardar como esta AHORA
+    return restaurarCopiaLocal(hora);
+  }).then(function(partes){
+    alert('✅ Listo. Se restauraron '+partes+' parte(s).\n\nLa app se va a recargar.');
+    setTimeout(function(){ location.reload(); }, 600);
+  }).catch(function(e){
+    console.error(e);
+    alert('No se pudo restaurar: ' + (e.message||'error') + '\n\nTus datos NO se tocaron.');
+  });
+}
+
+function abrirCopias(){
+  renderCopiasLocales();
+  var ultima = parseInt(localStorage.getItem(CLAVE_ULTIMA_COPIA) || '0', 10);
+  var el = document.getElementById('copias-ultima');
+  var est = document.getElementById('copias-estado');
+  if(ultima){
+    var mins = Math.floor((Date.now() - ultima) / 60000);
+    var texto;
+    if(mins < 1) texto = 'Hace un momento';
+    else if(mins < 60) texto = 'Hace ' + mins + ' minuto(s)';
+    else if(mins < 1440) texto = 'Hace ' + Math.floor(mins/60) + ' hora(s)';
+    else texto = 'Hace ' + Math.floor(mins/1440) + ' día(s)';
+    el.textContent = texto;
+    var alDia = mins < HORAS_ENTRE_COPIAS * 60 + 30;
+    est.textContent = alDia ? '✓ Al día' : '⚠️ Atrasada';
+    est.style.color = alDia ? 'var(--nbs-green-text)' : '#E65100';
+  } else {
+    el.textContent = 'Ninguna todavía';
+    est.textContent = '⚠️ Sin copias';
+    est.style.color = '#E65100';
+  }
+
+  var lista = document.getElementById('copias-lista');
+  lista.innerHTML = '<div class="card" style="text-align:center;color:#bbb;font-size:13px;padding:18px">Buscando tus copias en la nube...</div>';
+
+  if(typeof fbAuth === 'undefined' || !fbAuth.currentUser){
+    lista.innerHTML = '<div class="card" style="text-align:center;color:#c0392b;font-size:13px;padding:18px">Necesitas iniciar sesión para ver tus copias.</div>';
+    return;
+  }
+
+  listarCopias().then(function(copias){
+    if(!copias.length){
+      lista.innerHTML = '<div class="card" style="text-align:center;color:#bbb;font-size:13px;padding:18px">Todavía no hay copias guardadas.<br><br>La primera se hace sola a los pocos segundos de abrir la app, o puedes hacer una ahora con el botón de arriba.</div>';
+      return;
+    }
+    var html = '<div style="font-size:11px;color:var(--nbs-muted);font-weight:700;margin:4px 0 8px">TUS COPIAS ('+copias.length+')</div>';
+    copias.forEach(function(c){
+      var d = c.datos;
+      var cn = d.conteo || {};
+      var cuando = new Date(d.hora || 0);
+      var hoy = new Date();
+      var esHoy = cuando.toDateString() === hoy.toDateString();
+      var ayer = new Date(hoy); ayer.setDate(hoy.getDate()-1);
+      var esAyer = cuando.toDateString() === ayer.toDateString();
+      var etiqueta = esHoy ? 'HOY' : (esAyer ? 'AYER' : (d.fecha || ''));
+      html += '<div class="card" style="margin-bottom:8px;padding:12px">'
+        +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px">'
+        +'<div>'
+        +'<div style="font-size:14px;font-weight:800;color:var(--nbs-ink)">'+etiqueta+' · '+(d.horaTexto||'')+'</div>'
+        +'<div style="font-size:11px;color:var(--nbs-muted);margin-top:2px">'+(d.automatica ? 'Automática' : 'La hiciste tú')+'</div>'
+        +'</div>'
+        +'<button onclick="pedirRestaurar(\''+c.id+'\')" style="background:var(--nbs-gold-bg);color:var(--nbs-gold-dark);border:1px solid var(--nbs-gold);border-radius:8px;padding:8px 13px;font-size:12px;font-weight:700;cursor:pointer">↺ Volver a esta</button>'
+        +'</div>'
+        +'<div style="font-size:11px;color:#888;background:#FAFAFA;border-radius:7px;padding:7px 9px">'
+        +'📋 '+(cn.nv||0)+' ventas · 👥 '+(cn.ncl||0)+' clientes · 📦 '+(cn.np||0)+' productos · 🧾 '+(cn.nc||0)+' compras'
+        +'</div></div>';
+    });
+    lista.innerHTML = html;
+  }).catch(function(e){
+    console.error(e);
+    lista.innerHTML = '<div class="card" style="text-align:center;color:#c0392b;font-size:13px;padding:18px">No se pudieron leer las copias.<br>Revisa tu conexión e intenta de nuevo.</div>';
+  });
+}
+
+function copiarAhoraManual(){
+  var el = document.getElementById('copias-estado');
+  el.textContent = 'Guardando...';
+  el.style.color = 'var(--nbs-muted)';
+  // Primero la del telefono -esa SIEMPRE funciona, aunque no haya señal-, y despues la nube
+  hacerCopiaLocal().then(function(okLocal){
+    return hacerCopiaAutomatica(true).then(function(okNube){
+      return { local: okLocal, nube: okNube };
+    });
+  }).then(function(r){
+    if(r.local && r.nube) alert('✅ Copia guardada en el teléfono Y en la nube.');
+    else if(r.local) alert('✅ Copia guardada en el teléfono.\n\n⚠️ En la nube no se pudo -revisa tu internet-. La del teléfono ya te protege.');
+    else alert('No se pudo hacer la copia.');
+    abrirCopias();
+  });
+}
+
+function pedirRestaurar(idCopia){
+  listarCopias().then(function(copias){
+    var c = copias.find(function(x){ return x.id === idCopia; });
+    if(!c) return;
+    var d = c.datos;
+    var cn = d.conteo || {};
+    var ahora = contarTodo();
+
+    var msj = '↺ VOLVER A LA COPIA DEL ' + (d.fecha||'') + ' A LAS ' + (d.horaTexto||'') + '\n\n';
+    msj += 'Así quedarían tus datos:\n\n';
+    [['nv','Ventas'],['ncl','Clientes'],['np','Productos'],['nc','Compras']].forEach(function(par){
+      var k = par[0], nom = par[1];
+      var a = ahora[k] || 0, b = cn[k] || 0;
+      var flecha = b > a ? '  ↑ recuperas ' + (b-a) : (b < a ? '  ↓ PIERDES ' + (a-b) : '');
+      msj += '   ' + nom + ': ' + a + ' → ' + b + flecha + '\n';
+    });
+    msj += '\n⚠️ Todo lo que hayas hecho DESPUÉS de esa copia se va a perder.\n\n';
+    msj += 'Antes de continuar, la app va a guardar una copia de cómo está AHORA, por si te arrepientes.\n\n¿Continuar?';
+
+    if(!confirm(msj)) return;
+
+    // Red de seguridad: guardar como esta AHORA antes de tocar nada
+    hacerCopiaAutomatica(true).then(function(){
+      return restaurarCopia(idCopia);
+    }).then(function(partes){
+      alert('✅ Listo. Se restauraron '+partes+' parte(s).\n\nLa app se va a recargar.');
+      setTimeout(function(){ location.reload(); }, 600);
+    }).catch(function(e){
+      console.error(e);
+      alert('No se pudo restaurar: ' + (e.message || 'error desconocido') + '\n\nTus datos NO se tocaron.');
+    });
+  });
 }
 
 function abrirRelleno(){
@@ -11864,6 +12408,7 @@ function limpiarDatosGuardadosUnaVez(){
 function iniciarAppDespuesDeLogin(){
   window._appInicializada = true;
   iniciarVigilanteDeSincronizacion(); // avisa si algo no ha subido a la nube, y reintenta solo
+  iniciarCopiasAutomaticas();         // copia completa cada 2 horas + aviso si algo se borro
   repararDatosIncompletos();
   limpiarDatosGuardadosUnaVez();
   // Abrir pedidos rápidos por defecto

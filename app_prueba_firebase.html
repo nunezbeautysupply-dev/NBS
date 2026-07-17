@@ -4704,6 +4704,20 @@ function formatFechaInput(input){
 
 // Quita cualquier codigo HTML de un texto antes de guardarlo -para que un nombre, nota, o
 // direccion con simbolos como < > nunca se pueda ejecutar como codigo en ningun lugar de la app-.
+// Neutraliza cualquier codigo HTML dentro de un texto ANTES de mostrarlo en pantalla.
+// limpiarTexto() protege al GUARDAR; esta protege al MOSTRAR. Son dos capas distintas:
+// si por lo que sea entra un dato sucio -por ejemplo, de un respaldo viejo o manipulado-,
+// esta se asegura de que se vea como texto y nunca se ejecute como codigo.
+function escaparHtml(txt){
+  if(txt === null || txt === undefined) return '';
+  return String(txt)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function limpiarTexto(texto){
   if(!texto) return texto;
   var div = document.createElement('div');
@@ -6579,15 +6593,29 @@ function renderBarberiasInicio(q){
 // microfono y lista de productos, ahi mismo dentro de su tarjeta. Nunca se sale de esta
 // pantalla ni se cierra ninguna tarjeta: en la barberia los barberos piden en desorden, y
 // asi se le puede agregar a cualquiera en cualquier momento sin perder de vista a los demas.
-var pedidosMultiTemp = [];   // [{cliente, barberia, items:[]}]
+var pedidosMultiTemp = [];   // [{cliente, barberia, items:[], color}]
 var pedMultiSel = {};        // idx -> id del producto elegido en el buscador de esa tarjeta
 var pedMultiCant = {};       // idx -> cantidad elegida en esa tarjeta
+
+// Cada barbero recibe su propio color, para poder ubicarlo de un vistazo sin leer el nombre.
+// El color se guarda con el barbero -no se calcula por posicion-, asi que si quitas a uno con
+// la ✕, los demas CONSERVAN su color en vez de cambiarse todos de golpe.
+var COLORES_BARBERO = [
+  { fuerte:'#1a237e', suave:'#EEF0FA' },  // azul marino
+  { fuerte:'#00695C', suave:'#E4F1EF' },  // verde azulado
+  { fuerte:'#C62828', suave:'#FBEAEA' },  // rojo
+  { fuerte:'#6A1B9A', suave:'#F3EAF7' },  // morado
+  { fuerte:'#E65100', suave:'#FDF0E6' },  // naranja
+  { fuerte:'#2E7D32', suave:'#E9F3EA' },  // verde
+  { fuerte:'#0277BD', suave:'#E5F1FA' },  // celeste
+  { fuerte:'#AD1457', suave:'#FBE9F1' }   // fucsia
+];
 
 function iniciarPedidoMultiple(){
   var selArray = Object.keys(barberosSel).map(function(id){ return barberosSel[id]; });
   if(!selArray.length){ alert('Selecciona al menos un barbero'); return; }
-  pedidosMultiTemp = selArray.map(function(s){
-    return { cliente: s.cliente, barberia: s.barberia, items: [] };
+  pedidosMultiTemp = selArray.map(function(s, i){
+    return { cliente: s.cliente, barberia: s.barberia, items: [], color: COLORES_BARBERO[i % COLORES_BARBERO.length] };
   });
   barberosSel = {};
   pedMultiSel = {};
@@ -6626,19 +6654,20 @@ function renderPedidosMultiples(){
     var pidSel = pedMultiSel[idx];
     var prodSel = pidSel ? productos.find(function(x){ return String(x.id)===String(pidSel); }) : null;
     var cantSel = pedMultiCant[idx] || 1;
+    var col = p.color || COLORES_BARBERO[idx % COLORES_BARBERO.length];
 
     var card = document.createElement('div');
-    card.style.cssText = 'background:white;border-radius:12px;margin-bottom:10px;border:0.5px solid var(--nbs-line);overflow:hidden;box-shadow:var(--nbs-shadow-card)';
+    card.style.cssText = 'background:white;border-radius:12px;margin-bottom:14px;border:0.5px solid var(--nbs-line);border-left:5px solid '+col.fuerte+';overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08)';
 
     // --- Cabecera: barbero, total, y la ✕ para quitarlo si hoy no compra ---
-    var html = '<div style="padding:11px 12px;display:flex;align-items:center;gap:8px;border-bottom:0.5px solid #f0f0f3;background:#FCFCFD">'
-      +'<div style="width:30px;height:30px;border-radius:8px;background:var(--nbs-gold-bg);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--nbs-gold-dark);flex-shrink:0">'+p.cliente.nombre[0]+'</div>'
+    var html = '<div style="padding:11px 12px;display:flex;align-items:center;gap:9px;border-bottom:0.5px solid #f0f0f3;background:'+col.suave+'">'
+      +'<div style="width:34px;height:34px;border-radius:9px;background:'+col.fuerte+';display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:white;flex-shrink:0">'+escaparHtml(p.cliente.nombre[0])+'</div>'
       +'<div style="flex:1;min-width:0">'
-      +'<div style="font-size:14px;font-weight:700;color:var(--nbs-ink)">'+nombreCompleto+'</div>'
-      +(listaNegocios.length > 1 ? '<div style="font-size:11px;color:#aaa">'+p.barberia+'</div>' : '')
+      +'<div style="font-size:15px;font-weight:800;color:'+col.fuerte+'">'+escaparHtml(nombreCompleto)+'</div>'
+      +(listaNegocios.length > 1 ? '<div style="font-size:11px;color:#888">'+escaparHtml(p.barberia)+'</div>' : '')
       +'</div>'
-      +'<div id="multi-total-'+idx+'" style="font-size:14px;font-weight:700;color:'+(totalBarbero>0?'var(--nbs-green-text)':'#ccc')+'">$'+fmtNum(totalBarbero)+'</div>'
-      +'<button onclick="quitarBarberoMulti('+idx+')" title="Hoy no compró" style="background:var(--nbs-red-bg);color:var(--nbs-red-dark);border:none;border-radius:7px;width:30px;height:30px;cursor:pointer;font-size:14px;flex-shrink:0">✕</button>'
+      +'<div id="multi-total-'+idx+'" style="font-size:15px;font-weight:800;color:'+(totalBarbero>0?'var(--nbs-green-text)':'#bbb')+'">$'+fmtNum(totalBarbero)+'</div>'
+      +'<button onclick="quitarBarberoMulti('+idx+')" title="Hoy no compró" style="background:rgba(255,255,255,0.75);color:var(--nbs-red-dark);border:none;border-radius:7px;width:30px;height:30px;cursor:pointer;font-size:14px;flex-shrink:0">✕</button>'
       +'</div>';
 
     // --- Buscador propio de esta tarjeta ---
@@ -6652,14 +6681,14 @@ function renderPedidosMultiples(){
     // --- Producto elegido + cantidad + boton de agregar ---
     if(prodSel){
       html += '<div style="display:flex;align-items:center;justify-content:space-between;background:#FFF8E1;border-radius:20px;padding:7px 12px;margin-top:6px">'
-        +'<span style="font-size:12px;color:#F57F17;font-weight:600;flex:1;min-width:0">'+prodSel.nombre+' · $'+fmtNum(prodSel.precio)+'</span>'
+        +'<span style="font-size:12px;color:#F57F17;font-weight:600;flex:1;min-width:0">'+escaparHtml(prodSel.nombre)+' · $'+fmtNum(prodSel.precio)+'</span>'
         +'<button onclick="clearPedMulti('+idx+')" style="background:none;border:none;cursor:pointer;color:#F57F17;font-size:16px;flex-shrink:0">✕</button>'
         +'</div>'
         +'<div style="display:flex;align-items:center;gap:6px;margin-top:6px">'
         +'<button onclick="cambiarCantSelMulti('+idx+',-1)" style="width:34px;height:34px;background:var(--nbs-red-bg);color:var(--nbs-red-dark);border:none;border-radius:8px;cursor:pointer;font-size:17px;font-weight:700;line-height:1;flex-shrink:0">−</button>'
         +'<input id="multi-cant-'+idx+'" type="number" min="1" value="'+cantSel+'" oninput="pedMultiCant['+idx+']=parseInt(this.value)||1" style="width:46px;padding:7px 2px;border:0.5px solid #ddd;border-radius:6px;font-size:13px;text-align:center">'
         +'<button onclick="cambiarCantSelMulti('+idx+',1)" style="width:34px;height:34px;background:var(--nbs-green-bg);color:var(--nbs-green-text);border:none;border-radius:8px;cursor:pointer;font-size:17px;font-weight:700;line-height:1;flex-shrink:0">+</button>'
-        +'<button onclick="addItemMulti('+idx+')" style="flex:1;padding:9px;background:var(--nbs-gold);color:white;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">+ Agregar a '+p.cliente.nombre+'</button>'
+        +'<button onclick="addItemMulti('+idx+')" style="flex:1;padding:9px;background:'+col.fuerte+';color:white;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">+ Agregar a '+escaparHtml(p.cliente.nombre)+'</button>'
         +'</div>';
     }
     html += '</div>';
@@ -6671,7 +6700,7 @@ function renderPedidosMultiples(){
         var sub = it.cant * it.precio;
         html += '<div style="padding:8px;margin-top:6px;border:0.5px solid var(--nbs-line);border-radius:9px;background:#FCFCFD">'
           +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">'
-          +'<input type="text" value="'+String(it.nombre).replace(/"/g,"&quot;")+'" oninput="actualizarItemMulti('+idx+','+itIdx+',\'nombre\',this.value)" style="flex:1;min-width:0;border:0.5px solid #ddd;border-radius:6px;padding:6px 7px;font-size:12px;font-weight:600;color:var(--nbs-ink)">'
+          +'<input type="text" value="'+escaparHtml(it.nombre)+'" oninput="actualizarItemMulti('+idx+','+itIdx+',\'nombre\',this.value)" style="flex:1;min-width:0;border:0.5px solid #ddd;border-radius:6px;padding:6px 7px;font-size:12px;font-weight:600;color:var(--nbs-ink)">'
           +'<button onclick="quitarItemMulti('+idx+','+itIdx+')" style="background:var(--nbs-red-bg);color:var(--nbs-red-dark);border:none;border-radius:7px;width:30px;height:30px;cursor:pointer;font-size:13px;flex-shrink:0">✕</button>'
           +'</div>'
           +'<div style="display:flex;align-items:center;gap:6px">'
@@ -6721,9 +6750,9 @@ function filterPedMulti(idx, q){
     var d = document.createElement('div');
     d.style.cssText = 'padding:9px 10px;border-bottom:1px solid #f0f0f0;cursor:pointer;font-size:12px;background:'+(p.stock<=0?'#FFCDD2':p.stock<=p.min?'#FFF9C4':'white')+';display:flex;align-items:center;gap:8px';
     var fotoHtml = p.foto
-      ? '<img src="'+p.foto+'" style="width:32px;height:32px;border-radius:7px;object-fit:cover;flex-shrink:0">'
+      ? '<img src="'+escaparHtml(p.foto)+'" style="width:32px;height:32px;border-radius:7px;object-fit:cover;flex-shrink:0">'
       : '<div style="width:32px;height:32px;border-radius:7px;background:#eee;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;color:#bbb">📦</div>';
-    d.innerHTML = fotoHtml+'<div style="flex:1;min-width:0"><div style="font-weight:600">'+p.nombre+'</div><div style="color:#aaa;font-size:10px">Stock:'+p.stock+' · $'+fmtNum(p.precio)+'</div></div>';
+    d.innerHTML = fotoHtml+'<div style="flex:1;min-width:0"><div style="font-weight:600">'+escaparHtml(p.nombre)+'</div><div style="color:#aaa;font-size:10px">Stock:'+escaparHtml(p.stock)+' · $'+fmtNum(p.precio)+'</div></div>';
     d.onclick = (function(pid){ return function(){ selPedMulti(idx, pid); }; })(p.id);
     el.appendChild(d);
   });
@@ -11026,6 +11055,32 @@ function importD(inp){
     try{
       var d=JSON.parse(e.target.result);
       if(!confirm('Importar datos? Esto reemplaza todo lo actual.'))return;
+      // Limpiar los nombres que vienen en el respaldo: si el archivo es viejo -de antes de que
+      // existiera la limpieza al guardar- o fue manipulado, aqui se neutraliza cualquier codigo
+      // antes de que entre a la app. Es la puerta por donde podrian entrar datos sucios.
+      var limpiarCampos = function(lista, campos){
+        if(!Array.isArray(lista)) return;
+        lista.forEach(function(o){
+          if(!o) return;
+          campos.forEach(function(campo){
+            if(typeof o[campo] === 'string') o[campo] = limpiarTexto(o[campo]);
+          });
+        });
+      };
+      limpiarCampos(d.clientes, ['nombre','apellido','negocio','contacto','contactoApodo','dir','ciudad','nota']);
+      limpiarCampos(d.productos, ['nombre','nombreCorto','marca','cat','desc']);
+      limpiarCampos(d.suplidores, ['nombre','contacto','nota']);
+      if(Array.isArray(d.ventas)) d.ventas.forEach(function(v){
+        if(v && typeof v.cn === 'string') v.cn = limpiarTexto(v.cn);
+        limpiarCampos(v && v.items, ['nombre']);
+      });
+      if(Array.isArray(d.pedidos)) d.pedidos.forEach(function(p){
+        if(p && typeof p.nombre === 'string') p.nombre = limpiarTexto(p.nombre);
+        if(p && typeof p.barberia === 'string') p.barberia = limpiarTexto(p.barberia);
+        limpiarCampos(p && p.items, ['nombre']);
+      });
+      limpiarCampos(d.tarjetas, ['nombre','banco']);
+      limpiarCampos(d.otrasDeudas, ['descripcion','nota']);
       if(d.clientes){clientes=d.clientes;SS('ncl',clientes);}
       if(d.ventas){ventas=d.ventas;SS('nv',ventas);}
       if(d.compras){compras=d.compras;SS('nc',compras);}
@@ -11111,8 +11166,76 @@ document.addEventListener('DOMContentLoaded', function(){
   configurarPantallaLogin();
 });
 
+// ===== REPARACION DE DATOS INCOMPLETOS =====
+// Si un pedido, venta o compra llega SIN su lista de productos -por un respaldo dañado, una
+// sincronizacion cortada a medias, o un dato viejo incompleto-, la app se caia ENTERA al
+// intentar sumarlos: la pantalla se quedaba en blanco y no podias ni entrar a borrarlo.
+// Esto lo revisa al arrancar y le pone una lista vacia, para que la app siga funcionando y
+// puedas ver el registro dañado y decidir que hacer con el.
+function repararDatosIncompletos(){
+  var reparados = 0;
+  ['npedidos','nv','nc'].forEach(function(clave){
+    try{
+      var lista = LS(clave, null);
+      if(!Array.isArray(lista)) return;
+      var cambio = false;
+      lista.forEach(function(o){
+        if(o && !Array.isArray(o.items)){ o.items = []; cambio = true; reparados++; }
+      });
+      if(cambio) SS(clave, lista);
+    }catch(e){ console.error('No se pudo revisar "'+clave+'":', e); }
+  });
+  if(reparados > 0) console.log('Se repararon '+reparados+' registro(s) que venían sin su lista de productos.');
+}
+
+// ===== LIMPIEZA UNICA DE DATOS YA GUARDADOS =====
+// La app limpia el texto al GUARDAR -limpiarTexto()- desde hace tiempo, pero un dato creado
+// ANTES de que eso existiera podria tener codigo HTML metido dentro. Esto lo revisa una sola
+// vez y lo limpia. Solo toca lo que de verdad tenga < o >; si esta limpio, no lo toca.
+function limpiarDatosGuardadosUnaVez(){
+  if(localStorage.getItem('nbs_datos_limpiados') === 'si') return;
+  var sucio = function(v){ return typeof v === 'string' && (v.indexOf('<') >= 0 || v.indexOf('>') >= 0); };
+  var limpiados = 0;
+
+  var limpiarLista = function(clave, campos){
+    var lista = LS(clave, null);
+    if(!Array.isArray(lista)) return;
+    var cambio = false;
+    lista.forEach(function(o){
+      if(!o) return;
+      campos.forEach(function(c){
+        if(sucio(o[c])){ o[c] = limpiarTexto(o[c]); cambio = true; limpiados++; }
+      });
+      if(Array.isArray(o.items)){
+        o.items.forEach(function(it){
+          if(it && sucio(it.nombre)){ it.nombre = limpiarTexto(it.nombre); cambio = true; limpiados++; }
+        });
+      }
+    });
+    if(cambio) SS(clave, lista);
+  };
+
+  try{
+    limpiarLista('ncl', ['nombre','apellido','negocio','contacto','contactoApodo','dir','ciudad','nota']);
+    limpiarLista('np', ['nombre','nombreCorto','marca','cat','desc']);
+    limpiarLista('nsup', ['nombre','contacto','nota']);
+    limpiarLista('nv', ['cn','nota']);
+    limpiarLista('nc', ['sn','nota']);
+    limpiarLista('npedidos', ['nombre','barberia']);
+    limpiarLista('ntarjetas', ['nombre','banco']);
+    limpiarLista('notrasdeudas', ['descripcion','nota']);
+    limpiarLista('ngastos', ['descripcion','nota']);
+    localStorage.setItem('nbs_datos_limpiados', 'si');
+    if(limpiados > 0) console.log('Limpieza de seguridad: se limpiaron '+limpiados+' campo(s) que tenían código HTML.');
+  }catch(e){
+    console.error('No se pudo hacer la limpieza de seguridad:', e);
+  }
+}
+
 function iniciarAppDespuesDeLogin(){
   window._appInicializada = true;
+  repararDatosIncompletos();
+  limpiarDatosGuardadosUnaVez();
   // Abrir pedidos rápidos por defecto
   ir('p-ped');
 

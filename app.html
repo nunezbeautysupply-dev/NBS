@@ -1609,6 +1609,8 @@ function ir(id, sinHistorial){
     document.getElementById('ped-form-wrap').style.display='none';
     document.getElementById('ped-barberia-wrap').style.display='none';
     document.getElementById('ped-barbero-wrap').style.display='none';
+    var multiWrap = document.getElementById('ped-multi-wrap');
+    if(multiWrap) multiWrap.style.display='none';
     var bi = document.getElementById('ped-inicio-buscar');
     if(bi) bi.value='';
     renderBarberiasInicio('');
@@ -4641,6 +4643,20 @@ function formatFechaInput(input){
 
 // Quita cualquier codigo HTML de un texto antes de guardarlo -para que un nombre, nota, o
 // direccion con simbolos como < > nunca se pueda ejecutar como codigo en ningun lugar de la app-.
+// Neutraliza cualquier codigo HTML dentro de un texto ANTES de mostrarlo en pantalla.
+// limpiarTexto() protege al GUARDAR; esta protege al MOSTRAR. Son dos capas distintas:
+// si por lo que sea entra un dato sucio -por ejemplo, de un respaldo viejo o manipulado-,
+// esta se asegura de que se vea como texto y nunca se ejecute como codigo.
+function escaparHtml(txt){
+  if(txt === null || txt === undefined) return '';
+  return String(txt)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function limpiarTexto(texto){
   if(!texto) return texto;
   var div = document.createElement('div');
@@ -6509,51 +6525,360 @@ function renderBarberiasInicio(q){
   });
 }
 
+// ===== PEDIDO A VARIOS BARBEROS A LA VEZ =====
+// TODOS los barberos quedan abiertos al mismo tiempo, y CADA UNO tiene su propio buscador,
+// microfono y lista de productos, ahi mismo dentro de su tarjeta. Nunca se sale de esta
+// pantalla ni se cierra ninguna tarjeta: en la barberia los barberos piden en desorden, y
+// asi se le puede agregar a cualquiera en cualquier momento sin perder de vista a los demas.
+var pedidosMultiTemp = [];   // [{cliente, barberia, items:[], color}]
+var pedMultiSel = {};        // idx -> id del producto elegido en el buscador de esa tarjeta
+var pedMultiCant = {};       // idx -> cantidad elegida en esa tarjeta
+
+// Cada barbero recibe su propio color, para poder ubicarlo de un vistazo sin leer el nombre.
+// El color se guarda con el barbero -no se calcula por posicion-, asi que si quitas a uno con
+// la ✕, los demas CONSERVAN su color en vez de cambiarse todos de golpe.
+var COLORES_BARBERO = [
+  { fuerte:'#1a237e', suave:'#EEF0FA' },  // azul marino
+  { fuerte:'#00695C', suave:'#E4F1EF' },  // verde azulado
+  { fuerte:'#C62828', suave:'#FBEAEA' },  // rojo
+  { fuerte:'#6A1B9A', suave:'#F3EAF7' },  // morado
+  { fuerte:'#E65100', suave:'#FDF0E6' },  // naranja
+  { fuerte:'#2E7D32', suave:'#E9F3EA' },  // verde
+  { fuerte:'#0277BD', suave:'#E5F1FA' },  // celeste
+  { fuerte:'#AD1457', suave:'#FBE9F1' }   // fucsia
+];
+
 function iniciarPedidoMultiple(){
   var selArray = Object.keys(barberosSel).map(function(id){ return barberosSel[id]; });
   if(!selArray.length){ alert('Selecciona al menos un barbero'); return; }
-  // Crear pedido vacío para cada barbero seleccionado
-  pedidoMultiple = selArray;
-  pedidoMultipleIdx = 0;
+  pedidosMultiTemp = selArray.map(function(s, i){
+    return { cliente: s.cliente, barberia: s.barberia, items: [], color: COLORES_BARBERO[i % COLORES_BARBERO.length] };
+  });
   barberosSel = {};
-  abrirSigPedidoMultiple();
+  pedMultiSel = {};
+  pedMultiCant = {};
+  abrirPantallaMultiple();
 }
 
-var pedidoMultiple = [];
-var pedidoMultipleIdx = 0;
+function abrirPantallaMultiple(){
+  document.getElementById('ped-lista-wrap').style.display = 'none';
+  document.getElementById('ped-form-wrap').style.display = 'none';
+  document.getElementById('ped-barberia-wrap').style.display = 'none';
+  document.getElementById('ped-barbero-wrap').style.display = 'none';
+  document.getElementById('ped-multi-wrap').style.display = 'block';
+  loadProds();
+  renderPedidosMultiples();
+  window.scrollTo(0,0);
+}
 
-function abrirSigPedidoMultiple(){
-  if(pedidoMultipleIdx >= pedidoMultiple.length){
-    // Terminamos todos los pedidos
-    renderBarberiasInicio('');
+function renderPedidosMultiples(){
+  var el = document.getElementById('ped-multi-lista');
+  if(!el) return;
+  el.innerHTML = '';
+
+  var negocios = {};
+  pedidosMultiTemp.forEach(function(p){ negocios[p.barberia] = true; });
+  var listaNegocios = Object.keys(negocios);
+  document.getElementById('ped-multi-titulo').textContent = listaNegocios.length === 1 ? listaNegocios[0] : 'Varios negocios';
+  document.getElementById('ped-multi-sub').textContent = pedidosMultiTemp.length + ' barbero(s) · agrégale a cualquiera, en el orden que quieras';
+
+  var totalGeneral = 0;
+
+  pedidosMultiTemp.forEach(function(p, idx){
+    var totalBarbero = p.items.reduce(function(s,it){ return s + (it.cant * it.precio); }, 0);
+    totalGeneral += totalBarbero;
+    var nombreCompleto = nombreCl(p.cliente);
+    var pidSel = pedMultiSel[idx];
+    var prodSel = pidSel ? productos.find(function(x){ return String(x.id)===String(pidSel); }) : null;
+    var cantSel = pedMultiCant[idx] || 1;
+    var col = p.color || COLORES_BARBERO[idx % COLORES_BARBERO.length];
+
+    var card = document.createElement('div');
+    card.style.cssText = 'background:white;border-radius:12px;margin-bottom:14px;border:0.5px solid var(--nbs-line);border-left:5px solid '+col.fuerte+';overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08)';
+
+    // --- Cabecera: barbero, total, y la ✕ para quitarlo si hoy no compra ---
+    var html = '<div style="padding:11px 12px;display:flex;align-items:center;gap:9px;border-bottom:0.5px solid #f0f0f3;background:'+col.suave+'">'
+      +'<div style="width:34px;height:34px;border-radius:9px;background:'+col.fuerte+';display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:white;flex-shrink:0">'+escaparHtml(p.cliente.nombre[0])+'</div>'
+      +'<div style="flex:1;min-width:0">'
+      +'<div style="font-size:15px;font-weight:800;color:'+col.fuerte+'">'+escaparHtml(nombreCompleto)+'</div>'
+      +(listaNegocios.length > 1 ? '<div style="font-size:11px;color:#888">'+escaparHtml(p.barberia)+'</div>' : '')
+      +'</div>'
+      +'<div id="multi-total-'+idx+'" style="font-size:15px;font-weight:800;color:'+(totalBarbero>0?'var(--nbs-green-text)':'#bbb')+'">$'+fmtNum(totalBarbero)+'</div>'
+      +'<button onclick="quitarBarberoMulti('+idx+')" title="Hoy no compró" style="background:rgba(255,255,255,0.75);color:var(--nbs-red-dark);border:none;border-radius:7px;width:30px;height:30px;cursor:pointer;font-size:14px;flex-shrink:0">✕</button>'
+      +'</div>';
+
+    // --- Buscador propio de esta tarjeta ---
+    html += '<div style="padding:9px 12px 4px">'
+      +'<div style="display:flex;gap:6px">'
+      +'<input id="multi-buscar-'+idx+'" type="text" placeholder="Buscar producto..." oninput="filterPedMulti('+idx+', this.value)" onfocus="filterPedMulti('+idx+', this.value||\'\')" style="flex:1;padding:9px 10px;border:0.5px solid #ddd;border-radius:8px;font-size:13px">'
+      +'<button id="multi-mic-'+idx+'" onclick="dictarBusquedaSimple(\'multi-buscar-'+idx+'\', \'multi-mic-'+idx+'\')" style="background:#5E35B1;color:white;border:none;border-radius:8px;width:40px;flex-shrink:0;cursor:pointer;font-size:16px">🎤</button>'
+      +'</div>'
+      +'<div id="multi-plist-'+idx+'" style="background:white;border:1px solid #ddd;border-radius:8px;max-height:180px;overflow-y:auto;display:none;margin-top:6px"></div>';
+
+    // --- Producto elegido + cantidad + boton de agregar ---
+    if(prodSel){
+      html += '<div style="display:flex;align-items:center;justify-content:space-between;background:#FFF8E1;border-radius:20px;padding:7px 12px;margin-top:6px">'
+        +'<span style="font-size:12px;color:#F57F17;font-weight:600;flex:1;min-width:0">'+escaparHtml(prodSel.nombre)+' · $'+fmtNum(prodSel.precio)+'</span>'
+        +'<button onclick="clearPedMulti('+idx+')" style="background:none;border:none;cursor:pointer;color:#F57F17;font-size:16px;flex-shrink:0">✕</button>'
+        +'</div>'
+        +'<div style="display:flex;align-items:center;gap:6px;margin-top:6px">'
+        +'<button onclick="cambiarCantSelMulti('+idx+',-1)" style="width:34px;height:34px;background:var(--nbs-red-bg);color:var(--nbs-red-dark);border:none;border-radius:8px;cursor:pointer;font-size:17px;font-weight:700;line-height:1;flex-shrink:0">−</button>'
+        +'<input id="multi-cant-'+idx+'" type="number" min="1" value="'+cantSel+'" oninput="pedMultiCant['+idx+']=parseInt(this.value)||1" style="width:46px;padding:7px 2px;border:0.5px solid #ddd;border-radius:6px;font-size:13px;text-align:center">'
+        +'<button onclick="cambiarCantSelMulti('+idx+',1)" style="width:34px;height:34px;background:var(--nbs-green-bg);color:var(--nbs-green-text);border:none;border-radius:8px;cursor:pointer;font-size:17px;font-weight:700;line-height:1;flex-shrink:0">+</button>'
+        +'<button onclick="addItemMulti('+idx+')" style="flex:1;padding:9px;background:'+col.fuerte+';color:white;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">+ Agregar a '+escaparHtml(p.cliente.nombre)+'</button>'
+        +'</div>';
+    }
+    html += '</div>';
+
+    // --- Productos ya agregados a este barbero, editables aqui mismo ---
+    html += '<div style="padding:4px 12px 12px">';
+    if(p.items.length){
+      p.items.forEach(function(it, itIdx){
+        var sub = it.cant * it.precio;
+        html += '<div style="padding:8px;margin-top:6px;border:0.5px solid var(--nbs-line);border-radius:9px;background:#FCFCFD">'
+          +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">'
+          +'<input type="text" value="'+escaparHtml(it.nombre)+'" oninput="actualizarItemMulti('+idx+','+itIdx+',\'nombre\',this.value)" style="flex:1;min-width:0;border:0.5px solid #ddd;border-radius:6px;padding:6px 7px;font-size:12px;font-weight:600;color:var(--nbs-ink)">'
+          +'<button onclick="quitarItemMulti('+idx+','+itIdx+')" style="background:var(--nbs-red-bg);color:var(--nbs-red-dark);border:none;border-radius:7px;width:30px;height:30px;cursor:pointer;font-size:13px;flex-shrink:0">✕</button>'
+          +'</div>'
+          +'<div style="display:flex;align-items:center;gap:6px">'
+          +'<button onclick="cambiarCantItemMulti('+idx+','+itIdx+',-1)" style="width:32px;height:32px;background:var(--nbs-red-bg);color:var(--nbs-red-dark);border:none;border-radius:7px;cursor:pointer;font-size:16px;font-weight:700;line-height:1;flex-shrink:0">−</button>'
+          +'<input id="multi-icant-'+idx+'-'+itIdx+'" type="number" min="1" value="'+it.cant+'" oninput="actualizarItemMulti('+idx+','+itIdx+',\'cant\',parseInt(this.value)||1)" style="width:42px;padding:6px 2px;border:0.5px solid #ddd;border-radius:6px;font-size:12px;text-align:center">'
+          +'<button onclick="cambiarCantItemMulti('+idx+','+itIdx+',1)" style="width:32px;height:32px;background:var(--nbs-green-bg);color:var(--nbs-green-text);border:none;border-radius:7px;cursor:pointer;font-size:16px;font-weight:700;line-height:1;flex-shrink:0">+</button>'
+          +'<div style="display:flex;align-items:center;gap:3px">'
+          +'<span style="font-size:11px;color:#999">$</span>'
+          +'<input type="text" inputmode="decimal" value="'+it.precio.toFixed(2)+'" onfocus="this.select()" oninput="formatoMoneda(this);actualizarItemMulti('+idx+','+itIdx+',\'precio\',parseFloat(this.value)||0)" style="width:62px;padding:6px 4px;border:0.5px solid #ddd;border-radius:6px;font-size:12px;text-align:center">'
+          +'</div>'
+          +'<span id="multi-isub-'+idx+'-'+itIdx+'" style="flex:1;text-align:right;font-size:13px;font-weight:700;color:var(--nbs-green-text)">$'+fmtNum(sub)+'</span>'
+          +'</div>'
+          +'</div>';
+      });
+    } else {
+      html += '<div style="font-size:12px;color:#bbb;padding:6px 0;font-style:italic">Todavía no le has agregado nada</div>';
+    }
+    html += '</div>';
+
+    card.innerHTML = html;
+    el.appendChild(card);
+  });
+
+  var btnGuardar = document.getElementById('ped-multi-guardar');
+  var conItems = pedidosMultiTemp.filter(function(p){ return p.items.length > 0; }).length;
+  if(conItems > 0){
+    btnGuardar.textContent = '✓ Guardar ' + conItems + ' pedido(s) · $' + fmtNum(totalGeneral);
+    btnGuardar.style.opacity = '1';
+  } else {
+    btnGuardar.textContent = '✓ Guardar pedidos';
+    btnGuardar.style.opacity = '0.5';
+  }
+}
+
+// El buscador de cada tarjeta solo toca SU propia lista de resultados -no se vuelve a dibujar
+// toda la pantalla-, para que no se pierda lo que estas escribiendo ni se cierre nada.
+function filterPedMulti(idx, q){
+  loadProds();
+  var el = document.getElementById('multi-plist-'+idx);
+  if(!el) return;
+  el.innerHTML = '';
+  var list = [].concat(productos).sort(function(a,b){ return a.nombre.localeCompare(b.nombre); });
+  if(q && q.trim()) list = list.filter(function(p){ return p.nombre.toLowerCase().includes(q.toLowerCase()); });
+  if(!list.length){ el.style.display='none'; return; }
+  el.style.display = 'block';
+  list.slice(0,40).forEach(function(p){
+    var d = document.createElement('div');
+    d.style.cssText = 'padding:9px 10px;border-bottom:1px solid #f0f0f0;cursor:pointer;font-size:12px;background:'+(p.stock<=0?'#FFCDD2':p.stock<=p.min?'#FFF9C4':'white')+';display:flex;align-items:center;gap:8px';
+    var fotoHtml = p.foto
+      ? '<img src="'+escaparHtml(p.foto)+'" style="width:32px;height:32px;border-radius:7px;object-fit:cover;flex-shrink:0">'
+      : '<div style="width:32px;height:32px;border-radius:7px;background:#eee;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;color:#bbb">📦</div>';
+    d.innerHTML = fotoHtml+'<div style="flex:1;min-width:0"><div style="font-weight:600">'+escaparHtml(p.nombre)+'</div><div style="color:#aaa;font-size:10px">Stock:'+escaparHtml(p.stock)+' · $'+fmtNum(p.precio)+'</div></div>';
+    d.onclick = (function(pid){ return function(){ selPedMulti(idx, pid); }; })(p.id);
+    el.appendChild(d);
+  });
+}
+
+function selPedMulti(idx, pid){
+  pedMultiSel[idx] = pid;
+  if(!pedMultiCant[idx]) pedMultiCant[idx] = 1;
+  var buscador = document.getElementById('multi-buscar-'+idx);
+  if(buscador) buscador.value = '';
+  var lista = document.getElementById('multi-plist-'+idx);
+  if(lista) lista.style.display = 'none';
+  renderPedidosMultiples();
+}
+
+function clearPedMulti(idx){
+  delete pedMultiSel[idx];
+  delete pedMultiCant[idx];
+  renderPedidosMultiples();
+}
+
+function cambiarCantSelMulti(idx, delta){
+  var nueva = (pedMultiCant[idx] || 1) + delta;
+  if(nueva < 1) nueva = 1;
+  pedMultiCant[idx] = nueva;
+  var input = document.getElementById('multi-cant-'+idx);
+  if(input) input.value = nueva;
+}
+
+function addItemMulti(idx){
+  var pid = pedMultiSel[idx];
+  if(!pid){ alert('Primero busca y elige un producto.'); return; }
+  var p = pedidosMultiTemp[idx];
+  if(!p) return;
+  loadProds();
+  var prod = productos.find(function(x){ return String(x.id)===String(pid); });
+  if(!prod) return;
+  var cant = pedMultiCant[idx] || 1;
+  // Si ya le habias agregado ese mismo producto, se le suma la cantidad en vez de repetirlo
+  var yaEsta = false;
+  for(var j=0; j<p.items.length; j++){
+    if(String(p.items[j].pid) === String(pid)){ p.items[j].cant += cant; yaEsta = true; break; }
+  }
+  if(!yaEsta) p.items.push({ pid: prod.id, nombre: prod.nombre, cant: cant, precio: prod.precio, costo: prod.costo });
+  delete pedMultiSel[idx];
+  delete pedMultiCant[idx];
+  renderPedidosMultiples();
+}
+
+function actualizarItemMulti(idx, itIdx, campo, valor){
+  var p = pedidosMultiTemp[idx];
+  if(!p || !p.items[itIdx]) return;
+  p.items[itIdx][campo] = valor;
+  if(campo === 'cant' || campo === 'precio') actualizarSubtotalItemMulti(idx, itIdx);
+}
+
+function cambiarCantItemMulti(idx, itIdx, delta){
+  var p = pedidosMultiTemp[idx];
+  if(!p || !p.items[itIdx]) return;
+  var nueva = (p.items[itIdx].cant || 1) + delta;
+  if(nueva < 1) nueva = 1;
+  p.items[itIdx].cant = nueva;
+  var input = document.getElementById('multi-icant-'+idx+'-'+itIdx);
+  if(input) input.value = nueva;
+  actualizarSubtotalItemMulti(idx, itIdx);
+}
+
+// Actualiza el subtotal de la linea y el total del barbero SIN volver a dibujar la pantalla,
+// para no interrumpir lo que estes escribiendo en otra tarjeta.
+function actualizarSubtotalItemMulti(idx, itIdx){
+  var p = pedidosMultiTemp[idx];
+  if(!p || !p.items[itIdx]) return;
+  var it = p.items[itIdx];
+  var sub = document.getElementById('multi-isub-'+idx+'-'+itIdx);
+  if(sub) sub.textContent = '$'+fmtNum(it.cant * it.precio);
+  var totalBarbero = p.items.reduce(function(s,x){ return s + (x.cant * x.precio); }, 0);
+  var totEl = document.getElementById('multi-total-'+idx);
+  if(totEl){
+    totEl.textContent = '$'+fmtNum(totalBarbero);
+    totEl.style.color = totalBarbero > 0 ? 'var(--nbs-green-text)' : '#ccc';
+  }
+  actualizarBotonGuardarMulti();
+}
+
+function actualizarBotonGuardarMulti(){
+  var btn = document.getElementById('ped-multi-guardar');
+  if(!btn) return;
+  var totalGeneral = 0, conItems = 0;
+  pedidosMultiTemp.forEach(function(p){
+    var t = p.items.reduce(function(s,x){ return s + (x.cant * x.precio); }, 0);
+    totalGeneral += t;
+    if(p.items.length) conItems++;
+  });
+  if(conItems > 0){
+    btn.textContent = '✓ Guardar ' + conItems + ' pedido(s) · $' + fmtNum(totalGeneral);
+    btn.style.opacity = '1';
+  } else {
+    btn.textContent = '✓ Guardar pedidos';
+    btn.style.opacity = '0.5';
+  }
+}
+
+function quitarItemMulti(idxBarbero, idxItem){
+  if(!pedidosMultiTemp[idxBarbero]) return;
+  pedidosMultiTemp[idxBarbero].items.splice(idxItem, 1);
+  renderPedidosMultiples();
+}
+
+// La ✕ del barbero: lo saca del pedido de hoy Y deja registrado que lo visitaste pero no
+// compro, para poder ver despues su record de cuantas veces compra y cuantas no.
+function quitarBarberoMulti(idx){
+  var p = pedidosMultiTemp[idx];
+  if(!p) return;
+  var nombre = nombreCl(p.cliente);
+  var aviso = p.items.length
+    ? '¿Quitar a '+nombre+'? Se perderá lo que ya le agregaste, y quedará registrado que hoy NO compró.'
+    : '¿'+nombre+' no va a comprar hoy?\n\nQuedará registrado en su récord como una visita sin compra.';
+  if(!confirm(aviso)) return;
+  registrarVisitaBarbero(p.cliente.id, false);
+  pedidosMultiTemp.splice(idx, 1);
+  // Los indices se corren al sacar uno, asi que se limpia lo elegido para no confundir tarjetas
+  pedMultiSel = {};
+  pedMultiCant = {};
+  if(!pedidosMultiTemp.length){
+    document.getElementById('ped-multi-wrap').style.display = 'none';
+    document.getElementById('ped-lista-wrap').style.display = 'block';
+    renderBarberiasInicio(document.getElementById('ped-inicio-buscar') ? document.getElementById('ped-inicio-buscar').value : '');
     renderPedidosPendientes();
-    var flash = document.createElement('div');
-    flash.textContent = '✅ '+pedidoMultiple.length+' pedido(s) guardado(s)';
-    flash.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#2E7D32;color:white;padding:12px 24px;border-radius:20px;font-size:14px;font-weight:700;z-index:9999';
-    document.body.appendChild(flash);
-    setTimeout(function(){ flash.remove(); }, 2500);
-    pedidoMultiple = [];
-    pedidoMultipleIdx = 0;
     return;
   }
-  var item = pedidoMultiple[pedidoMultipleIdx];
-  pedBarberiaSel = item.barberia;
-  pedBarberoCid = item.cliente.id;
-  pedBarberoNombre = nombreCl(item.cliente);
-  pedItemsTemp = [];
-  pedidoEditandoIdx = null;
-  document.getElementById('ped-lista-wrap').style.display = 'none';
-  document.getElementById('ped-form-wrap').style.display = 'block';
-  loadProds();
-  renderPedItems();
-  document.getElementById('pedb').value = '';
-  document.getElementById('pedplist').style.display = 'none';
-  document.getElementById('pedchip').style.display = 'none';
-  document.getElementById('ped-barbero-actual').textContent = nombreCl(item.cliente);
-  var restantes = pedidoMultiple.length - pedidoMultipleIdx - 1;
-  document.getElementById('ped-barberia-actual').textContent = item.barberia + (restantes > 0 ? ' · '+restantes+' más después' : '');
-  document.getElementById('cctipo').value = 'credito';
-  document.getElementById('ccini-g').style.display = 'block';
+  renderPedidosMultiples();
+}
+
+// ===== RECORD DE VISITAS POR BARBERO -compro / no compro- =====
+// Se guarda por cliente: las fechas en que compro y las fechas en que se le visito pero no
+// compro. Sirve para ver despues que barberos compran siempre y cuales casi nunca.
+function registrarVisitaBarbero(cid, compro){
+  if(!cid) return;
+  var visitas = LS('nvisitas_barberos', {});
+  var k = String(cid);
+  if(!visitas[k]) visitas[k] = { compro: [], noCompro: [] };
+  if(!visitas[k].compro) visitas[k].compro = [];
+  if(!visitas[k].noCompro) visitas[k].noCompro = [];
+  var hoy = fechaHoy();
+  if(compro) visitas[k].compro.push(hoy);
+  else visitas[k].noCompro.push(hoy);
+  SS('nvisitas_barberos', visitas);
+}
+
+function guardarTodosLosPedidosMultiples(){
+  var conItems = pedidosMultiTemp.filter(function(p){ return p.items.length > 0; });
+  if(!conItems.length){ alert('Agrégale al menos un producto a alguno de los barberos.'); return; }
+  pedidos = LS('npedidos', []);
+  var ahora = Date.now();
+  conItems.forEach(function(p, i){
+    pedidos.push({
+      id: ahora + i, // +i para que no se repita el id si se guardan en el mismo instante
+      cid: p.cliente.id,
+      nombre: nombreCl(p.cliente),
+      barberia: p.barberia,
+      items: p.items.slice()
+    });
+    registrarVisitaBarbero(p.cliente.id, true);
+  });
+  SS('npedidos', pedidos);
+  var cuantos = conItems.length;
+  pedidosMultiTemp = [];
+  pedMultiSel = {};
+  pedMultiCant = {};
+  document.getElementById('ped-multi-wrap').style.display = 'none';
+  document.getElementById('ped-lista-wrap').style.display = 'block';
+  renderBarberiasInicio(document.getElementById('ped-inicio-buscar') ? document.getElementById('ped-inicio-buscar').value : '');
+  renderPedidosPendientes();
+  var flash = document.createElement('div');
+  flash.textContent = '✅ '+cuantos+' pedido(s) guardado(s)';
+  flash.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#2E7D32;color:white;padding:12px 24px;border-radius:20px;font-size:14px;font-weight:700;z-index:9999';
+  document.body.appendChild(flash);
+  setTimeout(function(){ flash.remove(); }, 2500);
+}
+
+function cancelarPedidoMultiple(){
+  var hayAlgo = pedidosMultiTemp.some(function(p){ return p.items.length > 0; });
+  if(hayAlgo && !confirm('¿Cancelar? Se perderá lo que le agregaste a los barberos.')) return;
+  pedidosMultiTemp = [];
+  pedMultiSel = {};
+  pedMultiCant = {};
+  document.getElementById('ped-multi-wrap').style.display = 'none';
+  document.getElementById('ped-lista-wrap').style.display = 'block';
+  renderBarberiasInicio(document.getElementById('ped-inicio-buscar') ? document.getElementById('ped-inicio-buscar').value : '');
 }
 
 
@@ -7073,11 +7398,6 @@ function savePedido(){
   document.getElementById('ped-barberia-wrap').style.display = 'none';
   document.getElementById('ped-barbero-wrap').style.display = 'none';
   document.getElementById('ped-lista-wrap').style.display = 'block';
-  pedidoMultipleIdx++;
-  if(pedidoMultiple.length > 0 && pedidoMultipleIdx < pedidoMultiple.length){
-    abrirSigPedidoMultiple();
-    return;
-  }
   renderBarberiasInicio(document.getElementById('ped-inicio-buscar') ? document.getElementById('ped-inicio-buscar').value : '');
   renderPedidosPendientes();
   // Flash de confirmación sin bloquear la pantalla
@@ -7195,6 +7515,23 @@ function verCl(id){
       +'<div style="font-size:13px;margin-top:2px;color:'+(diasFaltan!==null&&diasFaltan<=0?'#C62828':'#1565C0')+';font-weight:600">'+textoVisita+'</div>'
       +'</div>';
   }
+  // Record de visitas: cuantas veces compro y cuantas veces se le visito pero no compro
+  // -esto ultimo se registra con la ✕ del barbero en Pedidos Rapidos-.
+  var visitasB = LS('nvisitas_barberos', {})[String(id)] || {};
+  var vCompro = (visitasB.compro || []).length;
+  var vNoCompro = (visitasB.noCompro || []).length;
+  var vTotal = vCompro + vNoCompro;
+  var recordVisitasHtml = '';
+  if(vTotal > 0){
+    var pctCompra = Math.round(vCompro / vTotal * 100);
+    recordVisitasHtml = '<div style="background:#f5f5f5;border-radius:8px;padding:10px;grid-column:span 2">'
+      +'<div style="font-size:10px;color:#aaa;font-weight:700">📊 RÉCORD DE VISITAS</div>'
+      +'<div style="display:flex;align-items:center;gap:12px;margin-top:5px;flex-wrap:wrap">'
+      +'<span style="font-size:14px;font-weight:700;color:#2E7D32">✓ '+vCompro+' compró</span>'
+      +'<span style="font-size:14px;font-weight:700;color:#C62828">✕ '+vNoCompro+' no compró</span>'
+      +'<span style="font-size:12px;color:#888;margin-left:auto">'+pctCompra+'% de '+vTotal+' visita(s)</span>'
+      +'</div></div>';
+  }
   header.innerHTML='<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">'
     +'<div class="av" style="width:56px;height:56px;font-size:20px">'+ini(c.nombre,c.apellido)+'</div>'
     +'<div><div style="font-size:22px;font-weight:700">'+nombreCl(c)+'</div>'
@@ -7208,6 +7545,7 @@ function verCl(id){
     +infoVisita
     +'<div style="background:#f5f5f5;border-radius:8px;padding:10px"><div style="font-size:10px;color:#aaa;font-weight:700">TOTAL COMPRAS</div><div style="font-size:18px;font-weight:700;color:#1565C0;margin-top:2px">$'+fmtNum(totalCompras)+'</div></div>'
     +'<div style="background:'+(cr?'#FFEBEE':'#f5f5f5')+';border-radius:8px;padding:10px"><div style="font-size:10px;color:#aaa;font-weight:700">BALANCE PENDIENTE</div><div style="font-size:18px;font-weight:700;color:'+(cr?'#C62828':'#2E7D32')+';margin-top:2px">'+(cr?'$'+fmtNum(cr.saldo):'$0.00')+'</div></div>'
+    +recordVisitasHtml
     +'</div>'
     +(esNoBarberia && c.intervaloVisitaDias ? '<button class="btn" style="background:#1565C0;color:white;margin-bottom:8px" onclick="marcarVisitaNegocio('+id+');verCl('+id+')">✓ Marqué la visita de hoy</button>' : '')
     +'<div style="display:flex;gap:8px">'
@@ -10555,8 +10893,10 @@ function exportD(){
   var pedidos = LS('npedidos', []);
   var devoluciones = LS('ndevoluciones', []);
   var productosEliminados = LS('np_eliminados', []);
+  var visitasBarberos = LS('nvisitas_barberos', {});
   var d = {v:2, productos:productos, ventas:ventas, compras:compras, creditos:creditos, clientes:clientes, suplidores:suplidores, gastos:gastos,
-    tarjetas:tarjetas, otrasDeudas:otrasDeudas, pedidos:pedidos, devoluciones:devoluciones, productosEliminados:productosEliminados};
+    tarjetas:tarjetas, otrasDeudas:otrasDeudas, pedidos:pedidos, devoluciones:devoluciones, productosEliminados:productosEliminados,
+    visitasBarberos:visitasBarberos};
   var json = JSON.stringify(d);
 
   // Registrar fecha del backup
@@ -10638,6 +10978,32 @@ function importD(inp){
     try{
       var d=JSON.parse(e.target.result);
       if(!confirm('Importar datos? Esto reemplaza todo lo actual.'))return;
+      // Limpiar los nombres que vienen en el respaldo: si el archivo es viejo -de antes de que
+      // existiera la limpieza al guardar- o fue manipulado, aqui se neutraliza cualquier codigo
+      // antes de que entre a la app. Es la puerta por donde podrian entrar datos sucios.
+      var limpiarCampos = function(lista, campos){
+        if(!Array.isArray(lista)) return;
+        lista.forEach(function(o){
+          if(!o) return;
+          campos.forEach(function(campo){
+            if(typeof o[campo] === 'string') o[campo] = limpiarTexto(o[campo]);
+          });
+        });
+      };
+      limpiarCampos(d.clientes, ['nombre','apellido','negocio','contacto','contactoApodo','dir','ciudad','nota']);
+      limpiarCampos(d.productos, ['nombre','nombreCorto','marca','cat','desc']);
+      limpiarCampos(d.suplidores, ['nombre','contacto','nota']);
+      if(Array.isArray(d.ventas)) d.ventas.forEach(function(v){
+        if(v && typeof v.cn === 'string') v.cn = limpiarTexto(v.cn);
+        limpiarCampos(v && v.items, ['nombre']);
+      });
+      if(Array.isArray(d.pedidos)) d.pedidos.forEach(function(p){
+        if(p && typeof p.nombre === 'string') p.nombre = limpiarTexto(p.nombre);
+        if(p && typeof p.barberia === 'string') p.barberia = limpiarTexto(p.barberia);
+        limpiarCampos(p && p.items, ['nombre']);
+      });
+      limpiarCampos(d.tarjetas, ['nombre','banco']);
+      limpiarCampos(d.otrasDeudas, ['descripcion','nota']);
       if(d.clientes){clientes=d.clientes;SS('ncl',clientes);}
       if(d.ventas){ventas=d.ventas;SS('nv',ventas);}
       if(d.compras){compras=d.compras;SS('nc',compras);}
@@ -10653,6 +11019,7 @@ function importD(inp){
       if(d.pedidos){SS('npedidos',d.pedidos);}
       if(d.devoluciones){SS('ndevoluciones',d.devoluciones);}
       if(d.productosEliminados){SS('np_eliminados',d.productosEliminados);}
+      if(d.visitasBarberos){SS('nvisitas_barberos',d.visitasBarberos);}
       alert('Datos importados correctamente');
       ir('p-ped');
     }catch(err){alert('Error al importar');}
@@ -10718,7 +11085,76 @@ function emailFactura(v){
 }
 
 // Inicialización al cargar
+// ===== REPARACION DE DATOS INCOMPLETOS =====
+// Si un pedido, venta o compra llega SIN su lista de productos -por un respaldo dañado, una
+// sincronizacion cortada a medias, o un dato viejo incompleto-, la app se caia ENTERA al
+// intentar sumarlos: la pantalla se quedaba en blanco y no podias ni entrar a borrarlo.
+// Esto lo revisa al arrancar y le pone una lista vacia, para que la app siga funcionando y
+// puedas ver el registro dañado y decidir que hacer con el.
+function repararDatosIncompletos(){
+  var reparados = 0;
+  ['npedidos','nv','nc'].forEach(function(clave){
+    try{
+      var lista = LS(clave, null);
+      if(!Array.isArray(lista)) return;
+      var cambio = false;
+      lista.forEach(function(o){
+        if(o && !Array.isArray(o.items)){ o.items = []; cambio = true; reparados++; }
+      });
+      if(cambio) SS(clave, lista);
+    }catch(e){ console.error('No se pudo revisar "'+clave+'":', e); }
+  });
+  if(reparados > 0) console.log('Se repararon '+reparados+' registro(s) que venían sin su lista de productos.');
+}
+
+// ===== LIMPIEZA UNICA DE DATOS YA GUARDADOS =====
+// La app limpia el texto al GUARDAR -limpiarTexto()- desde hace tiempo, pero un dato creado
+// ANTES de que eso existiera podria tener codigo HTML metido dentro. Esto lo revisa una sola
+// vez y lo limpia. Solo toca lo que de verdad tenga < o >; si esta limpio, no lo toca.
+function limpiarDatosGuardadosUnaVez(){
+  if(localStorage.getItem('nbs_datos_limpiados') === 'si') return;
+  var sucio = function(v){ return typeof v === 'string' && (v.indexOf('<') >= 0 || v.indexOf('>') >= 0); };
+  var limpiados = 0;
+
+  var limpiarLista = function(clave, campos){
+    var lista = LS(clave, null);
+    if(!Array.isArray(lista)) return;
+    var cambio = false;
+    lista.forEach(function(o){
+      if(!o) return;
+      campos.forEach(function(c){
+        if(sucio(o[c])){ o[c] = limpiarTexto(o[c]); cambio = true; limpiados++; }
+      });
+      if(Array.isArray(o.items)){
+        o.items.forEach(function(it){
+          if(it && sucio(it.nombre)){ it.nombre = limpiarTexto(it.nombre); cambio = true; limpiados++; }
+        });
+      }
+    });
+    if(cambio) SS(clave, lista);
+  };
+
+  try{
+    limpiarLista('ncl', ['nombre','apellido','negocio','contacto','contactoApodo','dir','ciudad','nota']);
+    limpiarLista('np', ['nombre','nombreCorto','marca','cat','desc']);
+    limpiarLista('nsup', ['nombre','contacto','nota']);
+    limpiarLista('nv', ['cn','nota']);
+    limpiarLista('nc', ['sn','nota']);
+    limpiarLista('npedidos', ['nombre','barberia']);
+    limpiarLista('ntarjetas', ['nombre','banco']);
+    limpiarLista('notrasdeudas', ['descripcion','nota']);
+    limpiarLista('ngastos', ['descripcion','nota']);
+    localStorage.setItem('nbs_datos_limpiados', 'si');
+    if(limpiados > 0) console.log('Limpieza de seguridad: se limpiaron '+limpiados+' campo(s) que tenían código HTML.');
+  }catch(e){
+    console.error('No se pudo hacer la limpieza de seguridad:', e);
+  }
+}
+
+
 document.addEventListener('DOMContentLoaded', function(){
+  repararDatosIncompletos();
+  limpiarDatosGuardadosUnaVez();
   // Abrir pedidos rápidos por defecto
   ir('p-ped');
 
@@ -13088,6 +13524,21 @@ function verHistorialCliente(cid, modo){
       <button class="btn" style="background:#546E7A;color:white" onclick="cancelarPedido()">← Volver a la lista</button>
       <div class="snk" id="mk-ped">Pedido guardado</div>
     </div>
+  </div>
+
+  <!-- ===== PEDIDO A VARIOS BARBEROS A LA VEZ - todos abiertos, sin orden fijo ===== -->
+  <div id="ped-multi-wrap" style="display:none">
+    <div class="card" style="margin-bottom:10px">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div id="ped-multi-titulo" style="font-size:18px;font-weight:800;color:#1a237e"></div>
+          <div id="ped-multi-sub" style="font-size:12px;color:#aaa;margin-top:2px"></div>
+        </div>
+        <button onclick="cancelarPedidoMultiple()" style="background:#f5f5f5;border:none;border-radius:8px;padding:8px 12px;cursor:pointer;font-size:13px;color:#546E7A;font-weight:600">✕ Cancelar</button>
+      </div>
+    </div>
+    <div id="ped-multi-lista"></div>
+    <button class="btn" id="ped-multi-guardar" style="background:#F9A825;color:#1a1a1a" onclick="guardarTodosLosPedidosMultiples()">✓ Guardar pedidos</button>
   </div>
 </div>
 <div id="p-comp" class="pg">

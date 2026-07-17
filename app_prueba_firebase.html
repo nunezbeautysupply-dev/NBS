@@ -1531,6 +1531,9 @@ function revisarSiFaltaAlgo(){
 
 function iniciarCopiasAutomaticas(){
   revisarSiFaltaAlgo();
+  // Si ya vienes con facturas acumuladas de antes, el aviso aparece al abrir la app -no
+  // hay que esperar a que hagas 5 mas para enterarte-
+  setTimeout(mostrarAvisoRespaldo, 2500);
   // La primera copia se intenta a los 20 segundos de abrir -sin estorbar el arranque-
   setTimeout(function(){ hacerCopiaAutomatica(false); }, 20000);
   // Y despues se revisa cada 10 minutos si ya toca hacer la siguiente
@@ -1609,9 +1612,13 @@ function hacerCopiaLocal(){
 // Se llama sola cada vez que se guardan ventas: si ya hay 5 facturas nuevas, hace la copia
 function revisarSiTocaCopiaLocal(k, v){
   if(k !== 'nv' || !Array.isArray(v)) return;
+  // El aviso se refresca con CADA factura, no solo cuando toca hacer copia. Sin esto el
+  // numero se quedaba atrasado: con 16 facturas seguia diciendo 12, porque solo se
+  // actualizaba al hacer la copia -cada 5-.
+  setTimeout(mostrarAvisoRespaldo, 0);
   var ultimo = parseInt(localStorage.getItem(CLAVE_CONTEO_NV_COPIA) || '0', 10);
   if(v.length >= ultimo + FACTURAS_ENTRE_COPIAS){
-    hacerCopiaLocal().then(function(){ mostrarAvisoRespaldo(); });
+    hacerCopiaLocal();
   }
 }
 
@@ -1638,22 +1645,66 @@ function restaurarCopiaLocal(hora){
   });
 }
 
-// ===== EL AVISO DISCRETO DE BAJAR UN RESPALDO =====
+// ===== EL AVISO DE BAJAR UN RESPALDO =====
 // Una barrita que NO te bloquea: la puedes ignorar mientras atiendes al barbero, y sigue
 // ahi cuando tengas un momento. Nada de ventanas que te paren en medio de la ruta.
+//
+// POR QUE TIENES QUE TOCARLA TU -verificado el 17 de julio de 2026-:
+// Desde Chrome 125 (mayo 2024), el navegador BLOQUEA toda descarga que no venga de un toque
+// del usuario dentro de los 500 ms siguientes. Una descarga automatica seria bloqueada
+// siempre. Tu toque ES el permiso que Chrome exige. Por eso hay un boton y no magia.
+var CLAVE_NV_ULTIMO_RESPALDO = 'nbs_nv_al_bajar_respaldo';
+
+// Cuantas facturas llevas desde la ultima vez que bajaste un respaldo
+function facturasSinRespaldar(){
+  var ahora = (LS('nv', []) || []).length;
+  var alBajar = localStorage.getItem(CLAVE_NV_ULTIMO_RESPALDO);
+  if(alBajar === null){
+    // Primera vez: se toma el momento actual como punto de partida, para no asustarte
+    // con un numero enorme el primer dia.
+    localStorage.setItem(CLAVE_NV_ULTIMO_RESPALDO, String(ahora));
+    return 0;
+  }
+  return Math.max(0, ahora - parseInt(alBajar, 10));
+}
+
+function marcarRespaldoBajado(){
+  localStorage.setItem(CLAVE_NV_ULTIMO_RESPALDO, String((LS('nv', []) || []).length));
+  ocultarAvisoRespaldo();
+}
+
 function mostrarAvisoRespaldo(){
+  var n = facturasSinRespaldar();
+  if(n < FACTURAS_ENTRE_COPIAS){ ocultarAvisoRespaldo(); return; }
+
+  // Mientras mas facturas se acumulen, mas se nota — para que sepas de un vistazo que tan
+  // expuesto estas, sin tener que pensarlo.
+  var fondo, texto;
+  if(n >= 25){      fondo = '#B71C1C'; texto = '🚨 Llevas ' + n + ' facturas sin bajar respaldo'; }
+  else if(n >= 15){ fondo = '#E65100'; texto = '⚠️ Llevas ' + n + ' facturas sin bajar respaldo'; }
+  else {            fondo = '#1a237e'; texto = '💾 Llevas ' + n + ' facturas sin bajar respaldo'; }
+
   var a = document.getElementById('aviso-bajar-respaldo');
   if(!a){
     a = document.createElement('div');
     a.id = 'aviso-bajar-respaldo';
-    a.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:#1a237e;color:white;padding:9px 12px;font-size:12px;font-weight:600;z-index:99989;display:flex;align-items:center;gap:8px;box-shadow:0 -2px 8px rgba(0,0,0,0.2)';
-    a.innerHTML = '<span style="flex:1">💾 Ya llevas varias facturas · baja un respaldo cuando puedas</span>'
-      + '<button onclick="exportD();ocultarAvisoRespaldo()" style="background:white;color:#1a237e;border:none;border-radius:7px;padding:6px 11px;font-size:11px;font-weight:800;cursor:pointer;flex-shrink:0">Bajar</button>'
+    a.innerHTML = '<span id="aviso-respaldo-texto" style="flex:1"></span>'
+      + '<button onclick="bajarRespaldoDesdeAviso()" style="background:white;color:#1a237e;border:none;border-radius:7px;padding:6px 11px;font-size:11px;font-weight:800;cursor:pointer;flex-shrink:0">Bajar</button>'
       + '<button onclick="ocultarAvisoRespaldo()" style="background:none;border:none;color:rgba(255,255,255,0.65);font-size:17px;cursor:pointer;flex-shrink:0;padding:0 4px">✕</button>';
     document.body.appendChild(a);
   }
-  a.style.display = 'flex';
+  a.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:'+fondo+';color:white;padding:9px 12px;font-size:12px;font-weight:600;z-index:99989;display:flex;align-items:center;gap:8px;box-shadow:0 -2px 8px rgba(0,0,0,0.2)';
+  var t = document.getElementById('aviso-respaldo-texto');
+  if(t) t.textContent = texto;
 }
+
+// Se llama desde el boton "Bajar" del aviso. El toque del usuario es lo que Chrome exige,
+// y exportD() descarga de forma sincrona -sin esperas- para no perder ese permiso.
+function bajarRespaldoDesdeAviso(){
+  exportD();
+  marcarRespaldoBajado();
+}
+
 function ocultarAvisoRespaldo(){
   var a = document.getElementById('aviso-bajar-respaldo');
   if(a) a.style.display = 'none';
@@ -12444,6 +12495,12 @@ function exportD(){
 
   // Registrar fecha del backup
   localStorage.setItem('ultimoBackup', new Date().getTime().toString());
+  // Reiniciar el contador del aviso: si bajaste el respaldo por tu cuenta -desde el menu-,
+  // el aviso tiene que enterarse igual y volver a cero.
+  try{
+    localStorage.setItem('nbs_nv_al_bajar_respaldo', String((LS('nv', []) || []).length));
+    if(typeof ocultarAvisoRespaldo === 'function') ocultarAvisoRespaldo();
+  }catch(e){}
 
   // Descarga real - funciona en Chrome/GitHub Pages
   var blob = new Blob([json], {type:'application/json'});

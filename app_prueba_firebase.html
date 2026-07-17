@@ -655,6 +655,8 @@ button:active{transform:scale(0.96);filter:brightness(0.93);}
       <div id="copias-estado" style="font-size:11px;font-weight:700"></div>
     </div>
     <button class="btn" style="background:#2E7D32;color:white;margin:0" onclick="copiarAhoraManual()">🛡️ Hacer una copia ahora</button>
+    <button class="btn" style="background:#546E7A;color:white;margin:8px 0 0" onclick="diagnosticarNube()">🔍 Probar la conexión con la nube</button>
+    <div id="diag-resultado" style="display:none;margin-top:10px;font-size:12px;line-height:1.7;background:#FAFAFA;border-radius:9px;padding:11px;white-space:pre-line;font-family:monospace"></div>
   </div>
 
   <div style="font-size:11px;color:var(--nbs-muted);font-weight:700;margin:14px 0 8px">📱 EN ESTE TELÉFONO · sin internet</div>
@@ -1329,6 +1331,12 @@ function hacerCopiaAutomatica(forzada){
   CLAVES_A_RESPALDAR.forEach(function(k){
     var crudo = localStorage.getItem(k);
     if(crudo === null) return; // no existe: no hay nada que copiar
+    // Los productos se copian SIN fotos: cada foto ya esta guardada por su lado en la nube,
+    // y meterlas en cada copia cada 2 horas llenaria el espacio sin necesidad
+    // (con fotos: 242 MB en 30 dias; sin fotos: 18 MB).
+    if(k === 'np'){
+      try{ crudo = JSON.stringify(quitarFotos(JSON.parse(crudo))); }catch(e){}
+    }
     promesas.push(
       comprimirTexto(crudo).then(function(comprimido){
         var doc = { clave: k, hora: Date.now() };
@@ -1352,14 +1360,69 @@ function hacerCopiaAutomatica(forzada){
       automatica: !forzada
     });
   }).then(function(){
+    // ═══ VERIFICACION DE VERDAD ═══
+    // No basta con que la escritura no de error: hay que VOLVER A LEER lo que se guardo y
+    // comprobar que esta completo. Sin esto, la app podia decir "copia guardada" cuando en
+    // realidad no habia nada. Paso el 17 de julio de 2026: las reglas de Firebase bloqueaban
+    // la coleccion nbs_copias y la app igual decia que todo estaba bien.
+    return verificarCopiaDeVerdad(idCopia);
+  }).then(function(v){
+    if(!v.completa){
+      throw new Error('La copia quedó incompleta: se guardaron ' + v.encontradas + ' de ' + v.esperadas + ' parte(s)');
+    }
     localStorage.setItem(CLAVE_ULTIMA_COPIA, String(Date.now()));
-    console.log('Copia automatica guardada: '+guardadas+' parte(s)');
+    console.log('Copia verificada en la nube: '+v.encontradas+' parte(s) leidas de vuelta');
     limpiarCopiasViejas();
     return true;
   }).catch(function(e){
-    console.error('No se pudo hacer la copia automatica:', e);
+    console.error('No se pudo hacer la copia en la nube:', e);
+    window._ultimoErrorCopia = traducirErrorFirebase(e);
     return false;
   });
+}
+
+// Vuelve a LEER de la nube lo que se acaba de guardar, y comprueba que este completo.
+// Devuelve { completa, encontradas, esperadas }.
+function verificarCopiaDeVerdad(idCopia){
+  return fbDb.collection('nbs_copias').doc(idCopia).get().then(function(doc){
+    if(!doc.exists) return { completa: false, encontradas: 0, esperadas: 0 };
+    var indice = doc.data();
+    var claves = indice.claves || [];
+    var revisiones = claves.map(function(k){
+      return fbDb.collection('nbs_copias').doc(idCopia + '__' + k).get().then(function(d){
+        // No basta con que exista: tiene que traer contenido de verdad
+        if(!d.exists) return false;
+        var dd = d.data();
+        return !!(dd && ((dd.zip && dd.zip.length > 10) || (dd.valor && dd.valor.length > 1)));
+      }).catch(function(){ return false; });
+    });
+    return Promise.all(revisiones).then(function(res){
+      var ok = res.filter(function(x){ return x; }).length;
+      return { completa: ok === claves.length && ok > 0, encontradas: ok, esperadas: claves.length };
+    });
+  }).catch(function(e){
+    return { completa: false, encontradas: 0, esperadas: 0, error: e };
+  });
+}
+
+// Convierte el error tecnico de Firebase en algo que se entienda -y que sea VERDAD-.
+// Antes se decia siempre "revisa tu internet", aunque el problema fuera otro. Eso mandaba
+// a buscar donde no era.
+function traducirErrorFirebase(e){
+  var codigo = (e && (e.code || '')) + '';
+  var msj = (e && (e.message || '')) + '';
+  if(codigo.indexOf('permission-denied') >= 0 || msj.indexOf('Missing or insufficient permissions') >= 0){
+    return 'Firebase está bloqueando el acceso.\n\nHay que actualizar las REGLAS en la consola de Firebase (Firestore → Reglas).\n\nNO es tu internet.';
+  }
+  if(codigo.indexOf('unauthenticated') >= 0) return 'La sesión se cerró. Vuelve a entrar con tu correo y contraseña.';
+  if(codigo.indexOf('unavailable') >= 0 || msj.indexOf('offline') >= 0 || !navigator.onLine){
+    return 'No hay conexión con Firebase. Revisa tu internet.';
+  }
+  if(msj.indexOf('longer than') >= 0 || msj.indexOf('exceeds the maximum') >= 0){
+    return 'Hay un dato demasiado grande para Firebase (más de 1 MB).';
+  }
+  if(codigo.indexOf('resource-exhausted') >= 0) return 'Se acabó la cuota gratis de Firebase por hoy.';
+  return 'Error de Firebase: ' + (codigo || msj || 'desconocido');
 }
 
 // Borra las copias de mas de 30 dias, para no llenar el espacio de la nube
@@ -1519,8 +1582,18 @@ function hacerCopiaLocal(){
     copias = copias.slice(0, COPIAS_LOCALES_QUE_SE_GUARDAN); // solo las ultimas 10
     try{
       localStorage.setItem(CLAVE_COPIAS_LOCALES, JSON.stringify(copias));
+      // ═══ VERIFICACION DE VERDAD ═══
+      // Se vuelve a LEER lo que se acaba de guardar y se comprueba que este completo.
+      // Sin esto, la app podia decir "guardada" cuando en realidad no se guardo nada -por
+      // ejemplo, si la memoria del telefono se lleno-.
+      var releido = leerCopiasLocales();
+      var laNueva = releido.find(function(x){ return String(x.hora) === String(copias[0].hora); });
+      if(!laNueva || !laNueva.partes || !Object.keys(laNueva.partes).length){
+        console.error('La copia del telefono NO quedo guardada de verdad');
+        return false;
+      }
       localStorage.setItem(CLAVE_CONTEO_NV_COPIA, String((LS('nv',[]) || []).length));
-      console.log('Copia guardada en el telefono. Total: '+copias.length);
+      console.log('Copia verificada en el telefono: '+Object.keys(laNueva.partes).length+' parte(s). Total: '+releido.length);
       return true;
     }catch(e){
       // Si la memoria del telefono se lleno, se van botando las mas viejas
@@ -1586,6 +1659,131 @@ function ocultarAvisoRespaldo(){
   if(a) a.style.display = 'none';
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+//   LAS FOTOS DE LOS PRODUCTOS VAN APARTE  —  17 de julio de 2026
+// ═══════════════════════════════════════════════════════════════════════════════
+// EL PROBLEMA: Firebase no acepta guardar mas de 1 MB de una sola vez. Los 460 productos
+// SIN fotos ocupan 100 KB (9.6%), pero con solo 30 fotos adentro llegaban a 1,018,628 bytes
+// = 97.1% del limite. Con UNA foto mas, los productos dejaban de subir a la nube.
+//
+// LA SOLUCION: cada foto se guarda como su PROPIO archivo en la nube, no metida dentro de la
+// lista de productos. Asi la lista queda en 9.6% y caben las 460 fotos que quieras.
+//
+// POR QUE NO SE USA FIREBASE STORAGE: verificado el 17 de julio de 2026 — desde el 3 de
+// febrero de 2026, Google exige plan de pago (tarjeta de credito) para usar Storage, aunque
+// no gastes nada. Firestore sigue dando 1 GB gratis sin tarjeta, y 460 fotos ocupan ~14 MB.
+//
+// IMPORTANTE: en el TELEFONO las fotos se siguen guardando junto a los productos, como
+// siempre. Asi se siguen viendo en los pedidos aunque estes sin señal en la van.
+var CLAVE_INDICE_FOTOS = 'nbs_fotos_subidas';
+
+function leerIndiceFotos(){
+  try{ return JSON.parse(localStorage.getItem(CLAVE_INDICE_FOTOS) || '{}'); }catch(e){ return {}; }
+}
+function guardarIndiceFotos(i){
+  try{ localStorage.setItem(CLAVE_INDICE_FOTOS, JSON.stringify(i)); }catch(e){}
+}
+// Una "huella" corta de la foto, para saber si cambio sin tener que comparar 30 KB de texto
+function huellaFoto(foto){
+  var f = String(foto || '');
+  return f.length + '_' + f.substring(f.length - 24);
+}
+
+// Devuelve una copia de los productos SIN las fotos -para mandar a la nube-
+function quitarFotos(prods){
+  return (prods || []).map(function(p){
+    if(!p.foto) return p;
+    var copia = {};
+    for(var k in p){ if(k !== 'foto') copia[k] = p[k]; }
+    return copia;
+  });
+}
+
+function pidsConFoto(prods){
+  return (prods || []).filter(function(p){ return p.foto; }).map(function(p){ return String(p.id); });
+}
+
+// Sube a la nube SOLO las fotos nuevas o que hayan cambiado -no las 30 cada vez-
+function sincronizarFotos(prods){
+  if(typeof fbAuth === 'undefined' || !fbAuth.currentUser) return;
+  if(!navigator.onLine) return;
+  var indice = leerIndiceFotos();
+  var pendientes = (prods || []).filter(function(p){
+    return p.foto && indice[String(p.id)] !== huellaFoto(p.foto);
+  });
+  if(!pendientes.length) return;
+  pendientes.forEach(function(p){
+    var huella = huellaFoto(p.foto);
+    fbDb.collection('nbs_fotos').doc(String(p.id)).set({
+      foto: p.foto,
+      nombre: p.nombre || '',
+      hora: Date.now()
+    }).then(function(){
+      var i = leerIndiceFotos();
+      i[String(p.id)] = huella;
+      guardarIndiceFotos(i);
+    }).catch(function(e){
+      console.error('No se pudo subir la foto de "'+(p.nombre||p.id)+'":', e);
+    });
+  });
+  console.log('Subiendo '+pendientes.length+' foto(s) a la nube...');
+}
+
+// Cuando la nube manda los productos SIN fotos, se les vuelven a pegar las que ya tiene
+// este telefono -para no perderlas de vista-.
+function pegarFotosQueYaTengo(prodsDeLaNube){
+  var fotos = {};
+  try{
+    var local = JSON.parse(localStorage.getItem('np') || '[]');
+    local.forEach(function(p){ if(p.foto) fotos[String(p.id)] = p.foto; });
+  }catch(e){}
+  (prodsDeLaNube || []).forEach(function(p){
+    if(!p.foto && fotos[String(p.id)]) p.foto = fotos[String(p.id)];
+  });
+  return prodsDeLaNube;
+}
+
+// Baja de la nube las fotos que este telefono no tenga -por ejemplo, si entras desde otro
+// telefono por primera vez-. Se hace en segundo plano, sin estorbar.
+function descargarFotosQueFaltan(listaPids){
+  if(typeof fbAuth === 'undefined' || !fbAuth.currentUser) return;
+  if(!navigator.onLine || !listaPids || !listaPids.length) return;
+  var tengo = {};
+  try{
+    JSON.parse(localStorage.getItem('np') || '[]').forEach(function(p){ if(p.foto) tengo[String(p.id)] = 1; });
+  }catch(e){}
+  var faltan = listaPids.filter(function(pid){ return !tengo[pid]; });
+  if(!faltan.length) return;
+  console.log('Bajando '+faltan.length+' foto(s) de la nube...');
+  var promesas = faltan.slice(0, 60).map(function(pid){   // de a poco, no todas de golpe
+    return fbDb.collection('nbs_fotos').doc(pid).get().then(function(d){
+      if(d.exists && d.data() && d.data().foto) return { pid: pid, foto: d.data().foto };
+      return null;
+    }).catch(function(){ return null; });
+  });
+  Promise.all(promesas).then(function(res){
+    var buenas = res.filter(function(x){ return x; });
+    if(!buenas.length) return;
+    try{
+      var prods = JSON.parse(localStorage.getItem('np') || '[]');
+      var mapa = {};
+      buenas.forEach(function(x){ mapa[x.pid] = x.foto; });
+      var cambio = false;
+      prods.forEach(function(p){
+        if(!p.foto && mapa[String(p.id)]){ p.foto = mapa[String(p.id)]; cambio = true; }
+      });
+      if(cambio){
+        localStorage.setItem('np', JSON.stringify(prods));
+        var i = leerIndiceFotos();
+        buenas.forEach(function(x){ i[x.pid] = huellaFoto(x.foto); });
+        guardarIndiceFotos(i);
+        console.log('Se bajaron '+buenas.length+' foto(s).');
+        if(typeof productos !== 'undefined') productos = prods;
+      }
+    }catch(e){ console.error('No se pudieron guardar las fotos bajadas:', e); }
+  });
+}
+
 function marcarHoraLocal(k){
   try{ localStorage.setItem('_hora_'+k, String(Date.now())); }catch(e){}
 }
@@ -1604,11 +1802,18 @@ function SS(k,v){
   // esto nunca bloquea ni retrasa el uso normal de la app.
   if(typeof fbAuth !== 'undefined' && fbAuth.currentUser){
     marcarPendienteDeSubir(k);
-    fbDb.collection('nbs_data').doc(k.replace(/\//g,'_')).set({
-      valor: JSON.stringify(v),
+    // Los productos van a la nube SIN las fotos -esas se guardan cada una por su lado-.
+    // Sin esto, los productos ocupaban el 97.1% del limite de Firebase y con una foto mas
+    // dejaban de subir. Ver "LAS FOTOS DE LOS PRODUCTOS VAN APARTE" mas arriba.
+    var esProductos = (k === 'np' && Array.isArray(v));
+    var doc = {
+      valor: JSON.stringify(esProductos ? quitarFotos(v) : v),
       actualizado: Date.now()
-    }).then(function(){
+    };
+    if(esProductos) doc.pidsConFoto = pidsConFoto(v); // para saber cuales fotos hay que bajar
+    fbDb.collection('nbs_data').doc(k.replace(/\//g,'_')).set(doc).then(function(){
       quitarPendienteDeSubir(k);
+      if(esProductos) sincronizarFotos(v);
     }).catch(function(e){
       console.error('No se pudo sincronizar "'+k+'" con la nube:', e);
       // Se queda marcado como pendiente: la app avisara y reintentara
@@ -5399,7 +5604,87 @@ function abrirCopias(){
     lista.innerHTML = html;
   }).catch(function(e){
     console.error(e);
-    lista.innerHTML = '<div class="card" style="text-align:center;color:#c0392b;font-size:13px;padding:18px">No se pudieron leer las copias.<br>Revisa tu conexión e intenta de nuevo.</div>';
+    var razon = traducirErrorFirebase(e);
+    lista.innerHTML = '<div class="card" style="border:1px solid #E57373;background:#FFF5F5;padding:14px">'
+      +'<div style="font-size:13px;font-weight:800;color:#c0392b;margin-bottom:6px">❌ No se pudieron leer las copias</div>'
+      +'<div style="font-size:12px;color:#666;line-height:1.5;white-space:pre-line">'+escaparHtml(razon)+'</div>'
+      +'</div>';
+  });
+}
+
+// ═══ PRUEBA DE VERDAD CONTRA TU FIREBASE REAL ═══
+// Claude no puede probar contra tu Firebase -su entorno no tiene internet, asi que simula
+// Firebase y su simulacion siempre dice que si-. Por eso no detecto que las reglas estaban
+// bloqueando nbs_copias y nbs_fotos el 17 de julio de 2026.
+// Esta prueba corre en TU telefono, contra TU Firebase de verdad: escribe algo, lo lee de
+// vuelta, y lo borra. Si algo falla, dice exactamente que y por que.
+function diagnosticarNube(){
+  var el = document.getElementById('diag-resultado');
+  el.style.display = 'block';
+  el.textContent = 'Probando...';
+  var lineas = [];
+
+  function probarColeccion(nombre, paraQue){
+    var idPrueba = '__prueba__' + Date.now();
+    var textoPrueba = 'prueba-' + Date.now();
+    return fbDb.collection(nombre).doc(idPrueba).set({ prueba: textoPrueba, hora: Date.now() })
+      .then(function(){
+        // No basta con escribir: hay que LEERLO DE VUELTA para saber que de verdad quedo
+        return fbDb.collection(nombre).doc(idPrueba).get();
+      })
+      .then(function(d){
+        var ok = d.exists && d.data() && d.data().prueba === textoPrueba;
+        return fbDb.collection(nombre).doc(idPrueba).delete().catch(function(){}).then(function(){
+          return ok ? { ok: true } : { ok: false, razon: 'Se escribió pero al leerlo de vuelta no estaba' };
+        });
+      })
+      .catch(function(e){
+        return { ok: false, razon: traducirErrorFirebase(e).split('\n')[0] };
+      });
+  }
+
+  lineas.push('SESIÓN: ' + (fbAuth.currentUser ? '✓ ' + fbAuth.currentUser.email : '✗ sin sesión'));
+  lineas.push('INTERNET: ' + (navigator.onLine ? '✓ conectado' : '✗ sin conexión'));
+  lineas.push('');
+  el.textContent = lineas.join('\n') + '\nProbando las carpetas...';
+
+  if(!fbAuth.currentUser || !navigator.onLine){
+    el.textContent = lineas.join('\n') + '\n\nNo se puede probar sin sesión e internet.';
+    return;
+  }
+
+  var carpetas = [
+    ['nbs_data', 'tus datos'],
+    ['nbs_copias', 'las copias de seguridad'],
+    ['nbs_fotos', 'las fotos de productos']
+  ];
+
+  Promise.all(carpetas.map(function(c){ return probarColeccion(c[0], c[1]); })).then(function(res){
+    var fallan = [];
+    res.forEach(function(r, i){
+      var nom = carpetas[i][0], paraQue = carpetas[i][1];
+      if(r.ok){
+        lineas.push('✓ ' + nom + '  (' + paraQue + ')');
+      } else {
+        lineas.push('✗ ' + nom + '  (' + paraQue + ')');
+        lineas.push('     ' + r.razon);
+        fallan.push(nom);
+      }
+    });
+    lineas.push('');
+    if(!fallan.length){
+      lineas.push('✅ TODO FUNCIONA.');
+      lineas.push('Se escribió y se volvió a leer en las 3 carpetas.');
+    } else {
+      lineas.push('❌ FALLAN: ' + fallan.join(', '));
+      lineas.push('');
+      lineas.push('Si dice que Firebase bloquea el acceso, hay que');
+      lineas.push('actualizar las REGLAS en la consola de Firebase:');
+      lineas.push('Firestore → Reglas → pegar la regla nueva → Publicar.');
+      lineas.push('');
+      lineas.push('NO es tu internet.');
+    }
+    el.textContent = lineas.join('\n');
   });
 }
 
@@ -5413,9 +5698,17 @@ function copiarAhoraManual(){
       return { local: okLocal, nube: okNube };
     });
   }).then(function(r){
-    if(r.local && r.nube) alert('✅ Copia guardada en el teléfono Y en la nube.');
-    else if(r.local) alert('✅ Copia guardada en el teléfono.\n\n⚠️ En la nube no se pudo -revisa tu internet-. La del teléfono ya te protege.');
-    else alert('No se pudo hacer la copia.');
+    if(r.local && r.nube){
+      alert('✅ VERIFICADO\n\nCopia guardada en el teléfono Y en la nube.\n\nSe volvió a leer de la nube para confirmar que quedó completa.');
+    } else if(r.local){
+      // Se dice la razon REAL, no "revisa tu internet" a ciegas
+      var razon = window._ultimoErrorCopia || 'No se pudo confirmar que la copia quedara en la nube.';
+      alert('✅ Copia guardada en el teléfono (verificada).\n\n❌ EN LA NUBE FALLÓ\n\n' + razon);
+    } else if(r.nube){
+      alert('✅ Copia guardada en la nube (verificada).\n\n❌ En el teléfono falló -puede que la memoria esté llena-.');
+    } else {
+      alert('❌ NO SE GUARDÓ NINGUNA COPIA.\n\n' + (window._ultimoErrorCopia || 'Error desconocido.'));
+    }
     abrirCopias();
   });
 }
@@ -12839,7 +13132,17 @@ function cargarDatosDeLaNube(callback){
       }
 
       try{
-        localStorage.setItem(doc.id, data.valor);
+        var valorFinal = data.valor;
+        // Los productos bajan SIN fotos. Se les vuelven a pegar las que este telefono ya
+        // tiene, y en segundo plano se bajan las que falten.
+        if(doc.id === 'np'){
+          try{
+            var prods = pegarFotosQueYaTengo(JSON.parse(data.valor));
+            valorFinal = JSON.stringify(prods);
+            if(data.pidsConFoto) setTimeout(function(){ descargarFotosQueFaltan(data.pidsConFoto); }, 3000);
+          }catch(e){ console.error('No se pudieron pegar las fotos:', e); }
+        }
+        localStorage.setItem(doc.id, valorFinal);
         // Se anota la hora de la nube como la hora de este dato, para no confundir despues
         localStorage.setItem('_hora_'+doc.id, String(horaNube));
         bajados++;
@@ -12869,10 +13172,16 @@ function subirPendientes(){
   claves.forEach(function(k){
     var valor = localStorage.getItem(k);
     if(valor === null){ quitarPendienteDeSubir(k); return; }
-    fbDb.collection('nbs_data').doc(k.replace(/\//g,'_')).set({
-      valor: valor,
-      actualizado: horaLocalDe(k) || Date.now()
-    }).then(function(){
+    var docPend = { valor: valor, actualizado: horaLocalDe(k) || Date.now() };
+    if(k === 'np'){
+      try{
+        var pp = JSON.parse(valor);
+        docPend.valor = JSON.stringify(quitarFotos(pp)); // los productos van sin fotos
+        docPend.pidsConFoto = pidsConFoto(pp);
+        setTimeout(function(){ sincronizarFotos(pp); }, 500);
+      }catch(e){}
+    }
+    fbDb.collection('nbs_data').doc(k.replace(/\//g,'_')).set(docPend).then(function(){
       quitarPendienteDeSubir(k);
       console.log('Se subió a la nube lo que estaba pendiente: '+k);
     }).catch(function(e){ console.error('Sigue sin poder subir "'+k+'":', e); });

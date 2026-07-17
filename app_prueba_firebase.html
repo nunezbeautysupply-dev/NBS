@@ -635,6 +635,10 @@ button:active{transform:scale(0.96);filter:brightness(0.93);}
 </div>
 
 <!-- ===== LISTA DE RELLENO - para reponer la mercancia de la van ===== -->
+<!-- Fondo flotante: aqui se mete el panel de producto nuevo cuando se abre desde una
+     tarjeta de barbero, para que se vea encima de la pantalla de tarjetas -->
+<div id="ped-nuevo-prod-flotante" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:99997;align-items:center;justify-content:center;padding:16px"></div>
+
 <div id="p-relleno" class="pg">
   <div style="display:flex;gap:8px;margin-bottom:16px"><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="volverAtras()">← Atrás</button><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="ir('p-ped')">🏠 Inicio</button></div>
   <h2 style="font-size:20px;font-weight:700;color:#1a237e;margin-bottom:4px">🚐 Lista de Relleno</h2>
@@ -7254,6 +7258,7 @@ function renderPedidosMultiples(){
       +'<div style="display:flex;gap:6px">'
       +'<input id="multi-buscar-'+idx+'" type="text" placeholder="Buscar producto..." oninput="filterPedMulti('+idx+', this.value)" onfocus="filterPedMulti('+idx+', this.value||\'\')" style="flex:1;padding:9px 10px;border:0.5px solid #ddd;border-radius:8px;font-size:13px">'
       +'<button id="multi-mic-'+idx+'" onclick="dictarBusquedaSimple(\'multi-buscar-'+idx+'\', \'multi-mic-'+idx+'\')" style="background:#5E35B1;color:white;border:none;border-radius:8px;width:40px;flex-shrink:0;cursor:pointer;font-size:16px">🎤</button>'
+      +'<button onclick="toggleNuevoProdPed('+idx+')" title="Agregar producto nuevo al catálogo" style="background:#00838F;color:white;border:none;border-radius:8px;width:40px;flex-shrink:0;cursor:pointer;font-size:16px">📦</button>'
       +'</div>'
       +'<div id="multi-plist-'+idx+'" style="background:white;border:1px solid #ddd;border-radius:8px;max-height:180px;overflow-y:auto;display:none;margin-top:6px"></div>';
 
@@ -7950,7 +7955,12 @@ function guardarNuevoProdVenta(){
   alert('✅ "'+nombreCompleto+'" agregado al catálogo y a la venta.');
 }
 
-function toggleNuevoProdPed(){
+// Cual barbero de las tarjetas esta agregando un producto nuevo -null si es el pedido normal
+// de un solo barbero-. Sin esto, el producto nuevo no sabria a quien agregarselo.
+var barberoParaProdNuevo = null;
+
+function toggleNuevoProdPed(idxBarbero){
+  barberoParaProdNuevo = (idxBarbero === undefined || idxBarbero === null) ? null : idxBarbero;
   var w = document.getElementById('ped-nuevo-prod-wrap');
   var visible = w.style.display !== 'none';
   w.style.display = visible ? 'none' : 'block';
@@ -7961,7 +7971,46 @@ function toggleNuevoProdPed(){
     document.getElementById('pednp-costo').value = '0.00';
     document.getElementById('pednp-precio').value = '0.00';
     document.getElementById('pednp-stock').value = '0';
+    // Si viene desde una tarjeta de barbero, el panel se muestra encima de la pantalla
+    // de tarjetas -no dentro del formulario viejo, que ahi no se veria-.
+    if(barberoParaProdNuevo !== null){
+      var titulo = document.getElementById('pednp-titulo-barbero');
+      if(titulo && pedidosMultiTemp[barberoParaProdNuevo]){
+        titulo.textContent = 'Para ' + nombreCl(pedidosMultiTemp[barberoParaProdNuevo].cliente);
+        titulo.style.display = 'block';
+      }
+      var flotante = document.getElementById('ped-nuevo-prod-flotante');
+      if(flotante){
+        flotante.style.display = 'flex';
+        flotante.appendChild(w);
+        w.style.margin = '0';
+        w.style.maxHeight = '85vh';
+        w.style.overflowY = 'auto';
+        w.style.width = '100%';
+      }
+    }
+  } else {
+    cerrarPanelProdNuevo();
   }
+}
+
+// Devuelve el panel a su sitio original -dentro del formulario- y esconde el fondo flotante
+function cerrarPanelProdNuevo(){
+  var w = document.getElementById('ped-nuevo-prod-wrap');
+  var flotante = document.getElementById('ped-nuevo-prod-flotante');
+  var casa = document.getElementById('ped-nuevo-prod-casa');
+  if(flotante) flotante.style.display = 'none';
+  if(w && casa && w.parentElement !== casa){
+    casa.appendChild(w);
+    w.style.margin = '';
+    w.style.maxHeight = '';
+    w.style.overflowY = '';
+    w.style.width = '';
+  }
+  if(w) w.style.display = 'none';
+  var titulo = document.getElementById('pednp-titulo-barbero');
+  if(titulo) titulo.style.display = 'none';
+  barberoParaProdNuevo = null;
 }
 
 function guardarNuevoProdPed(){
@@ -7975,13 +8024,25 @@ function guardarNuevoProdPed(){
   var costo = parseFloat(document.getElementById('pednp-costo').value) || 0;
   var precio = parseFloat(document.getElementById('pednp-precio').value) || 0;
   var stock = parseInt(document.getElementById('pednp-stock').value) || 0;
-  // -confirmacion redundante quitada, el boton ya es la confirmacion-
   var nuevoId = 'custom_' + Date.now();
   var nuevoProd = { id: nuevoId, marca: marca, nombreCorto: nombre, nombre: nombreCompleto, cat: cat, sku: '', costo: costo, precio: precio, stock: stock, min: 5 };
   productos.push(nuevoProd);
   SS('np', productos);
+
+  if(barberoParaProdNuevo !== null && pedidosMultiTemp[barberoParaProdNuevo]){
+    // Vino desde una tarjeta de barbero: se le agrega a ESE barbero
+    var idx = barberoParaProdNuevo;
+    var quien = nombreCl(pedidosMultiTemp[idx].cliente);
+    pedidosMultiTemp[idx].items.push({ pid: nuevoId, nombre: nombreCompleto, cant: 1, precio: precio, costo: costo });
+    cerrarPanelProdNuevo();
+    renderPedidosMultiples();
+    alert('✅ "'+nombreCompleto+'" agregado al catálogo y al pedido de '+quien+'.');
+    return;
+  }
+
+  // Flujo normal de un solo barbero
   pedItemsTemp.push({ pid: nuevoId, nombre: nombreCompleto, cant: 1, precio: precio, costo: costo });
-  toggleNuevoProdPed();
+  cerrarPanelProdNuevo();
   renderPedItems();
   alert('✅ "'+nombreCompleto+'" agregado al catálogo y al pedido.');
 }
@@ -14645,8 +14706,10 @@ function verHistorialCliente(cid, modo){
       <input class="inp" id="pedcant" type="number" value="1" min="1">
       <button class="btn" style="background:#546E7A;color:white" onclick="addPedItem()">+ Agregar al pedido</button>
       <button class="btn" style="background:#00838F;color:white" onclick="toggleNuevoProdPed()">📦 Agregar producto nuevo al catálogo</button>
+      <div id="ped-nuevo-prod-casa">
       <div id="ped-nuevo-prod-wrap" style="display:none;background:#E0F7FA;border-radius:10px;padding:12px;margin-bottom:8px">
         <div style="font-size:12px;font-weight:700;color:#00838F;margin-bottom:8px">📦 NUEVO PRODUCTO</div>
+        <div id="pednp-titulo-barbero" style="display:none;font-size:13px;font-weight:700;color:#00838F;background:white;border-radius:7px;padding:7px 9px;margin-bottom:8px"></div>
         <label class="lbl">Marca *</label><input class="inp" id="pednp-marca" type="text" placeholder="Ej: DORCO, IMMORTAL" autocomplete="off" oninput="onMarcaInput('pednp-marca')" onblur="ocultarDropdown('pednp-marca')">
         <label class="lbl">Nombre del producto *</label><input class="inp" id="pednp-nombre" type="text" placeholder="Ej: Roja Cortada, Colonia Venom" autocomplete="off" oninput="onNombreProductoInput('pednp-nombre')" onblur="ocultarDropdown('pednp-nombre')">
         <label class="lbl">Categoría</label><input class="inp" id="pednp-cat" type="text" placeholder="Ej: Pomadas, Navajas..." autocomplete="off" oninput="onCategoriaInput('pednp-cat')" onblur="ocultarDropdown('pednp-cat')">
@@ -14657,9 +14720,10 @@ function verHistorialCliente(cid, modo){
         <label class="lbl">Stock inicial</label><input class="inp" id="pednp-stock" type="number" value="0" min="0">
         <div style="display:flex;gap:8px">
           <button class="btn" style="flex:1;background:#00838F;color:white;margin:0" onclick="guardarNuevoProdPed()">✓ Guardar y agregar al pedido</button>
-          <button class="btn" style="flex:1;background:#546E7A;color:white;margin:0" onclick="toggleNuevoProdPed()">Cancelar</button>
+          <button class="btn" style="flex:1;background:#546E7A;color:white;margin:0" onclick="cerrarPanelProdNuevo()">Cancelar</button>
         </div>
       </div>
+      </div><!-- cierra ped-nuevo-prod-casa -->
       <div id="pedItems" style="margin:8px 0"></div>
       <button class="btn" style="background:#F9A825;color:#1a1a1a" onclick="savePedido()">✓ Guardar pedido</button>
       <button class="btn" style="background:#546E7A;color:white" onclick="cancelarPedido()">← Volver a la lista</button>

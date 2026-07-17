@@ -321,6 +321,19 @@ button:active{transform:scale(0.96);filter:brightness(0.93);}
     <p id="login-cargando" style="color:#888;font-size:13px;text-align:center;margin-top:12px;display:none">Entrando...</p>
   </div>
 </div>
+
+<!-- ===== PANTALLA DE BLOQUEO POR HUELLA - tapa la app tras 15 min de inactividad ===== -->
+<div id="pantalla-bloqueo" style="position:fixed;inset:0;background:#fff;z-index:99998;display:none;flex-direction:column;align-items:center;justify-content:center;padding:24px">
+  <div style="width:100%;max-width:320px;text-align:center">
+    <img src="icon-192.png" style="width:74px;height:74px;margin-bottom:14px" alt="NBS">
+    <h1 style="font-size:19px;font-weight:700;margin-bottom:4px;color:var(--nbs-ink,#1a1a2e)">App bloqueada</h1>
+    <p style="font-size:13px;color:#888;margin-bottom:22px">Desbloquea con tu huella para continuar</p>
+    <button onclick="desbloquearConHuella()" class="btn" style="width:100%;background:var(--nbs-gold,#D4A017);color:white;padding:14px;font-weight:700;border:none;border-radius:10px;cursor:pointer;font-size:15px">👆 Desbloquear con huella</button>
+    <p id="bloqueo-error" style="color:#c0392b;font-size:13px;margin-top:12px;display:none"></p>
+    <button onclick="usarContrasenaEnVezDeHuella()" style="background:none;border:none;color:#888;font-size:13px;margin-top:16px;cursor:pointer;text-decoration:underline">Usar correo y contraseña</button>
+  </div>
+</div>
+
 <div id="app-contenido" style="display:none">
 <div class="top" style="display:flex;align-items:center;justify-content:space-between;padding:8px 16px">
   <button onclick="abrirMenuLateral()" style="background:var(--nbs-gold-bg);border:none;color:var(--nbs-gold-dark);width:38px;height:38px;border-radius:10px;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;font-weight:700">☰</button>
@@ -384,7 +397,8 @@ button:active{transform:scale(0.96);filter:brightness(0.93);}
         </div>
       </div>
     </div>
-    <button onclick="cerrarSesionNBS()" style="width:100%;margin-top:14px;background:none;border:1px solid #e0574a;color:#e0574a;padding:11px;border-radius:10px;cursor:pointer;font-size:13px;font-weight:600">🚪 Cerrar sesión</button>
+    <button id="btn-huella" onclick="activarHuella()" style="width:100%;margin-top:14px;background:none;border:1px solid var(--nbs-gold, #D4A017);color:var(--nbs-gold-dark, #8a6a10);padding:11px;border-radius:10px;cursor:pointer;font-size:13px;font-weight:600">👆 Activar huella digital</button>
+    <button onclick="cerrarSesionNBS()" style="width:100%;margin-top:8px;background:none;border:1px solid #e0574a;color:#e0574a;padding:11px;border-radius:10px;cursor:pointer;font-size:13px;font-weight:600">🚪 Cerrar sesión</button>
   </div>
 </div>
 
@@ -1651,6 +1665,8 @@ function ir(id, sinHistorial){
     document.getElementById('ped-form-wrap').style.display='none';
     document.getElementById('ped-barberia-wrap').style.display='none';
     document.getElementById('ped-barbero-wrap').style.display='none';
+    var multiWrap = document.getElementById('ped-multi-wrap');
+    if(multiWrap) multiWrap.style.display='none';
     var bi = document.getElementById('ped-inicio-buscar');
     if(bi) bi.value='';
     renderBarberiasInicio('');
@@ -6320,6 +6336,8 @@ function editarPedido(idx){
   document.getElementById('ped-lista-wrap').style.display = 'none';
   document.getElementById('ped-barberia-wrap').style.display = 'none';
   document.getElementById('ped-barbero-wrap').style.display = 'none';
+  var multiWrap = document.getElementById('ped-multi-wrap');
+  if(multiWrap) multiWrap.style.display = 'none';
   document.getElementById('ped-form-wrap').style.display = 'block';
   document.getElementById('ped-barbero-actual').textContent = '✏️ Editando: ' + (p.nombre||'');
   document.getElementById('ped-barberia-actual').textContent = p.barberia||'';
@@ -6551,51 +6569,345 @@ function renderBarberiasInicio(q){
   });
 }
 
+// ===== PEDIDO A VARIOS BARBEROS A LA VEZ =====
+// TODOS los barberos quedan abiertos al mismo tiempo, y CADA UNO tiene su propio buscador,
+// microfono y lista de productos, ahi mismo dentro de su tarjeta. Nunca se sale de esta
+// pantalla ni se cierra ninguna tarjeta: en la barberia los barberos piden en desorden, y
+// asi se le puede agregar a cualquiera en cualquier momento sin perder de vista a los demas.
+var pedidosMultiTemp = [];   // [{cliente, barberia, items:[]}]
+var pedMultiSel = {};        // idx -> id del producto elegido en el buscador de esa tarjeta
+var pedMultiCant = {};       // idx -> cantidad elegida en esa tarjeta
+
 function iniciarPedidoMultiple(){
   var selArray = Object.keys(barberosSel).map(function(id){ return barberosSel[id]; });
   if(!selArray.length){ alert('Selecciona al menos un barbero'); return; }
-  // Crear pedido vacío para cada barbero seleccionado
-  pedidoMultiple = selArray;
-  pedidoMultipleIdx = 0;
+  pedidosMultiTemp = selArray.map(function(s){
+    return { cliente: s.cliente, barberia: s.barberia, items: [] };
+  });
   barberosSel = {};
-  abrirSigPedidoMultiple();
+  pedMultiSel = {};
+  pedMultiCant = {};
+  abrirPantallaMultiple();
 }
 
-var pedidoMultiple = [];
-var pedidoMultipleIdx = 0;
+function abrirPantallaMultiple(){
+  document.getElementById('ped-lista-wrap').style.display = 'none';
+  document.getElementById('ped-form-wrap').style.display = 'none';
+  document.getElementById('ped-barberia-wrap').style.display = 'none';
+  document.getElementById('ped-barbero-wrap').style.display = 'none';
+  document.getElementById('ped-multi-wrap').style.display = 'block';
+  loadProds();
+  renderPedidosMultiples();
+  window.scrollTo(0,0);
+}
 
-function abrirSigPedidoMultiple(){
-  if(pedidoMultipleIdx >= pedidoMultiple.length){
-    // Terminamos todos los pedidos
-    renderBarberiasInicio('');
+function renderPedidosMultiples(){
+  var el = document.getElementById('ped-multi-lista');
+  if(!el) return;
+  el.innerHTML = '';
+
+  var negocios = {};
+  pedidosMultiTemp.forEach(function(p){ negocios[p.barberia] = true; });
+  var listaNegocios = Object.keys(negocios);
+  document.getElementById('ped-multi-titulo').textContent = listaNegocios.length === 1 ? listaNegocios[0] : 'Varios negocios';
+  document.getElementById('ped-multi-sub').textContent = pedidosMultiTemp.length + ' barbero(s) · agrégale a cualquiera, en el orden que quieras';
+
+  var totalGeneral = 0;
+
+  pedidosMultiTemp.forEach(function(p, idx){
+    var totalBarbero = p.items.reduce(function(s,it){ return s + (it.cant * it.precio); }, 0);
+    totalGeneral += totalBarbero;
+    var nombreCompleto = nombreCl(p.cliente);
+    var pidSel = pedMultiSel[idx];
+    var prodSel = pidSel ? productos.find(function(x){ return String(x.id)===String(pidSel); }) : null;
+    var cantSel = pedMultiCant[idx] || 1;
+
+    var card = document.createElement('div');
+    card.style.cssText = 'background:white;border-radius:12px;margin-bottom:10px;border:0.5px solid var(--nbs-line);overflow:hidden;box-shadow:var(--nbs-shadow-card)';
+
+    // --- Cabecera: barbero, total, y la ✕ para quitarlo si hoy no compra ---
+    var html = '<div style="padding:11px 12px;display:flex;align-items:center;gap:8px;border-bottom:0.5px solid #f0f0f3;background:#FCFCFD">'
+      +'<div style="width:30px;height:30px;border-radius:8px;background:var(--nbs-gold-bg);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--nbs-gold-dark);flex-shrink:0">'+p.cliente.nombre[0]+'</div>'
+      +'<div style="flex:1;min-width:0">'
+      +'<div style="font-size:14px;font-weight:700;color:var(--nbs-ink)">'+nombreCompleto+'</div>'
+      +(listaNegocios.length > 1 ? '<div style="font-size:11px;color:#aaa">'+p.barberia+'</div>' : '')
+      +'</div>'
+      +'<div id="multi-total-'+idx+'" style="font-size:14px;font-weight:700;color:'+(totalBarbero>0?'var(--nbs-green-text)':'#ccc')+'">$'+fmtNum(totalBarbero)+'</div>'
+      +'<button onclick="quitarBarberoMulti('+idx+')" title="Hoy no compró" style="background:var(--nbs-red-bg);color:var(--nbs-red-dark);border:none;border-radius:7px;width:30px;height:30px;cursor:pointer;font-size:14px;flex-shrink:0">✕</button>'
+      +'</div>';
+
+    // --- Buscador propio de esta tarjeta ---
+    html += '<div style="padding:9px 12px 4px">'
+      +'<div style="display:flex;gap:6px">'
+      +'<input id="multi-buscar-'+idx+'" type="text" placeholder="Buscar producto..." oninput="filterPedMulti('+idx+', this.value)" onfocus="filterPedMulti('+idx+', this.value||\'\')" style="flex:1;padding:9px 10px;border:0.5px solid #ddd;border-radius:8px;font-size:13px">'
+      +'<button id="multi-mic-'+idx+'" onclick="dictarBusquedaSimple(\'multi-buscar-'+idx+'\', \'multi-mic-'+idx+'\')" style="background:#5E35B1;color:white;border:none;border-radius:8px;width:40px;flex-shrink:0;cursor:pointer;font-size:16px">🎤</button>'
+      +'</div>'
+      +'<div id="multi-plist-'+idx+'" style="background:white;border:1px solid #ddd;border-radius:8px;max-height:180px;overflow-y:auto;display:none;margin-top:6px"></div>';
+
+    // --- Producto elegido + cantidad + boton de agregar ---
+    if(prodSel){
+      html += '<div style="display:flex;align-items:center;justify-content:space-between;background:#FFF8E1;border-radius:20px;padding:7px 12px;margin-top:6px">'
+        +'<span style="font-size:12px;color:#F57F17;font-weight:600;flex:1;min-width:0">'+prodSel.nombre+' · $'+fmtNum(prodSel.precio)+'</span>'
+        +'<button onclick="clearPedMulti('+idx+')" style="background:none;border:none;cursor:pointer;color:#F57F17;font-size:16px;flex-shrink:0">✕</button>'
+        +'</div>'
+        +'<div style="display:flex;align-items:center;gap:6px;margin-top:6px">'
+        +'<button onclick="cambiarCantSelMulti('+idx+',-1)" style="width:34px;height:34px;background:var(--nbs-red-bg);color:var(--nbs-red-dark);border:none;border-radius:8px;cursor:pointer;font-size:17px;font-weight:700;line-height:1;flex-shrink:0">−</button>'
+        +'<input id="multi-cant-'+idx+'" type="number" min="1" value="'+cantSel+'" oninput="pedMultiCant['+idx+']=parseInt(this.value)||1" style="width:46px;padding:7px 2px;border:0.5px solid #ddd;border-radius:6px;font-size:13px;text-align:center">'
+        +'<button onclick="cambiarCantSelMulti('+idx+',1)" style="width:34px;height:34px;background:var(--nbs-green-bg);color:var(--nbs-green-text);border:none;border-radius:8px;cursor:pointer;font-size:17px;font-weight:700;line-height:1;flex-shrink:0">+</button>'
+        +'<button onclick="addItemMulti('+idx+')" style="flex:1;padding:9px;background:var(--nbs-gold);color:white;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">+ Agregar a '+p.cliente.nombre+'</button>'
+        +'</div>';
+    }
+    html += '</div>';
+
+    // --- Productos ya agregados a este barbero, editables aqui mismo ---
+    html += '<div style="padding:4px 12px 12px">';
+    if(p.items.length){
+      p.items.forEach(function(it, itIdx){
+        var sub = it.cant * it.precio;
+        html += '<div style="padding:8px;margin-top:6px;border:0.5px solid var(--nbs-line);border-radius:9px;background:#FCFCFD">'
+          +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">'
+          +'<input type="text" value="'+String(it.nombre).replace(/"/g,"&quot;")+'" oninput="actualizarItemMulti('+idx+','+itIdx+',\'nombre\',this.value)" style="flex:1;min-width:0;border:0.5px solid #ddd;border-radius:6px;padding:6px 7px;font-size:12px;font-weight:600;color:var(--nbs-ink)">'
+          +'<button onclick="quitarItemMulti('+idx+','+itIdx+')" style="background:var(--nbs-red-bg);color:var(--nbs-red-dark);border:none;border-radius:7px;width:30px;height:30px;cursor:pointer;font-size:13px;flex-shrink:0">✕</button>'
+          +'</div>'
+          +'<div style="display:flex;align-items:center;gap:6px">'
+          +'<button onclick="cambiarCantItemMulti('+idx+','+itIdx+',-1)" style="width:32px;height:32px;background:var(--nbs-red-bg);color:var(--nbs-red-dark);border:none;border-radius:7px;cursor:pointer;font-size:16px;font-weight:700;line-height:1;flex-shrink:0">−</button>'
+          +'<input id="multi-icant-'+idx+'-'+itIdx+'" type="number" min="1" value="'+it.cant+'" oninput="actualizarItemMulti('+idx+','+itIdx+',\'cant\',parseInt(this.value)||1)" style="width:42px;padding:6px 2px;border:0.5px solid #ddd;border-radius:6px;font-size:12px;text-align:center">'
+          +'<button onclick="cambiarCantItemMulti('+idx+','+itIdx+',1)" style="width:32px;height:32px;background:var(--nbs-green-bg);color:var(--nbs-green-text);border:none;border-radius:7px;cursor:pointer;font-size:16px;font-weight:700;line-height:1;flex-shrink:0">+</button>'
+          +'<div style="display:flex;align-items:center;gap:3px">'
+          +'<span style="font-size:11px;color:#999">$</span>'
+          +'<input type="text" inputmode="decimal" value="'+it.precio.toFixed(2)+'" onfocus="this.select()" oninput="formatoMoneda(this);actualizarItemMulti('+idx+','+itIdx+',\'precio\',parseFloat(this.value)||0)" style="width:62px;padding:6px 4px;border:0.5px solid #ddd;border-radius:6px;font-size:12px;text-align:center">'
+          +'</div>'
+          +'<span id="multi-isub-'+idx+'-'+itIdx+'" style="flex:1;text-align:right;font-size:13px;font-weight:700;color:var(--nbs-green-text)">$'+fmtNum(sub)+'</span>'
+          +'</div>'
+          +'</div>';
+      });
+    } else {
+      html += '<div style="font-size:12px;color:#bbb;padding:6px 0;font-style:italic">Todavía no le has agregado nada</div>';
+    }
+    html += '</div>';
+
+    card.innerHTML = html;
+    el.appendChild(card);
+  });
+
+  var btnGuardar = document.getElementById('ped-multi-guardar');
+  var conItems = pedidosMultiTemp.filter(function(p){ return p.items.length > 0; }).length;
+  if(conItems > 0){
+    btnGuardar.textContent = '✓ Guardar ' + conItems + ' pedido(s) · $' + fmtNum(totalGeneral);
+    btnGuardar.style.opacity = '1';
+  } else {
+    btnGuardar.textContent = '✓ Guardar pedidos';
+    btnGuardar.style.opacity = '0.5';
+  }
+}
+
+// El buscador de cada tarjeta solo toca SU propia lista de resultados -no se vuelve a dibujar
+// toda la pantalla-, para que no se pierda lo que estas escribiendo ni se cierre nada.
+function filterPedMulti(idx, q){
+  loadProds();
+  var el = document.getElementById('multi-plist-'+idx);
+  if(!el) return;
+  el.innerHTML = '';
+  var list = [].concat(productos).sort(function(a,b){ return a.nombre.localeCompare(b.nombre); });
+  if(q && q.trim()) list = list.filter(function(p){ return p.nombre.toLowerCase().includes(q.toLowerCase()); });
+  if(!list.length){ el.style.display='none'; return; }
+  el.style.display = 'block';
+  list.slice(0,40).forEach(function(p){
+    var d = document.createElement('div');
+    d.style.cssText = 'padding:9px 10px;border-bottom:1px solid #f0f0f0;cursor:pointer;font-size:12px;background:'+(p.stock<=0?'#FFCDD2':p.stock<=p.min?'#FFF9C4':'white')+';display:flex;align-items:center;gap:8px';
+    var fotoHtml = p.foto
+      ? '<img src="'+p.foto+'" style="width:32px;height:32px;border-radius:7px;object-fit:cover;flex-shrink:0">'
+      : '<div style="width:32px;height:32px;border-radius:7px;background:#eee;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;color:#bbb">📦</div>';
+    d.innerHTML = fotoHtml+'<div style="flex:1;min-width:0"><div style="font-weight:600">'+p.nombre+'</div><div style="color:#aaa;font-size:10px">Stock:'+p.stock+' · $'+fmtNum(p.precio)+'</div></div>';
+    d.onclick = (function(pid){ return function(){ selPedMulti(idx, pid); }; })(p.id);
+    el.appendChild(d);
+  });
+}
+
+function selPedMulti(idx, pid){
+  pedMultiSel[idx] = pid;
+  if(!pedMultiCant[idx]) pedMultiCant[idx] = 1;
+  var buscador = document.getElementById('multi-buscar-'+idx);
+  if(buscador) buscador.value = '';
+  var lista = document.getElementById('multi-plist-'+idx);
+  if(lista) lista.style.display = 'none';
+  renderPedidosMultiples();
+}
+
+function clearPedMulti(idx){
+  delete pedMultiSel[idx];
+  delete pedMultiCant[idx];
+  renderPedidosMultiples();
+}
+
+function cambiarCantSelMulti(idx, delta){
+  var nueva = (pedMultiCant[idx] || 1) + delta;
+  if(nueva < 1) nueva = 1;
+  pedMultiCant[idx] = nueva;
+  var input = document.getElementById('multi-cant-'+idx);
+  if(input) input.value = nueva;
+}
+
+function addItemMulti(idx){
+  var pid = pedMultiSel[idx];
+  if(!pid){ alert('Primero busca y elige un producto.'); return; }
+  var p = pedidosMultiTemp[idx];
+  if(!p) return;
+  loadProds();
+  var prod = productos.find(function(x){ return String(x.id)===String(pid); });
+  if(!prod) return;
+  var cant = pedMultiCant[idx] || 1;
+  // Si ya le habias agregado ese mismo producto, se le suma la cantidad en vez de repetirlo
+  var yaEsta = false;
+  for(var j=0; j<p.items.length; j++){
+    if(String(p.items[j].pid) === String(pid)){ p.items[j].cant += cant; yaEsta = true; break; }
+  }
+  if(!yaEsta) p.items.push({ pid: prod.id, nombre: prod.nombre, cant: cant, precio: prod.precio, costo: prod.costo });
+  delete pedMultiSel[idx];
+  delete pedMultiCant[idx];
+  renderPedidosMultiples();
+}
+
+function actualizarItemMulti(idx, itIdx, campo, valor){
+  var p = pedidosMultiTemp[idx];
+  if(!p || !p.items[itIdx]) return;
+  p.items[itIdx][campo] = valor;
+  if(campo === 'cant' || campo === 'precio') actualizarSubtotalItemMulti(idx, itIdx);
+}
+
+function cambiarCantItemMulti(idx, itIdx, delta){
+  var p = pedidosMultiTemp[idx];
+  if(!p || !p.items[itIdx]) return;
+  var nueva = (p.items[itIdx].cant || 1) + delta;
+  if(nueva < 1) nueva = 1;
+  p.items[itIdx].cant = nueva;
+  var input = document.getElementById('multi-icant-'+idx+'-'+itIdx);
+  if(input) input.value = nueva;
+  actualizarSubtotalItemMulti(idx, itIdx);
+}
+
+// Actualiza el subtotal de la linea y el total del barbero SIN volver a dibujar la pantalla,
+// para no interrumpir lo que estes escribiendo en otra tarjeta.
+function actualizarSubtotalItemMulti(idx, itIdx){
+  var p = pedidosMultiTemp[idx];
+  if(!p || !p.items[itIdx]) return;
+  var it = p.items[itIdx];
+  var sub = document.getElementById('multi-isub-'+idx+'-'+itIdx);
+  if(sub) sub.textContent = '$'+fmtNum(it.cant * it.precio);
+  var totalBarbero = p.items.reduce(function(s,x){ return s + (x.cant * x.precio); }, 0);
+  var totEl = document.getElementById('multi-total-'+idx);
+  if(totEl){
+    totEl.textContent = '$'+fmtNum(totalBarbero);
+    totEl.style.color = totalBarbero > 0 ? 'var(--nbs-green-text)' : '#ccc';
+  }
+  actualizarBotonGuardarMulti();
+}
+
+function actualizarBotonGuardarMulti(){
+  var btn = document.getElementById('ped-multi-guardar');
+  if(!btn) return;
+  var totalGeneral = 0, conItems = 0;
+  pedidosMultiTemp.forEach(function(p){
+    var t = p.items.reduce(function(s,x){ return s + (x.cant * x.precio); }, 0);
+    totalGeneral += t;
+    if(p.items.length) conItems++;
+  });
+  if(conItems > 0){
+    btn.textContent = '✓ Guardar ' + conItems + ' pedido(s) · $' + fmtNum(totalGeneral);
+    btn.style.opacity = '1';
+  } else {
+    btn.textContent = '✓ Guardar pedidos';
+    btn.style.opacity = '0.5';
+  }
+}
+
+function quitarItemMulti(idxBarbero, idxItem){
+  if(!pedidosMultiTemp[idxBarbero]) return;
+  pedidosMultiTemp[idxBarbero].items.splice(idxItem, 1);
+  renderPedidosMultiples();
+}
+
+// La ✕ del barbero: lo saca del pedido de hoy Y deja registrado que lo visitaste pero no
+// compro, para poder ver despues su record de cuantas veces compra y cuantas no.
+function quitarBarberoMulti(idx){
+  var p = pedidosMultiTemp[idx];
+  if(!p) return;
+  var nombre = nombreCl(p.cliente);
+  var aviso = p.items.length
+    ? '¿Quitar a '+nombre+'? Se perderá lo que ya le agregaste, y quedará registrado que hoy NO compró.'
+    : '¿'+nombre+' no va a comprar hoy?\n\nQuedará registrado en su récord como una visita sin compra.';
+  if(!confirm(aviso)) return;
+  registrarVisitaBarbero(p.cliente.id, false);
+  pedidosMultiTemp.splice(idx, 1);
+  // Los indices se corren al sacar uno, asi que se limpia lo elegido para no confundir tarjetas
+  pedMultiSel = {};
+  pedMultiCant = {};
+  if(!pedidosMultiTemp.length){
+    document.getElementById('ped-multi-wrap').style.display = 'none';
+    document.getElementById('ped-lista-wrap').style.display = 'block';
+    renderBarberiasInicio(document.getElementById('ped-inicio-buscar') ? document.getElementById('ped-inicio-buscar').value : '');
     renderPedidosPendientes();
-    var flash = document.createElement('div');
-    flash.textContent = '✅ '+pedidoMultiple.length+' pedido(s) guardado(s)';
-    flash.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#2E7D32;color:white;padding:12px 24px;border-radius:20px;font-size:14px;font-weight:700;z-index:9999';
-    document.body.appendChild(flash);
-    setTimeout(function(){ flash.remove(); }, 2500);
-    pedidoMultiple = [];
-    pedidoMultipleIdx = 0;
     return;
   }
-  var item = pedidoMultiple[pedidoMultipleIdx];
-  pedBarberiaSel = item.barberia;
-  pedBarberoCid = item.cliente.id;
-  pedBarberoNombre = nombreCl(item.cliente);
-  pedItemsTemp = [];
-  pedidoEditandoIdx = null;
-  document.getElementById('ped-lista-wrap').style.display = 'none';
-  document.getElementById('ped-form-wrap').style.display = 'block';
-  loadProds();
-  renderPedItems();
-  document.getElementById('pedb').value = '';
-  document.getElementById('pedplist').style.display = 'none';
-  document.getElementById('pedchip').style.display = 'none';
-  document.getElementById('ped-barbero-actual').textContent = nombreCl(item.cliente);
-  var restantes = pedidoMultiple.length - pedidoMultipleIdx - 1;
-  document.getElementById('ped-barberia-actual').textContent = item.barberia + (restantes > 0 ? ' · '+restantes+' más después' : '');
-  document.getElementById('cctipo').value = 'credito';
-  document.getElementById('ccini-g').style.display = 'block';
+  renderPedidosMultiples();
+}
+
+// ===== RECORD DE VISITAS POR BARBERO -compro / no compro- =====
+// Se guarda por cliente: las fechas en que compro y las fechas en que se le visito pero no
+// compro. Sirve para ver despues que barberos compran siempre y cuales casi nunca.
+function registrarVisitaBarbero(cid, compro){
+  if(!cid) return;
+  var visitas = LS('nvisitas_barberos', {});
+  var k = String(cid);
+  if(!visitas[k]) visitas[k] = { compro: [], noCompro: [] };
+  if(!visitas[k].compro) visitas[k].compro = [];
+  if(!visitas[k].noCompro) visitas[k].noCompro = [];
+  var hoy = fechaHoy();
+  if(compro) visitas[k].compro.push(hoy);
+  else visitas[k].noCompro.push(hoy);
+  SS('nvisitas_barberos', visitas);
+}
+
+function guardarTodosLosPedidosMultiples(){
+  var conItems = pedidosMultiTemp.filter(function(p){ return p.items.length > 0; });
+  if(!conItems.length){ alert('Agrégale al menos un producto a alguno de los barberos.'); return; }
+  pedidos = LS('npedidos', []);
+  var ahora = Date.now();
+  conItems.forEach(function(p, i){
+    pedidos.push({
+      id: ahora + i, // +i para que no se repita el id si se guardan en el mismo instante
+      cid: p.cliente.id,
+      nombre: nombreCl(p.cliente),
+      barberia: p.barberia,
+      items: p.items.slice()
+    });
+    registrarVisitaBarbero(p.cliente.id, true);
+  });
+  SS('npedidos', pedidos);
+  var cuantos = conItems.length;
+  pedidosMultiTemp = [];
+  pedMultiSel = {};
+  pedMultiCant = {};
+  document.getElementById('ped-multi-wrap').style.display = 'none';
+  document.getElementById('ped-lista-wrap').style.display = 'block';
+  renderBarberiasInicio(document.getElementById('ped-inicio-buscar') ? document.getElementById('ped-inicio-buscar').value : '');
+  renderPedidosPendientes();
+  var flash = document.createElement('div');
+  flash.textContent = '✅ '+cuantos+' pedido(s) guardado(s)';
+  flash.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#2E7D32;color:white;padding:12px 24px;border-radius:20px;font-size:14px;font-weight:700;z-index:9999';
+  document.body.appendChild(flash);
+  setTimeout(function(){ flash.remove(); }, 2500);
+}
+
+function cancelarPedidoMultiple(){
+  var hayAlgo = pedidosMultiTemp.some(function(p){ return p.items.length > 0; });
+  if(hayAlgo && !confirm('¿Cancelar? Se perderá lo que le agregaste a los barberos.')) return;
+  pedidosMultiTemp = [];
+  pedMultiSel = {};
+  pedMultiCant = {};
+  document.getElementById('ped-multi-wrap').style.display = 'none';
+  document.getElementById('ped-lista-wrap').style.display = 'block';
+  renderBarberiasInicio(document.getElementById('ped-inicio-buscar') ? document.getElementById('ped-inicio-buscar').value : '');
 }
 
 
@@ -7115,11 +7427,6 @@ function savePedido(){
   document.getElementById('ped-barberia-wrap').style.display = 'none';
   document.getElementById('ped-barbero-wrap').style.display = 'none';
   document.getElementById('ped-lista-wrap').style.display = 'block';
-  pedidoMultipleIdx++;
-  if(pedidoMultiple.length > 0 && pedidoMultipleIdx < pedidoMultiple.length){
-    abrirSigPedidoMultiple();
-    return;
-  }
   renderBarberiasInicio(document.getElementById('ped-inicio-buscar') ? document.getElementById('ped-inicio-buscar').value : '');
   renderPedidosPendientes();
   // Flash de confirmación sin bloquear la pantalla
@@ -7237,6 +7544,23 @@ function verCl(id){
       +'<div style="font-size:13px;margin-top:2px;color:'+(diasFaltan!==null&&diasFaltan<=0?'#C62828':'#1565C0')+';font-weight:600">'+textoVisita+'</div>'
       +'</div>';
   }
+  // Record de visitas: cuantas veces compro y cuantas veces se le visito pero no compro
+  // -esto ultimo se registra con la ✕ del barbero en Pedidos Rapidos-.
+  var visitasB = LS('nvisitas_barberos', {})[String(id)] || {};
+  var vCompro = (visitasB.compro || []).length;
+  var vNoCompro = (visitasB.noCompro || []).length;
+  var vTotal = vCompro + vNoCompro;
+  var recordVisitasHtml = '';
+  if(vTotal > 0){
+    var pctCompra = Math.round(vCompro / vTotal * 100);
+    recordVisitasHtml = '<div style="background:#f5f5f5;border-radius:8px;padding:10px;grid-column:span 2">'
+      +'<div style="font-size:10px;color:#aaa;font-weight:700">📊 RÉCORD DE VISITAS</div>'
+      +'<div style="display:flex;align-items:center;gap:12px;margin-top:5px;flex-wrap:wrap">'
+      +'<span style="font-size:14px;font-weight:700;color:#2E7D32">✓ '+vCompro+' compró</span>'
+      +'<span style="font-size:14px;font-weight:700;color:#C62828">✕ '+vNoCompro+' no compró</span>'
+      +'<span style="font-size:12px;color:#888;margin-left:auto">'+pctCompra+'% de '+vTotal+' visita(s)</span>'
+      +'</div></div>';
+  }
   header.innerHTML='<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">'
     +'<div class="av" style="width:56px;height:56px;font-size:20px">'+ini(c.nombre,c.apellido)+'</div>'
     +'<div><div style="font-size:22px;font-weight:700">'+nombreCl(c)+'</div>'
@@ -7250,6 +7574,7 @@ function verCl(id){
     +infoVisita
     +'<div style="background:#f5f5f5;border-radius:8px;padding:10px"><div style="font-size:10px;color:#aaa;font-weight:700">TOTAL COMPRAS</div><div style="font-size:18px;font-weight:700;color:#1565C0;margin-top:2px">$'+fmtNum(totalCompras)+'</div></div>'
     +'<div style="background:'+(cr?'#FFEBEE':'#f5f5f5')+';border-radius:8px;padding:10px"><div style="font-size:10px;color:#aaa;font-weight:700">BALANCE PENDIENTE</div><div style="font-size:18px;font-weight:700;color:'+(cr?'#C62828':'#2E7D32')+';margin-top:2px">'+(cr?'$'+fmtNum(cr.saldo):'$0.00')+'</div></div>'
+    +recordVisitasHtml
     +'</div>'
     +(esNoBarberia && c.intervaloVisitaDias ? '<button class="btn" style="background:#1565C0;color:white;margin-bottom:8px" onclick="marcarVisitaNegocio('+id+');verCl('+id+')">✓ Marqué la visita de hoy</button>' : '')
     +'<div style="display:flex;gap:8px">'
@@ -10611,8 +10936,10 @@ function exportD(){
   var pedidos = LS('npedidos', []);
   var devoluciones = LS('ndevoluciones', []);
   var productosEliminados = LS('np_eliminados', []);
+  var visitasBarberos = LS('nvisitas_barberos', {});
   var d = {v:2, productos:productos, ventas:ventas, compras:compras, creditos:creditos, clientes:clientes, suplidores:suplidores, gastos:gastos,
-    tarjetas:tarjetas, otrasDeudas:otrasDeudas, pedidos:pedidos, devoluciones:devoluciones, productosEliminados:productosEliminados};
+    tarjetas:tarjetas, otrasDeudas:otrasDeudas, pedidos:pedidos, devoluciones:devoluciones, productosEliminados:productosEliminados,
+    visitasBarberos:visitasBarberos};
   var json = JSON.stringify(d);
 
   // Registrar fecha del backup
@@ -10706,6 +11033,7 @@ function importD(inp){
       if(d.pedidos){SS('npedidos',d.pedidos);}
       if(d.devoluciones){SS('ndevoluciones',d.devoluciones);}
       if(d.productosEliminados){SS('np_eliminados',d.productosEliminados);}
+      if(d.visitasBarberos){SS('nvisitas_barberos',d.visitasBarberos);}
       alert('Datos importados correctamente');
       ir('p-ped');
     }catch(err){alert('Error al importar');}
@@ -10779,6 +11107,7 @@ document.addEventListener('DOMContentLoaded', function(){
 });
 
 function iniciarAppDespuesDeLogin(){
+  window._appInicializada = true;
   // Abrir pedidos rápidos por defecto
   ir('p-ped');
 
@@ -10797,24 +11126,212 @@ function iniciarAppDespuesDeLogin(){
   iniciarVigilanteDeInactividad();
 }
 
-// Cierra la sesion sola si pasa 1 hora completa sin ningun toque, clic, o tecla -por
-// seguridad, para que el telefono no se quede con la sesion abierta indefinidamente si
-// se pierde o alguien mas lo toma-. Cualquier interaccion reinicia el conteo desde cero.
-var LIMITE_INACTIVIDAD_MS = 15 * 60 * 1000; // 15 minutos
-var temporizadorInactividad = null;
-function iniciarVigilanteDeInactividad(){
-  reiniciarTemporizadorInactividad();
-  ['click','touchstart','keydown','scroll'].forEach(function(evento){
-    document.addEventListener(evento, reiniciarTemporizadorInactividad, {passive:true});
+// ===== HUELLA DIGITAL -WebAuthn- =====
+// Se usa la huella como CANDADO de la app: tras 15 min de inactividad se tapa la app con
+// una pantalla de bloqueo que se abre con la huella, en vez de pedir correo y contraseña.
+// La sesion de Firebase se mantiene viva por debajo -por eso es un candado, no un login
+// completo con huella; eso ultimo requeriria el plan de pago de Firebase-.
+// Si no hay huella registrada, se vuelve al comportamiento de siempre: cerrar sesion de
+// verdad y pedir correo y contraseña.
+var CLAVE_HUELLA_ID = 'nbs_huella_credencial';
+
+function bufferABase64(buffer){
+  var bytes = new Uint8Array(buffer);
+  var binario = '';
+  for(var i=0; i<bytes.byteLength; i++) binario += String.fromCharCode(bytes[i]);
+  return btoa(binario);
+}
+function base64ABuffer(base64){
+  var binario = atob(base64);
+  var bytes = new Uint8Array(binario.length);
+  for(var i=0; i<binario.length; i++) bytes[i] = binario.charCodeAt(i);
+  return bytes.buffer;
+}
+function retoAleatorio(){
+  var bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  return bytes;
+}
+
+function hayHuellaRegistrada(){
+  return !!localStorage.getItem(CLAVE_HUELLA_ID);
+}
+
+// Confirma que el telefono tenga lector de huella -o Face ID- disponible para el navegador
+function huellaDisponibleEnEsteDispositivo(){
+  if(!window.PublicKeyCredential || !navigator.credentials || !navigator.credentials.create){
+    return Promise.resolve(false);
+  }
+  if(!PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable){
+    return Promise.resolve(false);
+  }
+  return PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable().catch(function(){ return false; });
+}
+
+function activarHuella(){
+  cerrarMenuLateral();
+  huellaDisponibleEnEsteDispositivo().then(function(disponible){
+    if(!disponible){
+      alert('Este dispositivo o navegador no tiene huella digital disponible. Necesitas un teléfono con lector de huella configurado, usando Chrome.');
+      return;
+    }
+    var correo = (fbAuth.currentUser && fbAuth.currentUser.email) ? fbAuth.currentUser.email : 'usuario';
+    var idUsuario = new TextEncoder().encode(correo.substring(0,32));
+    navigator.credentials.create({
+      publicKey: {
+        challenge: retoAleatorio(),
+        rp: { name: 'Nunez Beauty Supply' },
+        user: { id: idUsuario, name: correo, displayName: correo },
+        pubKeyCredParams: [{type:'public-key', alg:-7}, {type:'public-key', alg:-257}],
+        authenticatorSelection: {
+          authenticatorAttachment: 'platform',
+          userVerification: 'required',
+          residentKey: 'preferred'
+        },
+        timeout: 60000,
+        attestation: 'none'
+      }
+    }).then(function(credencial){
+      localStorage.setItem(CLAVE_HUELLA_ID, bufferABase64(credencial.rawId));
+      actualizarBotonHuella();
+      alert('✅ Huella activada. A partir de ahora, tras 15 minutos sin usar la app, se desbloquea con tu huella.');
+    }).catch(function(e){
+      console.error('No se pudo activar la huella:', e);
+      alert('No se pudo activar la huella. Puede que la hayas cancelado, o que no esté configurada en el teléfono.');
+    });
   });
 }
-function reiniciarTemporizadorInactividad(){
-  if(temporizadorInactividad) clearTimeout(temporizadorInactividad);
-  temporizadorInactividad = setTimeout(function(){
-    if(fbAuth.currentUser){
-      fbAuth.signOut().catch(function(e){ console.error('Error al cerrar sesion por inactividad:', e); });
+
+function desactivarHuella(){
+  cerrarMenuLateral();
+  if(!confirm('¿Quitar la huella? La app volverá a pedirte correo y contraseña tras 15 minutos.')) return;
+  localStorage.removeItem(CLAVE_HUELLA_ID);
+  actualizarBotonHuella();
+  alert('Huella desactivada.');
+}
+
+function actualizarBotonHuella(){
+  var btn = document.getElementById('btn-huella');
+  if(!btn) return;
+  if(hayHuellaRegistrada()){
+    btn.textContent = '👆 Quitar huella digital';
+    btn.setAttribute('onclick', 'desactivarHuella()');
+    btn.style.borderColor = '#888';
+    btn.style.color = '#888';
+  } else {
+    btn.textContent = '👆 Activar huella digital';
+    btn.setAttribute('onclick', 'activarHuella()');
+    btn.style.borderColor = 'var(--nbs-gold, #D4A017)';
+    btn.style.color = 'var(--nbs-gold-dark, #8a6a10)';
+  }
+}
+
+function bloquearApp(){
+  window._appBloqueada = true;
+  document.getElementById('bloqueo-error').style.display = 'none';
+  document.getElementById('pantalla-bloqueo').style.display = 'flex';
+  document.getElementById('app-contenido').style.display = 'none';
+}
+
+function desbloquearConHuella(){
+  var errorEl = document.getElementById('bloqueo-error');
+  errorEl.style.display = 'none';
+  var idGuardado = localStorage.getItem(CLAVE_HUELLA_ID);
+  if(!idGuardado){ usarContrasenaEnVezDeHuella(); return; }
+  navigator.credentials.get({
+    publicKey: {
+      challenge: retoAleatorio(),
+      allowCredentials: [{ type:'public-key', id: base64ABuffer(idGuardado) }],
+      userVerification: 'required',
+      timeout: 60000
     }
-  }, LIMITE_INACTIVIDAD_MS);
+  }).then(function(){
+    // La huella fue verificada por el propio telefono antes de devolver esto
+    window._appBloqueada = false;
+    registrarActividad();
+    document.getElementById('pantalla-bloqueo').style.display = 'none';
+    if(window._appInicializada){
+      document.getElementById('app-contenido').style.display = 'block';
+    } else {
+      // Caso: cerraste la app y volviste tarde -la app nunca llego a arrancar-. Ahora que
+      // se verifico la huella, se bajan los datos de la nube y se arranca normalmente.
+      cargarDatosDeLaNube(function(){
+        document.getElementById('app-contenido').style.display = 'block';
+        iniciarAppDespuesDeLogin();
+      });
+    }
+  }).catch(function(e){
+    console.error('No se pudo verificar la huella:', e);
+    errorEl.textContent = 'No se reconoció la huella. Intenta de nuevo o usa tu contraseña.';
+    errorEl.style.display = 'block';
+  });
+}
+
+function usarContrasenaEnVezDeHuella(){
+  window._appBloqueada = false;
+  document.getElementById('pantalla-bloqueo').style.display = 'none';
+  try{ localStorage.removeItem(CLAVE_ULTIMA_ACTIVIDAD); }catch(e){}
+  fbAuth.signOut().catch(function(e){ console.error('Error al cerrar sesion:', e); });
+}
+
+// Cierra la sesion sola si pasan 15 minutos completos sin ningun toque, clic, o tecla -por
+// seguridad, para que el telefono no se quede con la sesion abierta indefinidamente si
+// se pierde o alguien mas lo toma-. Cualquier interaccion reinicia el conteo desde cero.
+//
+// IMPORTANTE -por que se guarda una marca de tiempo en vez de usar solo un temporizador-:
+// los telefonos SUSPENDEN los temporizadores cuando la app se manda al fondo o se apaga la
+// pantalla, asi que un setTimeout solo NO se dispara de forma confiable. Ademas, si la app
+// se cierra y se vuelve a abrir, un temporizador arrancaria de cero y nunca vencería.
+// Guardando la hora de la ultima actividad, se puede comparar contra la hora actual en
+// cualquier momento -al volver a la app, al abrirla de nuevo, o cada 20 segundos- y cerrar
+// la sesion de verdad si ya se paso del limite.
+var LIMITE_INACTIVIDAD_MS = 15 * 60 * 1000; // 15 minutos
+var CLAVE_ULTIMA_ACTIVIDAD = 'nbs_ultima_actividad';
+var intervaloVigilante = null;
+
+function registrarActividad(){
+  if(window._appBloqueada) return; // estando bloqueada, tocar la pantalla no cuenta como actividad
+  try{ localStorage.setItem(CLAVE_ULTIMA_ACTIVIDAD, String(Date.now())); }catch(e){}
+}
+
+function sesionVencidaPorInactividad(){
+  var ultima = parseInt(localStorage.getItem(CLAVE_ULTIMA_ACTIVIDAD) || '0', 10);
+  if(!ultima) return false; // nunca se registro actividad -sesion recien iniciada-
+  return (Date.now() - ultima) >= LIMITE_INACTIVIDAD_MS;
+}
+
+// Al vencerse el tiempo: si hay huella registrada, se BLOQUEA la app -mas comodo-; si no,
+// se cierra la sesion de verdad y se piden correo y contraseña -mas estricto-.
+function cerrarSesionPorInactividad(){
+  if(typeof fbAuth === 'undefined' || !fbAuth.currentUser) return;
+  if(hayHuellaRegistrada()){
+    bloquearApp();
+    return;
+  }
+  try{ localStorage.removeItem(CLAVE_ULTIMA_ACTIVIDAD); }catch(e){}
+  fbAuth.signOut().catch(function(e){ console.error('Error al cerrar sesion por inactividad:', e); });
+}
+
+function revisarInactividad(){
+  if(window._appBloqueada) return; // ya esta bloqueada, no hay nada que hacer
+  if(sesionVencidaPorInactividad()) cerrarSesionPorInactividad();
+}
+
+function iniciarVigilanteDeInactividad(){
+  registrarActividad();
+  actualizarBotonHuella();
+  ['click','touchstart','keydown','scroll','mousemove'].forEach(function(evento){
+    document.addEventListener(evento, registrarActividad, {passive:true});
+  });
+  // Revisar cada 20 segundos mientras la app este abierta y en uso
+  if(intervaloVigilante) clearInterval(intervaloVigilante);
+  intervaloVigilante = setInterval(revisarInactividad, 20000);
+  // Y revisar tambien en el momento exacto en que la app vuelve al frente -al volver de otra
+  // app, o al prender la pantalla-, que es justo cuando los temporizadores fallan.
+  document.addEventListener('visibilitychange', function(){
+    if(document.visibilityState === 'visible') revisarInactividad();
+  });
+  window.addEventListener('focus', revisarInactividad);
 }
 
 // ===== LOGIN Y SINCRONIZACION CON LA NUBE =====
@@ -10838,6 +11355,19 @@ function configurarPantallaLogin(){
   });
   fbAuth.onAuthStateChanged(function(user){
     if(user){
+      // Firebase recuerda la sesion aunque se cierre la app por completo. Aqui se revisa
+      // PRIMERO si ya pasaron los 15 minutos de inactividad -por ejemplo, si cerraste la
+      // app y volviste 20 minutos despues-. Si se paso del limite: con huella registrada
+      // se muestra la pantalla de bloqueo; sin huella, se cierra la sesion de verdad.
+      if(sesionVencidaPorInactividad()){
+        if(hayHuellaRegistrada()){
+          document.getElementById('pantalla-login').style.display = 'none';
+          bloquearApp();
+        } else {
+          cerrarSesionPorInactividad();
+        }
+        return;
+      }
       document.getElementById('login-cargando').style.display = 'block';
       document.getElementById('login-error').style.display = 'none';
       cargarDatosDeLaNube(function(){
@@ -10846,6 +11376,8 @@ function configurarPantallaLogin(){
         iniciarAppDespuesDeLogin();
       });
     } else {
+      window._appBloqueada = false;
+      document.getElementById('pantalla-bloqueo').style.display = 'none';
       document.getElementById('pantalla-login').style.display = 'flex';
       document.getElementById('app-contenido').style.display = 'none';
       document.getElementById('login-cargando').style.display = 'none';
@@ -10863,6 +11395,9 @@ function intentarLogin(){
     errorEl.style.display = 'block';
     return;
   }
+  // Marcar actividad AHORA, antes de iniciar sesion, para que la revision de inactividad
+  // que corre justo despues no vea una marca vieja y cierre la sesion recien abierta.
+  registrarActividad();
   document.getElementById('login-cargando').style.display = 'block';
   // Limite de tiempo de espera -12 segundos-: si Firebase nunca responde -por ejemplo,
   // sin internet o algun problema de conexion-, se muestra un error claro en vez de
@@ -13269,6 +13804,21 @@ function verHistorialCliente(cid, modo){
       <button class="btn" style="background:#546E7A;color:white" onclick="cancelarPedido()">← Volver a la lista</button>
       <div class="snk" id="mk-ped">Pedido guardado</div>
     </div>
+  </div>
+
+  <!-- ===== PEDIDO A VARIOS BARBEROS A LA VEZ - todos abiertos, sin orden fijo ===== -->
+  <div id="ped-multi-wrap" style="display:none">
+    <div class="card" style="margin-bottom:10px">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div id="ped-multi-titulo" style="font-size:18px;font-weight:800;color:#1a237e"></div>
+          <div id="ped-multi-sub" style="font-size:12px;color:#aaa;margin-top:2px"></div>
+        </div>
+        <button onclick="cancelarPedidoMultiple()" style="background:#f5f5f5;border:none;border-radius:8px;padding:8px 12px;cursor:pointer;font-size:13px;color:#546E7A;font-weight:600">✕ Cancelar</button>
+      </div>
+    </div>
+    <div id="ped-multi-lista"></div>
+    <button class="btn" id="ped-multi-guardar" style="background:#F9A825;color:#1a1a1a" onclick="guardarTodosLosPedidosMultiples()">✓ Guardar pedidos</button>
   </div>
 </div>
 <div id="p-comp" class="pg">

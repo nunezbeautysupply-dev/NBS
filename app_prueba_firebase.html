@@ -2391,6 +2391,7 @@ function ir(id, sinHistorial){
     document.getElementById('ped-barbero-wrap').style.display='none';
     var multiWrap = document.getElementById('ped-multi-wrap');
     if(multiWrap) multiWrap.style.display='none';
+    if(typeof renderAvisoPedidoEnProceso === 'function') renderAvisoPedidoEnProceso();
     var bi = document.getElementById('ped-inicio-buscar');
     if(bi) bi.value='';
     renderBarberiasInicio('');
@@ -8085,6 +8086,120 @@ function agregarHabitualMulti(idx, hi){
   renderPedidosMultiples();
 }
 
+// Calcula lo que debe cada cliente, sumando el saldo de todas sus facturas sin pagar.
+// Se hace UNA vez por dibujado -no una por cada barbero- para que no se ponga lento.
+function calcularBalancesClientes(){
+  var ventasTodas = LS('nv', []);
+  var total = {}, detalle = {};
+  ventasTodas.forEach(function(v){
+    if(v.cancelada) return;
+    var pagado = (v.pagosFactura || []).reduce(function(s,p){
+      return s + (typeof p.monto === 'number' ? p.monto : 0);
+    }, 0);
+    var saldo = (v.total || 0) - pagado;
+    if(saldo > 0.01){
+      var k = String(v.cid);
+      total[k] = (total[k] || 0) + saldo;
+      if(!detalle[k]) detalle[k] = [];
+      detalle[k].push({ nf: v.numFactura || String(v.id).slice(-4), fecha: v.fecha || '', saldo: saldo });
+    }
+  });
+  return { total: total, detalle: detalle };
+}
+
+// Abre/cierra el detalle del balance dentro de la tarjeta, SIN salir de la pantalla.
+// Antes habia que irse a Cuentas por Cobrar para ver cuanto debia un barbero -y ahi se
+// perdia el pedido que estabas armando-.
+function toggleBalanceMulti(idx){
+  var el = document.getElementById('multi-bal-detalle-'+idx);
+  if(!el) return;
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//   EL PEDIDO A MEDIAS NO SE PIERDE
+// ═══════════════════════════════════════════════════════════════════════════════
+// Antes, si estabas armando un pedido y salias a otra pantalla -por ejemplo a ver cuanto
+// debia un cliente-, al volver las tarjetas desaparecian y habia que empezar de cero.
+// Ahora se guarda solo mientras lo armas: sobrevive a salir a otro modulo, a cerrar la app,
+// y hasta a apagar el telefono.
+var CLAVE_PEDIDO_EN_PROCESO = 'nbs_pedido_en_proceso';
+
+function guardarPedidoEnProceso(){
+  try{
+    if(!pedidosMultiTemp.length){ localStorage.removeItem(CLAVE_PEDIDO_EN_PROCESO); return; }
+    // Se deja fuera _habituales -los productos que suele comprar-: se vuelve a calcular
+    // solo, y guardarlo ocuparia mucho sin necesidad.
+    var limpio = pedidosMultiTemp.map(function(p){
+      return { cliente: p.cliente, barberia: p.barberia, items: p.items, color: p.color };
+    });
+    localStorage.setItem(CLAVE_PEDIDO_EN_PROCESO, JSON.stringify({ hora: Date.now(), barberos: limpio }));
+  }catch(e){}
+}
+
+function hayPedidoEnProceso(){
+  try{
+    var d = JSON.parse(localStorage.getItem(CLAVE_PEDIDO_EN_PROCESO) || 'null');
+    return (d && d.barberos && d.barberos.length) ? d : null;
+  }catch(e){ return null; }
+}
+
+function olvidarPedidoEnProceso(){
+  try{ localStorage.removeItem(CLAVE_PEDIDO_EN_PROCESO); }catch(e){}
+}
+
+function retomarPedidoEnProceso(){
+  var d = hayPedidoEnProceso();
+  if(!d) return;
+  pedidosMultiTemp = d.barberos;
+  pedMultiSel = {};
+  pedMultiCant = {};
+  abrirPantallaMultiple();
+}
+
+function descartarPedidoEnProceso(){
+  var d = hayPedidoEnProceso();
+  if(!d) return;
+  var conItems = d.barberos.filter(function(p){ return p.items && p.items.length; }).length;
+  var msj = conItems
+    ? '¿Descartar el pedido a medias?\n\nTiene ' + conItems + ' barbero(s) con productos ya agregados. Se van a perder.'
+    : '¿Descartar el pedido a medias?';
+  if(!confirm(msj)) return;
+  olvidarPedidoEnProceso();
+  pedidosMultiTemp = [];
+  renderAvisoPedidoEnProceso();
+}
+
+// El aviso arriba de la lista, para retomar lo que dejaste a medias
+function renderAvisoPedidoEnProceso(){
+  var el = document.getElementById('ped-retomar-wrap');
+  if(!el) return;
+  var d = hayPedidoEnProceso();
+  if(!d){ el.innerHTML = ''; return; }
+
+  var totalMonto = 0, conItems = 0;
+  d.barberos.forEach(function(p){
+    var t = (p.items||[]).reduce(function(s,it){ return s + (it.cant * it.precio); }, 0);
+    totalMonto += t;
+    if((p.items||[]).length) conItems++;
+  });
+  var negocios = {};
+  d.barberos.forEach(function(p){ negocios[p.barberia] = true; });
+  var nombreNeg = Object.keys(negocios).length === 1 ? Object.keys(negocios)[0] : 'Varios negocios';
+
+  var mins = Math.floor((Date.now() - (d.hora||0)) / 60000);
+  var cuando = mins < 1 ? 'hace un momento' : (mins < 60 ? 'hace '+mins+' min' : 'hace '+Math.floor(mins/60)+' h');
+
+  el.innerHTML = '<div style="background:var(--nbs-gold-bg);border:1.5px solid var(--nbs-gold);border-radius:12px;padding:12px;margin-bottom:10px">'
+    +'<div style="font-size:12px;font-weight:800;color:var(--nbs-gold-dark);margin-bottom:3px">⚡ TIENES UN PEDIDO A MEDIAS</div>'
+    +'<div style="font-size:13px;font-weight:700;color:var(--nbs-ink)">'+escaparHtml(nombreNeg)+'</div>'
+    +'<div style="font-size:11px;color:var(--nbs-muted);margin-bottom:9px">'+d.barberos.length+' barbero(s) · '+conItems+' con productos · $'+fmtNum(totalMonto)+' · '+cuando+'</div>'
+    +'<div style="display:flex;gap:7px">'
+    +'<button onclick="retomarPedidoEnProceso()" style="flex:1;padding:10px;background:var(--nbs-gold);color:white;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">↺ Seguir con ese</button>'
+    +'<button onclick="descartarPedidoEnProceso()" style="padding:10px 13px;background:white;color:#888;border:1px solid #ddd;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">Descartar</button>'
+    +'</div></div>';
+}
+
 function renderPedidosMultiples(){
   var el = document.getElementById('ped-multi-lista');
   if(!el) return;
@@ -8100,6 +8215,7 @@ function renderPedidosMultiples(){
   // Se leen las ventas UNA sola vez aqui -no una por cada barbero- para que dibujar la
   // pantalla siga siendo instantaneo aunque tengas cientos de ventas guardadas.
   var ventasParaHabituales = LS('nv', []);
+  var balances = calcularBalancesClientes();
 
   pedidosMultiTemp.forEach(function(p, idx){
     var totalBarbero = p.items.reduce(function(s,it){ return s + (it.cant * it.precio); }, 0);
@@ -8123,6 +8239,29 @@ function renderPedidosMultiples(){
       +'<div id="multi-total-'+idx+'" style="font-size:15px;font-weight:800;color:'+(totalBarbero>0?'var(--nbs-green-text)':'#bbb')+'">$'+fmtNum(totalBarbero)+'</div>'
       +'<button onclick="quitarBarberoMulti('+idx+')" title="Hoy no compró" style="background:rgba(255,255,255,0.75);color:var(--nbs-red-dark);border:none;border-radius:7px;width:30px;height:30px;cursor:pointer;font-size:14px;flex-shrink:0">✕</button>'
       +'</div>';
+
+    // --- El balance del barbero, SIEMPRE visible -aunque sea $0- ---
+    // Siempre se muestra, incluso al dia: si dice $0.00 queda confirmado que no debe nada,
+    // en vez de tener que acordarse o salir a buscarlo.
+    var debe = balances.total[String(p.cliente.id)] || 0;
+    var facturasDebe = balances.detalle[String(p.cliente.id)] || [];
+    html += '<div onclick="toggleBalanceMulti('+idx+')" style="padding:7px 12px;background:'+(debe>0.01?'#FFF3F3':'#F1F8F2')+';border-bottom:0.5px solid #f0f0f3;cursor:'+(debe>0.01?'pointer':'default')+';display:flex;align-items:center;gap:6px">'
+      +'<span style="font-size:11px;color:#999;font-weight:700">BALANCE</span>'
+      +'<span style="font-size:14px;font-weight:800;color:'+(debe>0.01?'var(--nbs-red-dark)':'var(--nbs-green-text)')+'">$'+fmtNum(debe)+'</span>'
+      +(debe>0.01
+         ? '<span style="font-size:11px;color:#999;margin-left:auto">'+facturasDebe.length+' factura(s) ▾</span>'
+         : '<span style="font-size:11px;color:var(--nbs-green-text);margin-left:auto;font-weight:600">✓ al día</span>')
+      +'</div>';
+    if(debe > 0.01){
+      html += '<div id="multi-bal-detalle-'+idx+'" style="display:none;padding:8px 12px;background:#FFF8F8;border-bottom:0.5px solid #f0f0f3">';
+      facturasDebe.forEach(function(f){
+        html += '<div style="display:flex;justify-content:space-between;font-size:11px;padding:3px 0;color:#666">'
+          +'<span>#'+escaparHtml(String(f.nf))+' · '+escaparHtml(String(f.fecha))+'</span>'
+          +'<b style="color:var(--nbs-red-dark)">$'+fmtNum(f.saldo)+'</b>'
+          +'</div>';
+      });
+      html += '</div>';
+    }
 
     // --- Lo que suele comprar: un toque y se agrega, sin tener que buscarlo ---
     p._habituales = productosHabituales(p.cliente.id, ventasParaHabituales);
@@ -8205,6 +8344,7 @@ function renderPedidosMultiples(){
     btnGuardar.textContent = '✓ Guardar pedidos';
     btnGuardar.style.opacity = '0.5';
   }
+  guardarPedidoEnProceso(); // se guarda solo con cada cambio, para no perderlo si sales
 }
 
 // El buscador de cada tarjeta solo toca SU propia lista de resultados -no se vuelve a dibujar
@@ -8349,6 +8489,7 @@ function quitarBarberoMulti(idx){
   pedMultiSel = {};
   pedMultiCant = {};
   if(!pedidosMultiTemp.length){
+    olvidarPedidoEnProceso();
     document.getElementById('ped-multi-wrap').style.display = 'none';
     document.getElementById('ped-lista-wrap').style.display = 'block';
     renderBarberiasInicio(document.getElementById('ped-inicio-buscar') ? document.getElementById('ped-inicio-buscar').value : '');
@@ -8394,10 +8535,12 @@ function guardarTodosLosPedidosMultiples(){
   pedidosMultiTemp = [];
   pedMultiSel = {};
   pedMultiCant = {};
+  olvidarPedidoEnProceso();
   document.getElementById('ped-multi-wrap').style.display = 'none';
   document.getElementById('ped-lista-wrap').style.display = 'block';
   renderBarberiasInicio(document.getElementById('ped-inicio-buscar') ? document.getElementById('ped-inicio-buscar').value : '');
   renderPedidosPendientes();
+  renderAvisoPedidoEnProceso(); // que el aviso de 'pedido a medias' desaparezca
   var flash = document.createElement('div');
   flash.textContent = '✅ '+cuantos+' pedido(s) guardado(s)';
   flash.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#2E7D32;color:white;padding:12px 24px;border-radius:20px;font-size:14px;font-weight:700;z-index:9999';
@@ -8412,6 +8555,7 @@ function cancelarPedidoMultiple(){
   pedMultiSel = {};
   pedMultiCant = {};
   document.getElementById('ped-multi-wrap').style.display = 'none';
+  olvidarPedidoEnProceso();
   document.getElementById('ped-lista-wrap').style.display = 'block';
   renderBarberiasInicio(document.getElementById('ped-inicio-buscar') ? document.getElementById('ped-inicio-buscar').value : '');
 }
@@ -8980,6 +9124,7 @@ function savePedido(){
   document.getElementById('ped-lista-wrap').style.display = 'block';
   renderBarberiasInicio(document.getElementById('ped-inicio-buscar') ? document.getElementById('ped-inicio-buscar').value : '');
   renderPedidosPendientes();
+  renderAvisoPedidoEnProceso(); // que el aviso de 'pedido a medias' desaparezca
   // Flash de confirmación sin bloquear la pantalla
   var flash = document.createElement('div');
   flash.textContent = '✅ Pedido de '+nombre+' guardado';
@@ -11088,19 +11233,118 @@ function actualizarTotalPago(vid){
   if(el) el.textContent = '$'+fmtNum(total);
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+//   EL SOBRANTE DE UN PAGO VA A LA FACTURA MAS VIEJA
+// ═══════════════════════════════════════════════════════════════════════════════
+// ANTES: si le aplicabas $20 a una factura que debia $5, los $20 COMPLETOS se metian en
+// esa factura. Su saldo quedaba en -$15, pero se mostraba $0 -el negativo se escondia-, y
+// los $15 de sobra NO bajaban la deuda de las otras facturas. El balance total del cliente
+// si cuadraba, pero las facturas una por una mentian.
+// AHORA: $5 cierran esa factura, y los $15 se aplican solos a la factura MAS VIEJA que
+// deba, y si sobra sigue con la siguiente mas vieja. Asi la deuda antigua se limpia primero.
+
+// Devuelve las otras facturas del cliente que deben, ordenadas de la MAS VIEJA a la mas nueva
+function facturasQueDebenDe(cid, excluirVid){
+  var todas = LS('nv', []);
+  var lista = [];
+  todas.forEach(function(v){
+    if(v.cancelada) return;
+    if(String(v.cid) !== String(cid)) return;
+    if(v.id === excluirVid) return;
+    var pagado = (v.pagosFactura || []).reduce(function(s,p){
+      return s + (typeof p.monto === 'number' ? p.monto : 0);
+    }, 0);
+    var saldo = (v.total || 0) - pagado;
+    if(saldo > 0.01){
+      lista.push({ id: v.id, nf: v.numFactura || String(v.id).slice(-4), fecha: v.fecha || '', saldo: saldo, cuando: parsearFechaVenta(v.fecha) });
+    }
+  });
+  // La MAS VIEJA primero. Si 2 son del mismo dia, la que se registro antes -id mas chico-.
+  lista.sort(function(a,b){
+    var d = a.cuando - b.cuando;
+    return d !== 0 ? d : (a.id - b.id);
+  });
+  return lista;
+}
+
+// Arma el plan de reparto: cuanto va a cada factura, empezando por la mas vieja
+function planDeReparto(cid, vidActual, saldoActual, montoPagado){
+  var plan = [];
+  var aEsta = Math.min(montoPagado, saldoActual);
+  if(aEsta > 0.001) plan.push({ id: vidActual, monto: aEsta, esLaActual: true });
+  var sobrante = montoPagado - aEsta;
+  if(sobrante <= 0.01) return { plan: plan, sinAplicar: 0 };
+
+  var otras = facturasQueDebenDe(cid, vidActual);
+  otras.forEach(function(o){
+    if(sobrante <= 0.01) return;
+    var aplicar = Math.min(sobrante, o.saldo);
+    plan.push({ id: o.id, monto: aplicar, nf: o.nf, fecha: o.fecha, saldoAntes: o.saldo });
+    sobrante -= aplicar;
+  });
+  return { plan: plan, sinAplicar: sobrante }; // sinAplicar = pago de mas, ya no debe nada
+}
+
 function confirmarPagoMultiple(vid, saldo){
   var filas = (window._pagoMetodos[vid] || []).filter(function(m){ return m.monto > 0; });
   var total = filas.reduce(function(s,m){ return s+m.monto; }, 0);
   if(total <= 0){ alert('Ingresa un monto válido en al menos una forma de pago.'); return; }
-  if(total > saldo){ if(!confirm('El monto ($'+fmtNum(total)+') es mayor al saldo ($'+fmtNum(saldo)+'). ¿Continuar?')) return; }
+
   ventas = LS('nv',[]);
   var venta = ventas.find(function(x){ return x.id===vid; });
   if(!venta) return;
-  if(!venta.pagosFactura) venta.pagosFactura = [];
-  venta.pagosFactura.push({ monto: total, fecha: fechaHoy(), metodos: filas });
+
+  // Caso normal: el pago cabe en esta factura
+  if(total <= saldo + 0.01){
+    if(!venta.pagosFactura) venta.pagosFactura = [];
+    venta.pagosFactura.push({ monto: total, fecha: fechaHoy(), metodos: filas });
+    SS('nv', ventas);
+    var detalle = filas.map(function(m){ return METODOS_PAGO_LABELS[m.tipo]+': $'+fmtNum(m.monto); }).join('\n');
+    alert('✅ Pago de $'+fmtNum(total)+' aplicado correctamente.\n\n'+detalle);
+    abrirAbono(cxcClienteId);
+    return;
+  }
+
+  // El pago es MAYOR que lo que debe esta factura: se reparte, empezando por la mas vieja
+  var r = planDeReparto(venta.cid, vid, saldo, total);
+  var msj = 'El pago de $'+fmtNum(total)+' es mayor que lo que debe esta factura ($'+fmtNum(saldo)+').\n\n';
+  msj += 'Se repartiría así, empezando por la factura MÁS VIEJA:\n\n';
+  r.plan.forEach(function(p){
+    if(p.esLaActual) msj += '   • $'+fmtNum(p.monto)+'  →  esta factura (queda saldada)\n';
+    else msj += '   • $'+fmtNum(p.monto)+'  →  #'+p.nf+' del '+p.fecha+'  (debía $'+fmtNum(p.saldoAntes)+')\n';
+  });
+  if(r.sinAplicar > 0.01){
+    msj += '\n⚠️ Sobran $'+fmtNum(r.sinAplicar)+' porque el cliente ya no debe más.\n';
+    msj += 'Ese sobrante se va a quedar en esta factura como pago de más.\n';
+  }
+  msj += '\n¿Aplicar así?';
+  if(!confirm(msj)) return;
+
+  var fechaPago = fechaHoy();
+  var aplicados = 0;
+  r.plan.forEach(function(p){
+    var v = ventas.find(function(x){ return x.id === p.id; });
+    if(!v) return;
+    if(!v.pagosFactura) v.pagosFactura = [];
+    var monto = p.monto;
+    // Si sobro dinero -el cliente ya no debe nada-, ese sobrante se queda en la factura
+    // donde estas cobrando, para no perderlo del balance
+    if(p.esLaActual && r.sinAplicar > 0.01) monto += r.sinAplicar;
+    var pago = { monto: monto, fecha: fechaPago };
+    if(p.esLaActual) pago.metodos = filas;
+    else pago.nota = 'Sobrante del pago de $'+fmtNum(total)+' aplicado a la factura más vieja';
+    v.pagosFactura.push(pago);
+    aplicados++;
+  });
   SS('nv', ventas);
-  var detalle = filas.map(function(m){ return METODOS_PAGO_LABELS[m.tipo]+': $'+fmtNum(m.monto); }).join('\n');
-  alert('✅ Pago de $'+fmtNum(total)+' aplicado correctamente.\n\n'+detalle);
+
+  var resumen = '✅ Pago de $'+fmtNum(total)+' repartido en '+aplicados+' factura(s):\n\n';
+  r.plan.forEach(function(p){
+    var m = p.monto;
+    if(p.esLaActual && r.sinAplicar > 0.01) m += r.sinAplicar;
+    resumen += (p.esLaActual ? '   • $'+fmtNum(m)+'  →  esta factura\n' : '   • $'+fmtNum(p.monto)+'  →  #'+p.nf+' ('+p.fecha+')\n');
+  });
+  alert(resumen);
   abrirAbono(cxcClienteId);
 }
 
@@ -15552,6 +15796,7 @@ function verHistorialCliente(cid, modo){
 
   <!-- PASO 1: Lista de pedidos pendientes -->
   <div id="ped-lista-wrap">
+    <div id="ped-retomar-wrap"></div>
     <button class="btn" style="background:var(--nbs-gold-bg);color:var(--nbs-gold-dark);font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px" onclick="ir('p-rutas')">🗺️ Ver Ruta de Visitas</button>
     <!-- Pedidos pendientes primero, para no tener que bajar a buscarlos -->
     <div id="ped-pendientes-wrap" style="margin-bottom:8px"></div>

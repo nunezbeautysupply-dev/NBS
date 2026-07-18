@@ -21,7 +21,7 @@
   <link rel="manifest" href="manifest.json">
   <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
   <link rel="apple-touch-icon" href="icon-192.png">
-<title>NBS App v3.9</title>
+<title>NBS App v4.1</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&display=swap');
 
@@ -523,7 +523,7 @@ body.inicio-oscuro .top{ background:#2C2C3B; border-bottom-color:#3E3E52; }
     <img src="icon-512.png" style="width:40px;height:40px" alt="NBS">
     <div>
       <div style="font-size:15px;font-weight:700;color:var(--nbs-ink)">Nunez Beauty Supply</div>
-      <div style="font-size:11px;color:var(--nbs-muted)">Supply Manager v3.9</div>
+      <div style="font-size:11px;color:var(--nbs-muted)">Supply Manager v4.1</div>
     </div>
   </div>
   <div style="padding:10px 8px">
@@ -537,6 +537,7 @@ body.inicio-oscuro .top{ background:#2C2C3B; border-bottom-color:#3E3E52; }
 
     <div style="font-size:10px;color:var(--nbs-muted-2);font-weight:700;letter-spacing:1px;padding:12px 8px 4px">INVENTARIO</div>
     <button onclick="irMenuProtegido('p-cat')" class="mlb2"><span class="mlb2-icon"><span style="font-size:19px">📦</span></span>Catálogo</button>
+    <button onclick="irMenuProtegido('p-van')" class="mlb2"><span class="mlb2-icon"><span style="font-size:19px">🚐</span></span>Control de la Van</button>
     <button onclick="irMenuProtegido('p-inventario')" class="mlb2"><span class="mlb2-icon"><span style="font-size:19px">💰</span></span>Inventario</button>
     <button onclick="irMenuProtegido('p-relleno')" class="mlb2"><span class="mlb2-icon"><span style="font-size:19px">🚐</span></span>Lista de Relleno</button>
     <button onclick="irMenuProtegido('p-copias')" class="mlb2"><span class="mlb2-icon"><span style="font-size:19px">🛡️</span></span>Copias de Seguridad</button>
@@ -835,14 +836,14 @@ body.inicio-oscuro .top{ background:#2C2C3B; border-bottom-color:#3E3E52; }
 <div id="p-relleno" class="pg">
   <div style="display:flex;gap:8px;margin-bottom:16px"><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="volverAtras()">← Atrás</button><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="ir('p-inicio')">🏠 Inicio</button></div>
   <h2 style="font-size:20px;font-weight:700;color:#1a237e;margin-bottom:4px">🚐 Lista de Relleno</h2>
-  <p style="font-size:12px;color:var(--nbs-muted);margin-bottom:14px">Arma tu lista para reponer la van. Al buscar te muestra cuánto vendiste de cada producto, para que decidas la cantidad. Se guarda sola.</p>
+  <p style="font-size:12px;color:var(--nbs-muted);margin-bottom:14px">Elige las fechas y la lista se llena sola con todo lo que vendiste, para reponerlo. Ajusta las cantidades, quita lo que no necesites, o agrega más a mano. Se guarda sola.</p>
 
   <div class="card" style="margin-bottom:10px">
     <div style="font-size:11px;color:var(--nbs-muted);font-weight:700;margin-bottom:6px">📅 VER LO VENDIDO ENTRE ESTAS FECHAS</div>
     <div style="display:flex;gap:8px;align-items:center">
-      <input class="inp" id="rel-desde" type="date" onchange="renderRelleno()" style="flex:1;margin-bottom:0">
+      <input class="inp" id="rel-desde" type="date" onchange="llenarRellenoAuto()" style="flex:1;margin-bottom:0">
       <span style="font-size:12px;color:#aaa">a</span>
-      <input class="inp" id="rel-hasta" type="date" onchange="renderRelleno()" style="flex:1;margin-bottom:0">
+      <input class="inp" id="rel-hasta" type="date" onchange="llenarRellenoAuto()" style="flex:1;margin-bottom:0">
     </div>
     <div style="display:flex;gap:5px;margin-top:8px">
       <button onclick="rangoRapidoRelleno(7)" style="flex:1;padding:7px;background:#F5F3EF;border:none;border-radius:7px;font-size:11px;font-weight:600;color:var(--nbs-ink);cursor:pointer">7 días</button>
@@ -864,12 +865,46 @@ body.inicio-oscuro .top{ background:#2C2C3B; border-bottom-color:#3E3E52; }
     <div id="rel-plist" style="background:white;border:1px solid #ddd;border-radius:8px;max-height:260px;overflow-y:auto;display:none;margin-top:8px"></div>
   </div>
 
+  <div class="card" style="margin-bottom:10px;padding:10px 12px">
+    <div style="font-size:11px;color:var(--nbs-muted);font-weight:700;margin-bottom:6px">🚐 QUÉ METER EN LA LISTA</div>
+    <div style="display:flex;gap:6px">
+      <button id="rel-modo-poco" onclick="cambiarModoRelleno('poco')" style="flex:1;padding:9px;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">Solo lo que queda poco</button>
+      <button id="rel-modo-todo" onclick="cambiarModoRelleno('todo')" style="flex:1;padding:9px;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">Todo lo que vendí</button>
+    </div>
+    <button onclick="llenarRellenoAuto()" style="width:100%;margin-top:8px;padding:11px;background:#6A1B9A;color:white;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">🔄 Llenar la lista con lo vendido en estas fechas</button>
+  </div>
+
   <div id="rel-lista"></div>
 
   <div id="rel-acciones" style="display:none">
     <button class="btn" style="background:#2E7D32;color:white" onclick="compartirListaRelleno()">📤 Compartir la lista</button>
     <button class="btn" style="background:#546E7A;color:white" onclick="vaciarListaRelleno()">🗑️ Vaciar y empezar de nuevo</button>
   </div>
+</div>
+
+<div id="p-van" class="pg">
+  <div style="display:flex;gap:8px;margin-bottom:16px"><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="volverAtras()">← Atrás</button><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="ir('p-inicio')">🏠 Inicio</button></div>
+  <h2 style="font-size:20px;font-weight:700;color:#1a237e;margin-bottom:4px">🚐 Control de la Van</h2>
+  <p style="font-size:12px;color:var(--nbs-muted);margin-bottom:14px">Registra lo que cargas en la van. Según vendes, se rebaja solo, y te dice cuánto te queda y qué recargar. Lleva la cuenta de lo que cargas contigo, aparte de tu inventario general.</p>
+
+  <div id="van-resumen" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px"></div>
+
+  <div style="display:flex;gap:6px;margin-bottom:12px">
+    <button onclick="abrirCargarVan()" style="flex:1;padding:11px;background:#2E7D32;color:white;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">➕ Cargar la van</button>
+    <button onclick="compartirRecargaVan()" style="flex:1;padding:11px;background:#6A1B9A;color:white;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">📤 Lista de recarga</button>
+  </div>
+
+  <div class="card" style="margin-bottom:10px;padding:10px 12px">
+    <div style="font-size:11px;color:var(--nbs-muted);font-weight:700;margin-bottom:6px">📅 CONTAR VENTAS DESDE QUE CARGUÉ</div>
+    <div style="font-size:12px;color:var(--nbs-ink)" id="van-fecha-carga">Aún no has cargado la van.</div>
+  </div>
+
+  <div class="busca-caja" style="border:2px solid var(--nbs-gold);margin-bottom:10px">
+    <span style="font-size:16px;flex-shrink:0;opacity:0.75">🔍</span>
+    <input id="van-buscar" class="busca-fuerte" type="text" placeholder="Buscar producto en la van..." oninput="renderVan(this.value)">
+  </div>
+
+  <div id="van-lista"></div>
 </div>
 
 <div id="p-cl" class="pg">
@@ -2498,7 +2533,7 @@ function pintarSegunPantalla(id){
 
 var historialPantallas = [];
 function pantallaActual(){
-  var all = ['menu','p-inicio','p-cl','p-v','p-rpt','p-cxc','p-cl-perfil','p-cl-factura','p-cat','p-inventario','p-relleno','p-copias','p-sup','p-comp','p-ped','p-gastos','p-vip','p-mas','p-facturas','p-dashboard','p-rutas','p-manual','p-cxp'];
+  var all = ['menu','p-inicio','p-cl','p-v','p-rpt','p-cxc','p-cl-perfil','p-cl-factura','p-cat','p-inventario','p-relleno','p-van','p-copias','p-sup','p-comp','p-ped','p-gastos','p-vip','p-mas','p-facturas','p-dashboard','p-rutas','p-manual','p-cxp'];
   for(var i=0;i<all.length;i++){
     var el = document.getElementById(all[i]);
     if(el && el.style.display === 'block') return all[i];
@@ -2563,7 +2598,7 @@ function ir(id, sinHistorial){
     if(actual && actual !== id) historialPantallas.push(actual);
   }
   window.scrollTo(0, 0);
-  var all = ['menu','p-inicio','p-cl','p-v','p-rpt','p-cxc','p-cl-perfil','p-cl-factura','p-cat','p-inventario','p-relleno','p-copias','p-sup','p-comp','p-ped','p-gastos','p-vip','p-mas','p-facturas','p-dashboard','p-rutas','p-manual','p-cxp'];
+  var all = ['menu','p-inicio','p-cl','p-v','p-rpt','p-cxc','p-cl-perfil','p-cl-factura','p-cat','p-inventario','p-relleno','p-van','p-copias','p-sup','p-comp','p-ped','p-gastos','p-vip','p-mas','p-facturas','p-dashboard','p-rutas','p-manual','p-cxp'];
   for(var i=0;i<all.length;i++) document.getElementById(all[i]).style.display='none';
   document.getElementById(id).style.display='block';
   pintarSegunPantalla(id);
@@ -2647,6 +2682,7 @@ function ir(id, sinHistorial){
   if(id==='p-inventario') renderInventario('');
   if(id==='p-inicio') renderInicio();
   if(id==='p-relleno') abrirRelleno();
+  if(id==='p-van') abrirVan();
   if(id==='p-copias') abrirCopias();
   if(id==='p-rutas') renderRutas();
   if(id==='p-gastos'){
@@ -6045,6 +6081,368 @@ function pedirRestaurar(idCopia){
   });
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+//  CONTROL DE LA VAN  (18 de julio 2026, pedido por Sensei)
+//  Es un conteo APARTE del inventario general. NO toca el stock ni las ventas.
+//  Guarda: cuanto cargo Sensei de cada producto y la fecha de esa carga.
+//  Luego lee las ventas desde esa fecha (con vendidosEnRango, que ya existe) para
+//  calcular cuanto se vendio y cuanto queda en la van. Todo vive en la clave 'nvan'.
+//  Objetivo: aprender que se mueve rapido y cargar mas de eso, menos de lo que no sale.
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Estructura de 'nvan': { fechaCarga: 'YYYY-MM-DD', cargado: { pid: cantidad, ... } }
+function cargarDatosVan(){
+  var v = LS('nvan', null);
+  if(!v || typeof v !== 'object'){ v = { fechaCarga: null, cargado: {} }; }
+  if(!v.cargado) v.cargado = {};
+  return v;
+}
+function guardarDatosVan(v){ SS('nvan', v); }
+
+var _van = null;
+
+function abrirVan(){
+  loadProds();
+  _van = cargarDatosVan();
+  var elFecha = document.getElementById('van-fecha-carga');
+  if(elFecha){
+    elFecha.textContent = _van.fechaCarga
+      ? ('Cargaste la van el ' + fechaISOaLegible(_van.fechaCarga) + '. Las ventas desde ese día cuentan como salidas de la van.')
+      : 'Aún no has cargado la van. Toca "Cargar la van" para empezar.';
+  }
+  var b = document.getElementById('van-buscar');
+  if(b) b.value = '';
+  renderVan('');
+}
+
+// Convierte 'YYYY-MM-DD' a algo legible como '18 de julio de 2026'
+function fechaISOaLegible(iso){
+  try {
+    var p = iso.split('-');
+    var meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+    return parseInt(p[2]) + ' de ' + meses[parseInt(p[1])-1] + ' de ' + p[0];
+  } catch(e){ return iso; }
+}
+
+// Calcula, por cada producto cargado: cargado, vendido (desde la fecha de carga), y lo que queda.
+function calcularEstadoVan(){
+  var v = _van || cargarDatosVan();
+  var vendidos = v.fechaCarga ? vendidosEnRango(v.fechaCarga, fechaHoyISO()) : {};
+  var filas = [];
+  var totalEnVan = 0, productosBajos = 0;
+  Object.keys(v.cargado).forEach(function(pidStr){
+    var cargado = v.cargado[pidStr] || 0;
+    if(cargado <= 0) return;
+    var prod = productos.find(function(p){ return String(p.id) === pidStr; });
+    var nombre = prod ? prod.nombre : ('Producto #' + pidStr);
+    var vendido = vendidos[pidStr] || 0;
+    var quedan = Math.max(0, cargado - vendido);
+    // "bajo" = queda 25% o menos de lo que cargaste (o cero). Es una senal, no una regla fija.
+    var bajo = quedan === 0 || (cargado > 0 && (quedan / cargado) <= 0.25);
+    totalEnVan += quedan;
+    if(bajo) productosBajos++;
+    filas.push({ pid: pidStr, nombre: nombre, cargado: cargado, vendido: vendido, quedan: quedan, bajo: bajo });
+  });
+  // Ordenar: primero los bajos, y dentro de esos, los que mas se vendieron
+  filas.sort(function(a,b){
+    if(a.bajo !== b.bajo) return a.bajo ? -1 : 1;
+    return b.vendido - a.vendido;
+  });
+  return { filas: filas, totalEnVan: totalEnVan, productosBajos: productosBajos };
+}
+
+function renderVan(q){
+  q = (q||'').toLowerCase().trim();
+  var estado = calcularEstadoVan();
+
+  // Tarjetas de resumen arriba
+  var resEl = document.getElementById('van-resumen');
+  if(resEl){
+    resEl.innerHTML =
+      '<div style="background:white;border-radius:10px;padding:11px;text-align:center;border:0.5px solid var(--nbs-line)">'
+      +'<div style="font-size:11px;color:var(--nbs-muted)">EN LA VAN AHORA</div>'
+      +'<div style="font-size:22px;font-weight:800;color:#1a237e">'+estado.totalEnVan+'</div>'
+      +'<div style="font-size:10px;color:var(--nbs-muted)">unidades</div></div>'
+      +'<div style="background:'+(estado.productosBajos>0?'var(--nbs-red-bg)':'var(--nbs-green-bg)')+';border-radius:10px;padding:11px;text-align:center">'
+      +'<div style="font-size:11px;color:'+(estado.productosBajos>0?'var(--nbs-red-dark)':'var(--nbs-green-text)')+'">HAY QUE RECARGAR</div>'
+      +'<div style="font-size:22px;font-weight:800;color:'+(estado.productosBajos>0?'var(--nbs-red-dark)':'var(--nbs-green-text)')+'">'+estado.productosBajos+'</div>'
+      +'<div style="font-size:10px;color:'+(estado.productosBajos>0?'var(--nbs-red-dark)':'var(--nbs-green-text)')+'">producto(s) bajo(s)</div></div>';
+  }
+
+  var el = document.getElementById('van-lista');
+  if(!el) return;
+
+  var filas = estado.filas;
+  if(q) filas = filas.filter(function(f){ return f.nombre.toLowerCase().indexOf(q) > -1; });
+
+  if(!estado.filas.length){
+    el.innerHTML = '<div class="card" style="text-align:center;color:#bbb;font-size:13px;padding:20px">Tu van está vacía.<br>Toca "➕ Cargar la van" para registrar lo que llevas.</div>';
+    return;
+  }
+  if(!filas.length){
+    el.innerHTML = '<div class="card" style="text-align:center;color:#bbb;font-size:13px;padding:18px">Ningún producto con ese nombre en la van.</div>';
+    return;
+  }
+
+  el.innerHTML = filas.map(function(f){
+    var colorBorde = f.bajo ? 'var(--nbs-red-text)' : '#2E7D32';
+    var etiqueta;
+    if(f.quedan === 0){
+      etiqueta = '<span style="color:var(--nbs-red-dark);font-weight:700">⚠️ Agotado en la van — recarga sugerida: '+f.vendido+'</span>';
+    } else if(f.bajo){
+      etiqueta = '<span style="color:var(--nbs-red-dark);font-weight:700">⚠️ Bajo — recarga sugerida: '+f.vendido+'</span>';
+    } else {
+      etiqueta = '<span style="color:#2E7D32;font-weight:700">✓ Tienes suficiente</span>';
+    }
+    return '<div class="card" style="margin-bottom:8px;padding:11px;border-left:4px solid '+colorBorde+'">'
+      +'<div style="font-size:14px;font-weight:700;color:var(--nbs-ink);margin-bottom:8px">'+escaparHtml(f.nombre)+'</div>'
+      +'<div style="display:flex;gap:6px">'
+      +'<div style="flex:1;text-align:center"><div style="font-size:10px;color:var(--nbs-muted)">Cargué</div><div style="font-size:16px;font-weight:800;color:var(--nbs-ink)">'+f.cargado+'</div></div>'
+      +'<div style="flex:1;text-align:center"><div style="font-size:10px;color:var(--nbs-muted)">Vendí</div><div style="font-size:16px;font-weight:800;color:#1565C0">'+f.vendido+'</div></div>'
+      +'<div style="flex:1;text-align:center"><div style="font-size:10px;color:var(--nbs-muted)">Me quedan</div><div style="font-size:16px;font-weight:800;color:'+(f.bajo?'var(--nbs-red-dark)':'#2E7D32')+'">'+f.quedan+'</div></div>'
+      +'</div>'
+      +'<div style="margin-top:8px;font-size:11px">'+etiqueta+'</div>'
+      +'</div>';
+  }).join('');
+}
+
+// Abre un panel para registrar cuanto se carga de cada producto en la van.
+// Se puede REEMPLAZAR (empezar de cero) o SUMAR (agregar a lo que ya habia).
+function abrirCargarVan(){
+  loadProds();
+  _van = cargarDatosVan();
+  var overlay = document.getElementById('van-cargar-overlay');
+  if(!overlay){
+    overlay = document.createElement('div');
+    overlay.id = 'van-cargar-overlay';
+    document.body.appendChild(overlay);
+  }
+  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:white;z-index:99999;overflow-y:auto;padding:16px';
+  overlay.scrollTop = 0;
+
+  overlay.innerHTML =
+    '<div style="max-width:480px;margin:0 auto">'
+    +'<div style="display:flex;gap:8px;margin-bottom:14px">'
+    +'<button onclick="cerrarCargarVan()" style="flex:1;background:#E8EAF6;border:none;border-radius:8px;padding:11px;font-size:14px;font-weight:700;color:#1a237e;cursor:pointer">← Cancelar</button>'
+    +'</div>'
+    +'<h2 style="font-size:19px;font-weight:700;color:#1a237e;margin-bottom:4px">➕ Cargar la van</h2>'
+    +'<p style="font-size:12px;color:var(--nbs-muted);margin-bottom:14px">Busca cada producto que metes en la van y escribe cuánto cargas. Al guardar, arranca el conteo desde hoy.</p>'
+    +'<div class="busca-caja" style="border:2px solid var(--nbs-gold);margin-bottom:8px">'
+    +'<span style="font-size:16px;flex-shrink:0;opacity:0.75">🔍</span>'
+    +'<input id="van-carga-buscar" class="busca-fuerte" type="text" placeholder="Buscar producto para cargar..." oninput="filtrarCargaVan(this.value)">'
+    +'</div>'
+    +'<div id="van-carga-plist" style="background:white;border:1px solid #ddd;border-radius:8px;max-height:240px;overflow-y:auto;display:none;margin-bottom:10px"></div>'
+    +'<div id="van-np-wrap" style="display:none;background:#E0F7FA;border-radius:10px;padding:12px;margin-bottom:10px">'
+    +'<div style="font-size:12px;font-weight:700;color:#00838F;margin-bottom:8px">📦 NUEVO PRODUCTO</div>'
+    +'<label class="lbl">Marca *</label><input class="inp" id="vannp-marca" type="text" placeholder="Ej: DORCO, IMMORTAL" autocomplete="off">'
+    +'<label class="lbl">Nombre del producto *</label><input class="inp" id="vannp-nombre" type="text" placeholder="Ej: Colonia Venom" autocomplete="off">'
+    +'<label class="lbl">Categoría</label><input class="inp" id="vannp-cat" type="text" placeholder="Ej: Colonias, Navajas..." autocomplete="off">'
+    +'<div class="r2">'
+    +'<div><label class="lbl">Costo ($)</label><input class="inp" id="vannp-costo" type="text" inputmode="decimal" value="0.00" onfocus="this.select()"></div>'
+    +'<div><label class="lbl">Precio ($)</label><input class="inp" id="vannp-precio" type="text" inputmode="decimal" value="0.00" onfocus="this.select()"></div>'
+    +'</div>'
+    +'<label class="lbl">Cuántos cargas en la van</label><input class="inp" id="vannp-stock" type="number" value="1" min="0">'
+    +'<div style="display:flex;gap:8px">'
+    +'<button class="btn" style="flex:1;background:#00838F;color:white;margin:0" onclick="guardarNuevoProdVan()">✓ Crear y agregar</button>'
+    +'<button class="btn" style="flex:1;background:#546E7A;color:white;margin:0" onclick="cerrarNuevoProdVan()">Cancelar</button>'
+    +'</div>'
+    +'</div>'
+    +'<div id="van-carga-lista" style="margin-bottom:14px"></div>'
+    +'<div style="display:flex;gap:8px;margin-bottom:8px">'
+    +'<button onclick="guardarCargaVan(\'sumar\')" style="flex:1;padding:13px;background:#2E7D32;color:white;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">Sumar a la van</button>'
+    +'</div>'
+    +'<button onclick="guardarCargaVan(\'reemplazar\')" style="width:100%;padding:11px;background:none;border:1px solid #546E7A;color:#546E7A;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer">Empezar de cero (reemplazar todo)</button>'
+    +'</div>';
+
+  window._cargaVanTemp = {}; // pid -> cantidad que se va a cargar en esta sesion
+  renderCargaVanLista();
+}
+
+function cerrarCargarVan(){
+  var o = document.getElementById('van-cargar-overlay');
+  if(o) o.style.display = 'none';
+}
+
+function filtrarCargaVan(q){
+  var el = document.getElementById('van-carga-plist');
+  if(!el) return;
+  el.innerHTML = '';
+  if(!q || !q.trim()){ el.style.display = 'none'; return; }
+  var lista = filtrarPorBusqueda(productos, q, function(p){ return p.nombre; }).slice(0, 30);
+  el.style.display = 'block';
+  lista.forEach(function(p){
+    var ya = window._cargaVanTemp[String(p.id)] !== undefined;
+    var d = document.createElement('div');
+    d.style.cssText = 'padding:10px;border-bottom:1px solid #f0f0f0;cursor:pointer;font-size:13px;background:'+(ya?'#F1F8E9':'white')+';display:flex;align-items:center;justify-content:space-between;gap:8px';
+    d.innerHTML = '<span style="flex:1;min-width:0;font-weight:600;color:var(--nbs-ink)">'+escaparHtml(p.nombre)+'</span>'
+      +(ya ? '<span style="font-size:11px;color:var(--nbs-green-text);font-weight:700">✓ agregado</span>'
+           : '<span style="font-size:18px;color:var(--nbs-gold)">+</span>');
+    d.onclick = (function(prod){ return function(){ agregarACargaVan(prod); }; })(p);
+    el.appendChild(d);
+  });
+  // Siempre ofrecer crear un producto nuevo con lo que escribió (útil al armar inventario desde cero)
+  var crear = document.createElement('div');
+  crear.style.cssText = 'padding:11px;cursor:pointer;font-size:13px;background:#E0F7FA;display:flex;align-items:center;gap:8px;font-weight:700;color:#00838F;border-top:2px solid #B2EBF2';
+  crear.innerHTML = '<span style="font-size:16px">➕</span><span>Crear producto nuevo: "'+escaparHtml(q.trim())+'"</span>';
+  crear.onclick = (function(texto){ return function(){ abrirNuevoProdVan(texto); }; })(q.trim());
+  el.appendChild(crear);
+}
+
+function agregarACargaVan(prod){
+  if(window._cargaVanTemp[String(prod.id)] === undefined){
+    window._cargaVanTemp[String(prod.id)] = 1;
+  }
+  document.getElementById('van-carga-buscar').value = '';
+  document.getElementById('van-carga-plist').style.display = 'none';
+  renderCargaVanLista();
+}
+
+// Genera el siguiente ID NUMERICO libre (no usa 'custom_' que dio problemas antes).
+function siguienteIdProductoNumerico(){
+  var maxId = 0;
+  productos.forEach(function(p){
+    var n = parseInt(p.id, 10);
+    if(!isNaN(n) && String(n) === String(p.id) && n > maxId) maxId = n;
+  });
+  return maxId + 1;
+}
+
+// Abre el mini-formulario de producto nuevo DENTRO del panel de cargar van.
+// No se sale de la pantalla, no se pierde lo que ya se está cargando.
+function abrirNuevoProdVan(nombreSugerido){
+  var wrap = document.getElementById('van-np-wrap');
+  if(!wrap) return;
+  wrap.style.display = 'block';
+  document.getElementById('van-carga-plist').style.display = 'none';
+  document.getElementById('van-carga-buscar').value = '';
+  // Rellenar el nombre con lo que ya había escrito
+  document.getElementById('vannp-marca').value = '';
+  document.getElementById('vannp-nombre').value = nombreSugerido || '';
+  document.getElementById('vannp-cat').value = '';
+  document.getElementById('vannp-costo').value = '0.00';
+  document.getElementById('vannp-precio').value = '0.00';
+  document.getElementById('vannp-stock').value = '1';
+  // Llevar la vista al formulario
+  wrap.scrollIntoView({ behavior:'smooth', block:'center' });
+}
+
+function cerrarNuevoProdVan(){
+  var wrap = document.getElementById('van-np-wrap');
+  if(wrap) wrap.style.display = 'none';
+}
+
+function guardarNuevoProdVan(){
+  loadProds();
+  var marca = document.getElementById('vannp-marca').value.trim();
+  if(!marca){ alert('La marca es requerida'); return; }
+  var nombre = document.getElementById('vannp-nombre').value.trim();
+  if(!nombre){ alert('El nombre del producto es requerido'); return; }
+  var nombreCompleto = marca + ' ' + nombre;
+  var cat = document.getElementById('vannp-cat').value.trim();
+  var costo = parseFloat(document.getElementById('vannp-costo').value) || 0;
+  var precio = parseFloat(document.getElementById('vannp-precio').value) || 0;
+  var stock = parseInt(document.getElementById('vannp-stock').value) || 0;
+
+  // ID numerico secuencial (como los productos originales del catalogo)
+  var nuevoId = siguienteIdProductoNumerico();
+  var nuevoProd = { id: nuevoId, marca: marca, nombreCorto: nombre, nombre: nombreCompleto, cat: cat, sku: '', costo: costo, precio: precio, stock: stock, unidad: 'unidad' };
+  productos.push(nuevoProd);
+  SS('np', productos); // se guarda en el catalogo general
+
+  // Agregarlo a la carga de la van con la cantidad que puso como stock (o 1)
+  window._cargaVanTemp[String(nuevoId)] = stock > 0 ? stock : 1;
+
+  cerrarNuevoProdVan();
+  renderCargaVanLista();
+  alert('✅ "'+nombreCompleto+'" creado en el catálogo y agregado a la carga.');
+}
+
+function fijarCargaVan(pid, valor){
+  var n = parseInt(valor);
+  if(isNaN(n) || n < 0) n = 0;
+  window._cargaVanTemp[String(pid)] = n;
+}
+
+function quitarDeCargaVan(pid){
+  delete window._cargaVanTemp[String(pid)];
+  renderCargaVanLista();
+}
+
+function renderCargaVanLista(){
+  var el = document.getElementById('van-carga-lista');
+  if(!el) return;
+  var pids = Object.keys(window._cargaVanTemp);
+  if(!pids.length){
+    el.innerHTML = '<div style="text-align:center;color:#bbb;font-size:13px;padding:16px">Busca productos arriba para agregarlos a la carga.</div>';
+    return;
+  }
+  el.innerHTML = pids.map(function(pid){
+    var prod = productos.find(function(p){ return String(p.id) === pid; });
+    var nombre = prod ? prod.nombre : ('Producto #'+pid);
+    var cant = window._cargaVanTemp[pid];
+    return '<div class="card" style="margin-bottom:8px;padding:10px;display:flex;align-items:center;gap:9px">'
+      +'<input type="number" min="0" value="'+cant+'" oninput="fijarCargaVan(\''+pid+'\', this.value)" style="width:60px;padding:8px;border:1px solid #ddd;border-radius:7px;font-size:15px;text-align:center;font-weight:700">'
+      +'<div style="flex:1;min-width:0;font-size:13px;font-weight:600;color:var(--nbs-ink)">'+escaparHtml(nombre)+'</div>'
+      +'<button onclick="quitarDeCargaVan(\''+pid+'\')" style="background:var(--nbs-red-bg);color:var(--nbs-red-dark);border:none;border-radius:7px;width:32px;height:32px;font-size:16px;cursor:pointer;flex-shrink:0">×</button>'
+      +'</div>';
+  }).join('');
+}
+
+function guardarCargaVan(modo){
+  var pids = Object.keys(window._cargaVanTemp);
+  if(!pids.length){ alert('No agregaste ningún producto para cargar.'); return; }
+  _van = cargarDatosVan();
+
+  if(modo === 'reemplazar'){
+    if(!confirm('¿Empezar la van de cero? Esto borra el conteo anterior y arranca de nuevo con lo que acabas de poner.')) return;
+    _van.cargado = {};
+  }
+  pids.forEach(function(pid){
+    var n = window._cargaVanTemp[pid] || 0;
+    if(n <= 0) return;
+    if(modo === 'sumar'){
+      _van.cargado[pid] = (_van.cargado[pid] || 0) + n;
+    } else {
+      _van.cargado[pid] = n;
+    }
+  });
+  // La fecha de carga se pone a HOY: desde hoy se cuentan las ventas como salidas de la van.
+  _van.fechaCarga = fechaHoyISO();
+  guardarDatosVan(_van);
+  cerrarCargarVan();
+  abrirVan(); // refresca la pantalla
+  alert('Van actualizada. El conteo de ventas arranca desde hoy.');
+}
+
+// Arma un texto con lo que hay que recargar (los productos bajos) y lo comparte.
+function compartirRecargaVan(){
+  var estado = calcularEstadoVan();
+  var bajos = estado.filas.filter(function(f){ return f.bajo; });
+  if(!bajos.length){
+    alert('No hay nada bajo por ahora. Todo lo que cargaste todavía tiene suficiente en la van.');
+    return;
+  }
+  var texto = '🚐 RECARGA DE LA VAN\\n';
+  texto += '(según lo que se vendió)\\n\\n';
+  bajos.forEach(function(f){
+    // Sugerencia: reponer lo que se vendio, para volver a dejar la van como estaba
+    texto += '• ' + f.nombre + ': recargar ' + f.vendido + ' (quedan ' + f.quedan + ')\\n';
+  });
+  texto += '\\nTotal de productos a recargar: ' + bajos.length;
+
+  if(navigator.share){
+    navigator.share({ text: texto }).catch(function(){});
+  } else {
+    // Copiar al portapapeles como respaldo
+    try {
+      navigator.clipboard.writeText(texto);
+      alert('Lista de recarga copiada. Pégala donde quieras.\\n\\n' + texto);
+    } catch(e){
+      alert(texto);
+    }
+  }
+}
+
 function abrirRelleno(){
   loadProds();
   listaRelleno = LS('nrelleno', { desde: null, hasta: null, items: [] });
@@ -6056,6 +6454,8 @@ function abrirRelleno(){
   document.getElementById('rel-hasta').value = listaRelleno.hasta;
   document.getElementById('rel-buscar').value = '';
   document.getElementById('rel-plist').style.display = 'none';
+  if(!listaRelleno.modo) listaRelleno.modo = 'todo';
+  pintarBotonesModoRelleno();
   renderRelleno();
 }
 
@@ -6063,7 +6463,7 @@ function rangoRapidoRelleno(dias){
   // dias = 0 significa "todo": desde bien atras para que entre cualquier venta
   document.getElementById('rel-desde').value = dias === 0 ? '2000-01-01' : fechaISOhace(dias);
   document.getElementById('rel-hasta').value = fechaISOhace(0);
-  renderRelleno();
+  llenarRellenoAuto();
 }
 
 // Convierte la fecha MM/DD/AAAA que usa la app a AAAA-MM-DD, para poder compararlas
@@ -6096,6 +6496,85 @@ function guardarRelleno(){
   listaRelleno.desde = document.getElementById('rel-desde').value;
   listaRelleno.hasta = document.getElementById('rel-hasta').value;
   SS('nrelleno', listaRelleno);
+}
+
+// El modo decide QUE se mete al llenar la lista sola:
+//   'poco' = solo lo que vendiste Y ya te queda poco (stock <= minimo). Lo que urge reponer.
+//   'todo' = todo lo que vendiste en el rango, sin importar cuanto te quede.
+function modoRellenoActual(){
+  // Predeterminado 'todo': Sensei repone lo que vende porque no tiene inventario fijo en la van.
+  return (listaRelleno && listaRelleno.modo) ? listaRelleno.modo : 'todo';
+}
+function pintarBotonesModoRelleno(){
+  var modo = modoRellenoActual();
+  var bP = document.getElementById('rel-modo-poco');
+  var bT = document.getElementById('rel-modo-todo');
+  if(!bP || !bT) return;
+  var activo = 'background:#6A1B9A;color:white';
+  var inactivo = 'background:#F0F0F2;color:var(--nbs-ink)';
+  bP.setAttribute('style', bP.getAttribute('style').replace(/background:[^;]+;color:[^;"]+/, modo==='poco'?activo:inactivo));
+  bT.setAttribute('style', bT.getAttribute('style').replace(/background:[^;]+;color:[^;"]+/, modo==='todo'?activo:inactivo));
+}
+function cambiarModoRelleno(modo){
+  listaRelleno.modo = modo;
+  SS('nrelleno', listaRelleno);
+  pintarBotonesModoRelleno();
+}
+
+// Llena la lista SOLA con lo vendido en el rango de fechas elegido.
+// Respeta lo que ya tengas puesto a mano: no borra, solo agrega lo que falte.
+function llenarRellenoAuto(){
+  loadProds();
+  var desde = document.getElementById('rel-desde').value;
+  var hasta = document.getElementById('rel-hasta').value;
+  var vendidos = vendidosEnRango(desde, hasta);
+  var modo = modoRellenoActual();
+
+  var pids = Object.keys(vendidos);
+  if(!pids.length){
+    alert('No vendiste nada en esas fechas. Prueba con otro rango.');
+    return;
+  }
+
+  var agregados = 0, saltadosPorStock = 0;
+  pids.forEach(function(pid){
+    var prod = productos.find(function(p){ return String(p.id) === String(pid); });
+    if(!prod) return; // el producto pudo haber sido borrado
+    var vend = vendidos[pid] || 0;
+    var stock = prod.stock || 0;
+    var min = prod.min || 0;
+
+    // En modo 'poco', solo entra si ya te queda poco (stock por debajo o igual al minimo)
+    if(modo === 'poco' && stock > min){ saltadosPorStock++; return; }
+
+    var yaIdx = -1;
+    for(var i=0; i<listaRelleno.items.length; i++){
+      if(String(listaRelleno.items[i].pid) === String(prod.id)){ yaIdx = i; break; }
+    }
+    if(yaIdx >= 0){
+      // ya estaba en la lista: solo actualizo los numeros de referencia, no piso la cantidad que pusiste
+      listaRelleno.items[yaIdx].vendidos = vend;
+      listaRelleno.items[yaIdx].stock = stock;
+    } else {
+      // Cuanto reponer: en modo 'todo' repones lo mismo que vendiste (no tienes inventario fijo).
+      // En modo 'poco' repones lo vendido menos lo que ya te queda.
+      var sugerida = (modo === 'todo') ? Math.max(1, vend) : Math.max(1, vend - stock);
+      listaRelleno.items.push({ pid: prod.id, nombre: prod.nombre, cant: sugerida, vendidos: vend, stock: stock });
+      agregados++;
+    }
+  });
+
+  SS('nrelleno', listaRelleno);
+  renderRelleno();
+
+  var msg = 'Se agregaron ' + agregados + ' producto(s) a tu lista.';
+  if(modo === 'poco' && saltadosPorStock > 0){
+    msg += '\n\n(' + saltadosPorStock + ' producto(s) que vendiste NO se agregaron porque todavía te queda suficiente. Toca "Todo lo que vendí" si los quieres ver.)';
+  }
+  if(agregados === 0 && modo === 'poco' && saltadosPorStock > 0){
+    msg = 'Vendiste ' + saltadosPorStock + ' producto(s), pero de todos te queda suficiente — no hay nada urgente que reponer. Toca "Todo lo que vendí" si quieres verlos igual.';
+  }
+  alert(msg);
 }
 
 function renderRelleno(){
@@ -6196,7 +6675,7 @@ function agregarARelleno(prod, vendidas){
   }
   document.getElementById('rel-buscar').value = '';
   document.getElementById('rel-plist').style.display = 'none';
-  renderRelleno();
+  llenarRellenoAuto();
 }
 
 function fijarCantRelleno(i, valor){
@@ -10748,6 +11227,89 @@ function eliminarCl(id){
   }
 }
 
+// Reporte de PAGOS RECIBIDOS: quien te pago, cuanto, cuando y como, dentro del rango de fechas.
+// Junta los abonos de TODAS las facturas -ventas a credito- cuya fecha de PAGO caiga en el rango.
+function reporteDePagos(desde, hasta, el){
+  var ventasTodas = LS('nv', []);
+  var clientesTodos = LS('ncl', []);
+
+  // Convierte una fecha de pago -que puede venir en MM/DD/AAAA o AAAA-MM-DD- a objeto Date
+  function fechaPagoADate(f){
+    if(!f) return null;
+    try {
+      if(f.indexOf('-') > -1 && f.split('-')[0].length === 4){
+        var a = f.split('-'); return new Date(parseInt(a[0]), parseInt(a[1])-1, parseInt(a[2]));
+      }
+      return parsearFechaVenta(f);
+    } catch(e){ return null; }
+  }
+  function enRango(fPago){
+    var d = fechaPagoADate(fPago);
+    if(!d) return (!desde && !hasta); // pago sin fecha: solo entra si no hay filtro
+    if(desde){ var dp=desde.split('-'); var dd=new Date(parseInt(dp[0]),parseInt(dp[1])-1,parseInt(dp[2])); if(d<dd) return false; }
+    if(hasta){ var hp=hasta.split('-'); var hd=new Date(parseInt(hp[0]),parseInt(hp[1])-1,parseInt(hp[2])); hd.setHours(23,59,59,999); if(d>hd) return false; }
+    return true;
+  }
+
+  var porCliente = {}; // clave -> {nombre, negocio, total, pagos:[{fecha,monto,metodo}]}
+  var totalGeneral = 0, cantPagos = 0;
+
+  ventasTodas.forEach(function(v){
+    if(v.cancelada) return;
+    var pagos = v.pagosFactura || [];
+    pagos.forEach(function(p){
+      if(typeof p.monto !== 'number' || p.monto <= 0) return;
+      if(!enRango(p.fecha)) return;
+      var k = v.cid ? String(v.cid) : (v.cn || 'Cliente general');
+      if(!porCliente[k]){
+        var cl = clientesTodos.find(function(c){ return String(c.id) === String(v.cid); });
+        var nombre = cl ? (cl.nombre + ' ' + cl.apellido + (cl.apodo ? ' "'+cl.apodo+'"' : '')) : (v.cn || 'Cliente general');
+        var negocio = cl ? (cl.negocio || '') : '';
+        porCliente[k] = { nombre: nombre, negocio: negocio, total: 0, pagos: [] };
+      }
+      porCliente[k].total += p.monto;
+      porCliente[k].pagos.push({ fecha: p.fecha || 'sin fecha', monto: p.monto, metodo: p.metodo || 'efectivo' });
+      totalGeneral += p.monto;
+      cantPagos++;
+    });
+  });
+
+  var claves = Object.keys(porCliente);
+  if(!claves.length){
+    el.innerHTML = '<div class="card"><p style="color:#aaa;text-align:center;padding:20px">Nadie te pagó en ese periodo.<br>Prueba con otras fechas.</p></div>';
+    return;
+  }
+
+  // Tarjeta de total arriba
+  var html = '<div class="card" style="background:#E8F5E9;text-align:center;padding:16px;margin-bottom:12px">'
+    +'<div style="font-size:12px;color:#2E7D32;font-weight:700">TOTAL COBRADO EN ESTAS FECHAS</div>'
+    +'<div style="font-size:28px;font-weight:800;color:#2E7D32">$'+fmtNum(totalGeneral)+'</div>'
+    +'<div style="font-size:12px;color:#2E7D32">'+cantPagos+' pago(s) de '+claves.length+' cliente(s)</div>'
+    +'</div>';
+
+  html += '<div style="font-size:11px;color:var(--nbs-muted);font-weight:700;letter-spacing:0.5px;margin-bottom:8px">QUIÉN TE PAGÓ Y CUÁNTO</div>';
+
+  // Ordenar del que mas pago al que menos
+  claves.sort(function(a,b){ return porCliente[b].total - porCliente[a].total; }).forEach(function(k){
+    var c = porCliente[k];
+    var detalle = c.pagos.map(function(p){
+      return '<div style="display:flex;justify-content:space-between;font-size:12px;color:var(--nbs-muted);padding:3px 0">'
+        +'<span>'+escaparHtml(p.fecha)+' · '+escaparHtml(p.metodo)+'</span>'
+        +'<span>$'+fmtNum(p.monto)+'</span></div>';
+    }).join('');
+    html += '<div class="card" style="margin-bottom:8px;padding:12px">'
+      +'<div style="display:flex;justify-content:space-between;align-items:center">'
+      +'<div style="font-size:14px;font-weight:700;color:#1a237e">'+escaparHtml(c.nombre)+'</div>'
+      +'<div style="font-size:16px;font-weight:800;color:#2E7D32">$'+fmtNum(c.total)+'</div>'
+      +'</div>'
+      +(c.negocio ? '<div style="font-size:12px;color:var(--nbs-muted)">'+escaparHtml(c.negocio)+'</div>' : '')
+      +'<div style="border-top:1px solid #f0f0f0;margin-top:8px;padding-top:6px">'+detalle+'</div>'
+      +'</div>';
+  });
+
+  el.innerHTML = html;
+}
+
 function genRpt(){
   ventas = LS('nv',[]);
   var desde = document.getElementById('rfrom').value;
@@ -10776,6 +11338,13 @@ function genRpt(){
     } catch(e){ return true; }
     return true;
   });
+  // ══ REPORTE DE PAGOS RECIBIDOS ══ (va antes del chequeo de ventas, porque filtra
+  //    por la fecha del PAGO, no por la fecha de la venta — un pago puede caer en otra fecha)
+  if(tipo === 'pagos'){
+    reporteDePagos(desde, hasta, el);
+    return;
+  }
+
   if(!filt.length){
     el.innerHTML = '<div class="card"><p style="color:#aaa;text-align:center;padding:20px">Sin ventas vigentes en ese periodo</p></div>';
     return;
@@ -16454,6 +17023,7 @@ function verHistorialCliente(cid, modo){
       <optgroup label="📊 Ventas">
         <option value="total">Resumen general de ventas</option>
         <option value="cliente">Ventas por cliente</option>
+        <option value="pagos">💵 Pagos que me hicieron (quién y cuánto)</option>
         <option value="ruta">Entregado, devuelto y pendiente por negocio</option>
         <option value="tiponegocio">Ventas por tipo de negocio</option>
         <option value="productos">Productos más vendidos (cantidad)</option>

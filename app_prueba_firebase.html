@@ -6117,10 +6117,10 @@ var _van = null;
 function baseAyudaNBS(){
   return [
     { t:'✏️ Corregir o borrar un pago',
-      k:'pago pagos cobro cobrar abono abonos me pagaron editar corregir borrar eliminar cambiar monto fecha metodo dividir efectivo tarjeta zelle equivocado error',
+      k:'pago pagos cobro cobrar abono abonos me pagaron dinero editar corregir borrar eliminar cambiar monto fecha metodo dividir efectivo tarjeta zelle equivocado error',
       r:'Ve a Cuentas por Cobrar (💳) → toca el cliente → toca la factura. En "Pagos aplicados" cada pago tiene un lápiz ✏️. Tócalo para cambiar el monto, la fecha y el método, o dividirlo en varios (efectivo + tarjeta + Zelle). El total se suma solo. También puedes borrarlo con 🗑️. El saldo del cliente se ajusta solo.' },
     { t:'💳 Ver lo que me deben los clientes',
-      k:'deben deuda deudas cobrar cuentas por cobrar cxc saldo balance pendiente quien me debe cuanto',
+      k:'deben deuda deudas dinero cobrar cuentas por cobrar cxc saldo balance pendiente quien me debe cuanto',
       r:'Ve a Cuentas por Cobrar (💳) desde el inicio o el menú (☰). Ahí ves la lista de clientes que te deben y cuánto. Toca un cliente para ver sus facturas y aplicar pagos.' },
     { t:'💵 Registrar un pago que me hicieron',
       k:'pago abono cobrar cobro me pagaron aplicar pago registrar recibir dinero cliente pago factura',
@@ -6135,38 +6135,41 @@ function baseAyudaNBS(){
       k:'van control van cargar van inventario van cuanto cargue cuanto vendi cuanto queda reponer recarga camioneta',
       r:'En el menú (☰) → "Control de la Van". Toca "➕ Cargar la van" y pones cuánto metes de cada producto. Según vendes, se rebaja solo y te dice cuánto te queda y qué recargar. Es aparte de tu inventario general.' },
     { t:'📋 Lista de Relleno (qué reponer)',
-      k:'relleno lista relleno reponer que reponer que vendi surtir llenar',
+      k:'relleno lista relleno van reponer que reponer que vendi surtir llenar recargar recarga',
       r:'En el menú (☰) → "Lista de Relleno". Eliges las fechas y se llena sola con lo que vendiste, para reponerlo. Ajustas las cantidades o agregas más a mano. La compartes por WhatsApp como texto.' },
-    { t:'📦 Crear un producto nuevo',
-      k:'producto nuevo crear producto agregar producto catalogo registrar articulo mercancia',
-      r:'En Catálogo (📦) → "+ Nuevo producto". También puedes crearlo al vuelo cuando cargas la van: si buscas un producto que no existe, sale el botón "➕ Crear producto nuevo".' },
+    { t:'📦 Crear o editar un producto',
+      k:'producto nuevo crear producto agregar producto editar producto cambiar producto modificar producto cambiar precio cambiar costo catalogo registrar articulo mercancia borrar producto eliminar producto',
+      r:'En Catálogo (📦) → "+ Nuevo producto" para crear uno. Para editar (cambiar nombre, precio, costo, stock), toca el producto en el catálogo. También puedes crear un producto al vuelo cuando cargas la van: si buscas uno que no existe, sale el botón "➕ Crear producto nuevo".' },
     { t:'💰 Ver el valor de mi inventario',
       k:'inventario valor inventario cuanto tengo stock mercancia ganancia potencial cuanto vale',
       r:'En el menú (☰) → "Inventario". Te muestra cuánto tienes invertido, el valor de venta, la ganancia potencial y qué productos no se han vendido en mucho tiempo.' },
     { t:'📊 Ver ganancias, ventas y márgenes',
-      k:'ganancia ganancias ventas margen beneficio reporte reportes cuanto gane cuanto vendi por cliente',
+      k:'ganancia ganancias ventas margen beneficio dinero reporte reportes cuanto gane cuanto vendi por cliente',
       r:'En el menú (☰) → "Reportes". Eliges fechas y el tipo: ventas por cliente (con cuánto ganaste y el margen), pagos recibidos, ganancias, gastos, y más.' },
     { t:'📈 Resumen del negocio (Dashboard)',
-      k:'dashboard resumen financiero negocio como voy ventas del mes ganancia del mes cuanto me queda',
+      k:'dashboard resumen financiero negocio dinero como voy ventas del mes ganancia del mes cuanto me queda',
       r:'En el menú (☰) → "Resumen Financiero". Te muestra las ventas de hoy y del mes, la ganancia menos gastos, lo que te deben y lo que tú debes.' },
     { t:'💸 Registrar un gasto',
-      k:'gasto gastos gasolina comida anotar gasto registrar gasto egreso',
+      k:'gasto gastos gasolina comida dinero anotar gasto registrar gasto egreso editar gasto cambiar gasto borrar gasto corregir gasto',
       r:'En el menú (☰) → "Gastos". Pones la categoría (gasolina, comida, etc.), el monto y la fecha. Los gastos se restan de tu ganancia en el Resumen Financiero.' },
     { t:'🏭 Suplidores y lo que les debo',
-      k:'suplidor suplidores proveedor proveedores lo que debo cuentas por pagar compras a credito',
+      k:'suplidor suplidores proveedor proveedores lo que debo dinero cuentas por pagar compras a credito editar suplidor cambiar suplidor nuevo suplidor agregar suplidor',
       r:'En el menú (☰) → "Suplidores" para ver tus proveedores y lo que les debes. En "Compras" registras la mercancía que les compras.' },
     { t:'🚚 Registrar una compra de mercancía',
-      k:'compra compras comprar mercancia registrar compra suplidor proveedor factura de compra',
+      k:'compra compras comprar mercancia registrar compra suplidor proveedor factura de compra editar compra cambiar compra borrar compra corregir compra',
       r:'En el menú (☰) → "Compras". Eliges el suplidor, agregas los productos y cantidades, el costo, y si es de contado o crédito. Esto sube tu inventario.' },
     { t:'⭐ Programa VIP de clientes',
-      k:'vip programa vip fidelidad premio regalo cliente frecuente lealtad',
+      k:'vip programa vip fidelidad premio regalo cliente frecuente lealtad inscribir vip quitar vip editar vip',
       r:'En el menú (☰) → "Programa VIP". Inscribes un cliente desde su perfil. Al comprar 10 del mismo producto, el 11 va gratis.' },
     { t:'🗺️ Ruta de visitas por día',
-      k:'ruta rutas visita visitas dia semana a quien visito lunes martes barberias del dia',
+      k:'ruta rutas visita visitas dia semana a quien visito lunes martes barberias del dia editar ruta cambiar ruta quitar de ruta agregar a ruta',
       r:'En el menú (☰) → "Ruta de Visitas". Organizas qué barberías visitar cada día de la semana. Buscas por nombre de barbería o barbero.' },
     { t:'👥 Agregar o buscar un cliente',
-      k:'cliente clientes nuevo cliente agregar cliente barbero barberia buscar cliente registrar',
+      k:'cliente clientes nuevo cliente agregar cliente anadir barbero barberia buscar cliente registrar crear cliente',
       r:'Toca "Clientes" (👥) en el inicio. Con "+ Nuevo" agregas un cliente (nombre, negocio, teléfono, barberos). Usa el buscador para encontrar uno.' },
+    { t:'✏️ Editar o cambiar un cliente',
+      k:'editar cliente cambiar cliente modificar cliente corregir cliente actualizar cliente cambiar telefono cambiar nombre cambiar direccion arreglar cliente datos del cliente editar barbero borrar cliente eliminar cliente',
+      r:'Toca "Clientes" (👥) → busca y toca el cliente → en su perfil toca "✏️ Editar cliente". Ahí cambias el nombre, negocio, teléfono, dirección y barberos. También desde ahí puedes eliminarlo.' },
     { t:'💾 Hacer un respaldo (backup)',
       k:'respaldo backup copia seguridad guardar datos bajar respaldo perder datos proteger',
       r:'En el inicio, toca "Hacer respaldo ahora" para bajar una copia a tu teléfono. Además, la app guarda solo en la nube cada 2 horas. En "Copias de Seguridad" puedes restaurar.' },
@@ -6219,6 +6222,42 @@ function normalizarTexto(s){
     .replace(/á/g,'a').replace(/é/g,'e').replace(/í/g,'i').replace(/ó/g,'o').replace(/ú/g,'u').replace(/ñ/g,'n');
 }
 
+// Grupos de palabras que significan lo mismo. Si escribes cualquiera de un grupo,
+// el buscador también busca las demás. Así "editar" encuentra todo lo editable,
+// aunque el tema use la palabra "cambiar" o "corregir".
+function gruposSinonimosAyuda(){
+  return [
+    ['editar','cambiar','modificar','corregir','actualizar','arreglar','ajustar','edito','cambio'],
+    ['borrar','eliminar','quitar','remover','borro','elimino'],
+    ['crear','agregar','anadir','nuevo','nueva','registrar','crea','agrega','poner'],
+    ['ver','consultar','mostrar','revisar','buscar','encontrar','veo'],
+    ['pago','pagos','abono','abonos','cobro','cobrar','cobre','pagaron','pague'],
+    ['deben','deuda','deudas','debe','debo','saldo','balance','pendiente'],
+    ['venta','vender','factura','facturar','vendo','vendi'],
+    ['cliente','clientes','barbero','barberia','barberos'],
+    ['producto','productos','articulo','articulos','mercancia','item'],
+    ['precio','precios','costo','costos','valor'],
+    ['van','camioneta','carro'],
+    ['respaldo','backup','copia','seguridad'],
+    ['gasto','gastos','gasolina','comida'],
+    ['reporte','reportes','informe','ganancia','ganancias','margen'],
+  ];
+}
+
+// Toma las palabras que escribió el usuario y les suma los sinónimos de cada grupo.
+function expandirConSinonimos(palabras){
+  var grupos = gruposSinonimosAyuda();
+  var resultado = palabras.slice();
+  palabras.forEach(function(w){
+    grupos.forEach(function(g){
+      if(g.indexOf(w) > -1){
+        g.forEach(function(sin){ if(resultado.indexOf(sin) === -1) resultado.push(sin); });
+      }
+    });
+  });
+  return resultado;
+}
+
 function renderAyuda(q){
   var el = document.getElementById('ayuda-resultados');
   if(!el) return;
@@ -6230,11 +6269,23 @@ function renderAyuda(q){
     lista = temas; // sin búsqueda: mostrar todos
   } else {
     var palabras = qn.split(/\s+/).filter(function(w){ return w.length >= 2; });
-    // Puntuar cada tema según cuántas palabras de la pregunta aparecen en su título o claves
+    var palabrasEscritas = palabras.slice();
+    var palabrasBusqueda = expandirConSinonimos(palabras);
+    // Puntuar cada tema. Las palabras que el usuario escribió de verdad valen más (2 puntos)
+    // que los sinónimos agregados (1 punto), para que lo más exacto salga primero.
     lista = temas.map(function(tema){
-      var texto = normalizarTexto(tema.t + ' ' + tema.k);
+      var textoTitulo = normalizarTexto(tema.t);
+      var textoClaves = normalizarTexto(tema.k);
       var puntos = 0;
-      palabras.forEach(function(w){ if(texto.indexOf(w) > -1) puntos++; });
+      palabrasBusqueda.forEach(function(w){
+        var escrita = (palabrasEscritas.indexOf(w) > -1);
+        // Si la palabra está en el TÍTULO, vale mucho más (es el tema principal).
+        if(textoTitulo.indexOf(w) > -1){
+          puntos += escrita ? 5 : 3;
+        } else if(textoClaves.indexOf(w) > -1){
+          puntos += escrita ? 2 : 1;
+        }
+      });
       return { tema: tema, puntos: puntos };
     }).filter(function(x){ return x.puntos > 0; })
       .sort(function(a,b){ return b.puntos - a.puntos; })

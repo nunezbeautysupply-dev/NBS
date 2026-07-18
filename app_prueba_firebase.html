@@ -8047,8 +8047,14 @@ function renderBarberiasInicio(q){
     // Casilla para elegir TODOS los barberos de esta barberia de un solo toque -en las
     // barberias donde todos te compran, evita tener que tocarlos uno por uno-.
     var chkTodos = document.createElement('div');
-    chkTodos.style.cssText = 'width:26px;height:26px;border-radius:7px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;'
-      + (todosSel ? 'background:var(--nbs-gold);color:white;' : (algunoSel ? 'background:var(--nbs-gold-bg);color:var(--nbs-gold-dark);border:1.5px solid var(--nbs-gold);' : 'border:1.5px solid #d8d8dc;color:transparent;'));
+    // Antes: 26px con borde de 1.5px en gris #d8d8dc sobre blanco — casi no se veia donde
+    // tocar. Ahora: mas grande, borde de 2.5px y gris mas oscuro, con fondo propio.
+    chkTodos.style.cssText = 'width:30px;height:30px;border-radius:8px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:900;transition:all 0.15s;'
+      + (todosSel
+          ? 'background:var(--nbs-gold);color:white;border:2.5px solid var(--nbs-gold);box-shadow:0 2px 6px rgba(212,160,23,0.45);'
+          : (algunoSel
+              ? 'background:var(--nbs-gold-bg);color:var(--nbs-gold-dark);border:2.5px solid var(--nbs-gold);'
+              : 'background:#F4F4F8;border:2.5px solid #8A8A9A;color:transparent;'));
     chkTodos.textContent = todosSel ? '✓' : (algunoSel ? '−' : '');
     chkTodos.title = todosSel ? 'Quitar todos' : 'Elegir todos';
     chkTodos.onclick = (function(negocio, listaBarberos, yaEstabanTodos){
@@ -8086,13 +8092,24 @@ function renderBarberiasInicio(q){
 
       var btn = document.createElement('div');
       btn.id = 'barb-row-'+cid;
-      btn.style.cssText = 'display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;margin-bottom:4px;cursor:pointer;'+(seleccionado?'background:var(--nbs-gold-bg);':'');
-      btn.innerHTML = '<div id="barb-check-'+cid+'" style="width:22px;height:22px;border-radius:6px;'+(seleccionado?'background:var(--nbs-gold);':'border:1.5px solid #d8d8dc;')+'display:flex;align-items:center;justify-content:center;flex-shrink:0">'
-        +(seleccionado?'<span style="color:white;font-size:14px;font-weight:700">✓</span>':'')
+      // La fila entera se marca cuando el barbero esta elegido -fondo dorado y una franja
+      // lateral-, para que se vea a quien elegiste sin tener que mirar la casilla.
+      btn.style.cssText = 'display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:9px;margin-bottom:5px;cursor:pointer;transition:all 0.15s;'
+        + (seleccionado
+            ? 'background:var(--nbs-gold-bg);border:1.5px solid var(--nbs-gold);border-left:5px solid var(--nbs-gold);'
+            : 'background:white;border:1.5px solid var(--nbs-line);border-left:5px solid transparent;');
+      // Antes: 22px con borde de 1.5px en gris #d8d8dc — casi invisible sobre blanco.
+      // Ahora: mas grande, borde de 2.5px, gris mas oscuro, y fondo propio.
+      btn.innerHTML = '<div id="barb-check-'+cid+'" style="width:28px;height:28px;border-radius:8px;'
+        +(seleccionado
+            ? 'background:var(--nbs-gold);border:2.5px solid var(--nbs-gold);box-shadow:0 2px 6px rgba(212,160,23,0.45);'
+            : 'background:#F4F4F8;border:2.5px solid #8A8A9A;')
+        +'display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all 0.15s">'
+        +(seleccionado?'<span style="color:white;font-size:16px;font-weight:900">✓</span>':'')
         +'</div>'
-        +'<div style="width:34px;height:34px;border-radius:8px;background:var(--nbs-gold-bg);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--nbs-gold-dark);flex-shrink:0">'+c.nombre[0]+'</div>'
-        +'<div style="font-size:14px;font-weight:500;color:var(--nbs-ink);flex:1">'+nombreCompleto+'</div>'
-        +(seleccionado?'<div style="font-size:11px;color:var(--nbs-gold-dark);font-weight:600">✓</div>':'');
+        +'<div style="width:34px;height:34px;border-radius:8px;background:var(--nbs-gold-bg);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:var(--nbs-gold-dark);flex-shrink:0">'+c.nombre[0]+'</div>'
+        +'<div style="font-size:15px;font-weight:'+(seleccionado?'800':'600')+';color:var(--nbs-ink);flex:1">'+nombreCompleto+'</div>'
+        +(seleccionado?'<div style="font-size:13px;color:var(--nbs-gold-dark);font-weight:800">✓</div>':'');
 
       btn.onclick = (function(cliente, barberia, id){
         return function(){

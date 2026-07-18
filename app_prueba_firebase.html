@@ -12099,8 +12099,17 @@ function abrirEditorPago(vid, pidx){
   var vf = ventas.find(function(x){ return x.id === vid; });
   if(!vf || !vf.pagosFactura || vf.pagosFactura[pidx] === undefined){ alert('No se encontró el pago.'); return; }
   var pago = vf.pagosFactura[pidx];
-  var metodoActual = pago.metodo || 'efectivo';
-  var teniaMetodosMultiples = !!(pago.metodos && pago.metodos.length > 1);
+
+  // Armar las filas de métodos a partir del pago existente:
+  //  - Si el pago ya tenía métodos múltiples (metodos[]), usarlos tal cual.
+  //  - Si tenía un solo método, hacer UNA fila con ese método y el monto total.
+  var filas;
+  if(pago.metodos && pago.metodos.length){
+    filas = pago.metodos.map(function(m){ return { tipo: m.tipo || 'efectivo', monto: m.monto || 0 }; });
+  } else {
+    filas = [{ tipo: pago.metodo || 'efectivo', monto: pago.monto || 0 }];
+  }
+  window._editPagoMetodos = filas;
 
   var overlay = document.getElementById('editor-pago-overlay');
   if(!overlay){
@@ -12110,25 +12119,17 @@ function abrirEditorPago(vid, pidx){
   }
   overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px';
 
-  function botonMetodo(val, label){
-    var activo = (metodoActual === val);
-    return '<button type="button" onclick="_editorPagoMetodo=\''+val+'\';document.querySelectorAll(\'.epm-btn\').forEach(function(b){b.style.background=\'#F0F0F5\';b.style.color=\'#333\';});this.style.background=\'#1a237e\';this.style.color=\'white\';" '
-      +'class="epm-btn" style="flex:1;padding:9px;border:none;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;background:'+(activo?'#1a237e':'#F0F0F5')+';color:'+(activo?'white':'#333')+'">'+label+'</button>';
-  }
-
-  window._editorPagoMetodo = metodoActual;
-
   overlay.innerHTML =
     '<div style="background:white;border-radius:14px;padding:18px;max-width:400px;width:100%;max-height:90vh;overflow-y:auto">'
     +'<div style="font-size:16px;font-weight:800;color:#1a237e;margin-bottom:14px">✏️ Corregir pago</div>'
-    +(teniaMetodosMultiples ? '<div style="background:#FFF3E0;border-radius:8px;padding:10px;margin-bottom:14px;font-size:12px;color:#E65100">⚠️ Este pago se hizo con varias formas de pago juntas. Al corregirlo, quedará con un solo método (el que elijas abajo).</div>' : '')
-    +'<label style="font-size:11px;color:#888;font-weight:700;display:block;margin-bottom:5px">MONTO ($)</label>'
-    +'<input id="editor-pago-monto" type="text" inputmode="decimal" value="'+(pago.monto||0).toFixed(2)+'" onfocus="this.select()" style="width:100%;padding:11px;border:1px solid #ccc;border-radius:8px;font-size:15px;font-weight:700;margin-bottom:14px;box-sizing:border-box">'
     +'<label style="font-size:11px;color:#888;font-weight:700;display:block;margin-bottom:5px">FECHA</label>'
-    +'<input id="editor-pago-fecha" type="date" value="'+fechaUSAaISO(pago.fecha)+'" style="width:100%;padding:11px;border:1px solid #ccc;border-radius:8px;font-size:15px;margin-bottom:14px;box-sizing:border-box">'
-    +'<label style="font-size:11px;color:#888;font-weight:700;display:block;margin-bottom:5px">MÉTODO</label>'
-    +'<div style="display:flex;gap:6px;margin-bottom:18px">'
-    + botonMetodo('efectivo','💵 Efectivo') + botonMetodo('tarjeta','💳 Tarjeta') + botonMetodo('cashapp','📱 Zelle')
+    +'<input id="editor-pago-fecha" type="date" value="'+fechaUSAaISO(pago.fecha)+'" style="width:100%;padding:11px;border:1px solid #ccc;border-radius:8px;font-size:15px;margin-bottom:16px;box-sizing:border-box">'
+    +'<label style="font-size:11px;color:#888;font-weight:700;display:block;margin-bottom:6px">CÓMO SE PAGÓ (puedes dividirlo)</label>'
+    +'<div id="editor-pago-filas" style="margin-bottom:8px"></div>'
+    +'<button type="button" onclick="agregarFilaEditPago()" style="width:100%;background:none;border:1px dashed #bbb;border-radius:8px;padding:9px;color:#555;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:14px">+ Agregar otro método</button>'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;background:#F0F0F5;border-radius:8px;padding:11px;margin-bottom:16px">'
+    +'<span style="font-size:13px;color:#555;font-weight:600">Monto total del pago:</span>'
+    +'<span id="editor-pago-total" style="font-size:18px;font-weight:800;color:#2E7D32">$0.00</span>'
     +'</div>'
     +'<div style="display:flex;gap:8px;margin-bottom:10px">'
     +'<button onclick="guardarEditorPago('+vid+','+pidx+')" style="flex:1;padding:12px;background:#2E7D32;color:white;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">✓ Guardar cambios</button>'
@@ -12136,6 +12137,49 @@ function abrirEditorPago(vid, pidx){
     +'</div>'
     +'<button onclick="borrarPagoDesdeEditor('+vid+','+pidx+')" style="width:100%;padding:11px;background:#FFEBEE;color:#C62828;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">🗑️ Borrar este pago</button>'
     +'</div>';
+
+  renderFilasEditPago();
+}
+
+// Dibuja las filas de métodos (cada una: menú de método + monto + botón quitar)
+function renderFilasEditPago(){
+  var cont = document.getElementById('editor-pago-filas');
+  if(!cont) return;
+  var filas = window._editPagoMetodos || [];
+  var opciones = { efectivo:'💵 Efectivo', tarjeta:'💳 Tarjeta', cashapp:'📱 Zelle' };
+  cont.innerHTML = filas.map(function(m, i){
+    return '<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">'
+      +'<select onchange="fijarMetodoEditPago('+i+',this.value)" style="flex:1.2;padding:9px 6px;border:1px solid #ddd;border-radius:7px;font-size:13px">'
+      + Object.keys(opciones).map(function(k){ return '<option value="'+k+'"'+(m.tipo===k?' selected':'')+'>'+opciones[k]+'</option>'; }).join('')
+      +'</select>'
+      +'<input type="text" inputmode="decimal" value="'+(m.monto||0).toFixed(2)+'" onfocus="this.select()" oninput="fijarMontoEditPago('+i+',this.value)" style="flex:1;width:70px;padding:9px;border:1px solid #ddd;border-radius:7px;font-size:14px;font-weight:700;text-align:right;box-sizing:border-box">'
+      +(filas.length>1 ? '<button type="button" onclick="quitarFilaEditPago('+i+')" style="background:#FFEBEE;color:#C62828;border:none;border-radius:7px;width:34px;height:34px;font-size:15px;cursor:pointer;flex-shrink:0">✕</button>' : '')
+      +'</div>';
+  }).join('');
+  actualizarTotalEditPago();
+}
+
+function agregarFilaEditPago(){
+  window._editPagoMetodos.push({ tipo:'efectivo', monto:0 });
+  renderFilasEditPago();
+}
+function quitarFilaEditPago(idx){
+  window._editPagoMetodos.splice(idx, 1);
+  renderFilasEditPago();
+}
+function fijarMetodoEditPago(idx, tipo){
+  window._editPagoMetodos[idx].tipo = tipo;
+}
+function fijarMontoEditPago(idx, valor){
+  var n = parseFloat(valor);
+  window._editPagoMetodos[idx].monto = isNaN(n) ? 0 : n;
+  actualizarTotalEditPago();
+}
+function actualizarTotalEditPago(){
+  var filas = window._editPagoMetodos || [];
+  var total = filas.reduce(function(s,m){ return s+(m.monto||0); }, 0);
+  var el = document.getElementById('editor-pago-total');
+  if(el) el.textContent = '$'+fmtNum(total);
 }
 
 function cerrarEditorPago(){
@@ -12144,21 +12188,29 @@ function cerrarEditorPago(){
 }
 
 function guardarEditorPago(vid, pidx){
-  var monto = parseFloat(document.getElementById('editor-pago-monto').value);
-  if(isNaN(monto) || monto < 0){ alert('Ingresa un monto válido.'); return; }
   var fechaISO = document.getElementById('editor-pago-fecha').value;
   if(!fechaISO){ alert('Elige una fecha.'); return; }
+
+  var filas = (window._editPagoMetodos || []).filter(function(m){ return (m.monto||0) > 0; });
+  if(!filas.length){ alert('Pon al menos un método con monto mayor a cero.'); return; }
+  var montoTotal = filas.reduce(function(s,m){ return s+(m.monto||0); }, 0);
+  if(montoTotal <= 0){ alert('El monto total debe ser mayor a cero.'); return; }
 
   ventas = LS('nv', []);
   var vf = ventas.find(function(x){ return x.id === vid; });
   if(!vf || !vf.pagosFactura || vf.pagosFactura[pidx] === undefined){ alert('No se encontró el pago.'); return; }
 
-  vf.pagosFactura[pidx].monto = monto;
+  vf.pagosFactura[pidx].monto = montoTotal;
   vf.pagosFactura[pidx].fecha = fechaISOaUSA(fechaISO);
-  vf.pagosFactura[pidx].metodo = window._editorPagoMetodo || 'efectivo';
-  // Si el pago tenía varios métodos juntos (ej: parte efectivo + parte tarjeta), al corregirlo
-  // a un solo método hay que borrar ese array viejo para que el monto y el método no se contradigan.
-  if(vf.pagosFactura[pidx].metodos) delete vf.pagosFactura[pidx].metodos;
+  if(filas.length === 1){
+    // Un solo método: guardar como método simple y limpiar el array múltiple
+    vf.pagosFactura[pidx].metodo = filas[0].tipo;
+    if(vf.pagosFactura[pidx].metodos) delete vf.pagosFactura[pidx].metodos;
+  } else {
+    // Varios métodos: guardar el array y dejar metodo como el primero (por compatibilidad)
+    vf.pagosFactura[pidx].metodos = filas.map(function(m){ return { tipo:m.tipo, monto:m.monto }; });
+    vf.pagosFactura[pidx].metodo = filas[0].tipo;
+  }
   SS('nv', ventas);
   cerrarEditorPago();
   abrirAbono(cxcClienteId); // recalcula el saldo y refresca la pantalla

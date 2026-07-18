@@ -4265,7 +4265,7 @@ function ini(n,a){
 // Nombre completo del cliente incluyendo su apodo (si tiene), para mostrar en listas/tarjetas
 function nombreCl(c){
   if(!c) return '';
-  var base = (c.nombre||'') + ' ' + (c.apellido||'');
+  var base = ((c.nombre||'') + ' ' + (c.apellido||'')).replace(/\s+/g,' ').trim();
   var apodos = [c.apodo, c.contactoApodo].filter(function(a){ return a && a.trim(); });
   return apodos.length ? (base + ' "' + apodos.join(' - ') + '"') : base;
 }
@@ -5362,7 +5362,7 @@ function renderCl(q){
     var d=document.createElement('div');d.className='clrow';
     var direccionCorta = [c.dir, c.ciudad].filter(Boolean).join(', ');
     d.innerHTML='<div class="av">'+ini(c.nombre,c.apellido)+'</div>'
-      +'<div style="flex:1"><div style="font-size:16px;font-weight:700;color:var(--nbs-ink)">'+c.nombre+' '+c.apellido+(c.apodo?' <span style="color:var(--nbs-gold-dark);font-weight:700">"'+c.apodo+'"</span>':'')+(c.vipActivo?' <span style="color:var(--nbs-red-text);font-size:13px">★</span>':'')+'</div>'
+      +'<div style="flex:1"><div style="font-size:16px;font-weight:700;color:var(--nbs-ink)">'+((c.nombre||'')+' '+(c.apellido||'')).replace(/\s+/g,' ').trim()+(c.apodo?' <span style="color:var(--nbs-gold-dark);font-weight:700">"'+c.apodo+'"</span>':'')+(c.vipActivo?' <span style="color:var(--nbs-red-text);font-size:13px">★</span>':'')+'</div>'
       +'<div style="font-size:12px;color:var(--nbs-muted)">'+(c.negocio||'Cliente')+' · '+(c.tel||'Sin tel.')+'</div>'
       +(direccionCorta ? '<div style="font-size:11px;color:var(--nbs-muted-2);margin-top:1px">📍 '+direccionCorta+'</div>' : '')
       +'<div style="font-size:12px;font-weight:700;margin-top:2px;color:'+(balance>0?'var(--nbs-red-text)':'var(--nbs-muted-2)')+'">Balance: $'+fmtNum(balance)+'</div>'
@@ -7888,7 +7888,7 @@ function saveV(){
   if(!iV.length){ alert('Agrega al menos un producto'); return; }
   var cid = parseInt(document.getElementById('vcl').value)||null;
   var cl = cid ? clientes.find(function(c){ return c.id===cid; }) : null;
-  var cn = cl ? cl.nombre+' '+cl.apellido : 'Cliente general';
+  var cn = cl ? nombreCl(cl) : 'Cliente general';
   var tipo = document.getElementById('vtipo').value;
   var metodosPagoV = (window._pagoMetodos && window._pagoMetodos['vini']) ? window._pagoMetodos['vini'].filter(function(m){ return m.monto>0; }) : [];
   var ini = metodosPagoV.reduce(function(s,m){ return s+m.monto; }, 0);
@@ -8553,7 +8553,7 @@ function diagnosticoBarberias(nombreBuscar){
     msg += 'No se encontró ningún cliente con ese nombre.\n';
   }
   encontrados.forEach(function(c){
-    msg += '👤 '+c.nombre+' '+c.apellido+'\n';
+    msg += '👤 '+nombreCl(c)+'\n';
     msg += '  Campo negocio: "'+(c.negocio||'(VACÍO)')+'"\n';
     msg += '  Longitud: '+((c.negocio||'').length)+' caracteres\n\n';
   });
@@ -11075,7 +11075,7 @@ function guardarBalanceInicial(id){
     id: Date.now(),
     numFactura: siguienteNumeroFactura(),
     cid: cl.id,
-    cn: cl.nombre+' '+cl.apellido,
+    cn: nombreCl(cl),
     tipo: 'credito',
     items: [{ pid: null, nombre: nota, cant: 1, precio: monto, costo: 0 }],
     subtotal: monto,
@@ -11282,7 +11282,8 @@ function reporteDePagos(desde, hasta, el){
       var k = v.cid ? String(v.cid) : (v.cn || 'Cliente general');
       if(!porCliente[k]){
         var cl = clientesTodos.find(function(c){ return String(c.id) === String(v.cid); });
-        var nombre = cl ? (cl.nombre + ' ' + cl.apellido + (cl.apodo ? ' "'+cl.apodo+'"' : '')) : (v.cn || 'Cliente general');
+        var nombre = cl ? ((cl.nombre || '') + (cl.apellido ? ' ' + cl.apellido : '') + (cl.apodo ? ' "'+cl.apodo+'"' : '')).trim() : (v.cn || 'Cliente general');
+        if(!nombre) nombre = (v.cn || 'Cliente general');
         var negocio = cl ? (cl.negocio || '') : '';
         porCliente[k] = { nombre: nombre, negocio: negocio, total: 0, pagos: [] };
       }
@@ -12016,19 +12017,9 @@ function abrirAbono(cid){
           var btnEdit = document.createElement('button');
           btnEdit.textContent = '✏️';
           btnEdit.style.cssText = 'background:#E8EAF6;border:none;border-radius:6px;padding:3px 7px;cursor:pointer;font-size:12px;margin-right:4px';
-          btnEdit.onclick = (function(vid, pi, pm){ return function(){
-            var nuevo = prompt('Editar monto del abono ($):', pm.toFixed(2));
-            if(nuevo === null) return;
-            var nuevoMonto = parseFloat(nuevo);
-            if(isNaN(nuevoMonto) || nuevoMonto < 0){ alert('Monto inválido'); return; }
-            ventas = LS('nv',[]);
-            var vf = ventas.find(function(x){ return x.id===vid; });
-            if(vf && vf.pagosFactura && vf.pagosFactura[pi] !== undefined){
-              vf.pagosFactura[pi].monto = nuevoMonto;
-              SS('nv', ventas);
-              abrirAbono(cxcClienteId);
-            }
-          }; })(v.id, pidx, p.monto);
+          btnEdit.onclick = (function(vid, pi){ return function(){
+            abrirEditorPago(vid, pi);
+          }; })(v.id, pidx);
 
           var btnDel = document.createElement('button');
           btnDel.textContent = '🗑️';
@@ -12077,6 +12068,114 @@ function abrirAbono(cid){
       el.appendChild(card);
     });
   }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  EDITOR DE PAGOS (corregir monto, fecha y método de un pago ya registrado)
+//  Pedido por Sensei el 18 jul 2026. Vive en el detalle de la factura (CxC).
+//  Al guardar o borrar, el saldo del cliente se recalcula solo (lo hace abrirAbono).
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Convierte 'MM/DD/YYYY' -> 'YYYY-MM-DD' (para el input date). Si no puede, hoy.
+function fechaUSAaISO(f){
+  try {
+    var p = String(f).split('/');
+    if(p.length === 3) return p[2] + '-' + p[0].padStart(2,'0') + '-' + p[1].padStart(2,'0');
+  } catch(e){}
+  return fechaHoyISO();
+}
+// Convierte 'YYYY-MM-DD' -> 'MM/DD/YYYY' (como guarda la app)
+function fechaISOaUSA(iso){
+  try {
+    var p = String(iso).split('-');
+    if(p.length === 3) return p[1] + '/' + p[2] + '/' + p[0];
+  } catch(e){}
+  return iso;
+}
+
+// Abre el formulario para corregir un pago. vid = id de la venta/factura, pidx = índice del pago.
+function abrirEditorPago(vid, pidx){
+  ventas = LS('nv', []);
+  var vf = ventas.find(function(x){ return x.id === vid; });
+  if(!vf || !vf.pagosFactura || vf.pagosFactura[pidx] === undefined){ alert('No se encontró el pago.'); return; }
+  var pago = vf.pagosFactura[pidx];
+  var metodoActual = pago.metodo || 'efectivo';
+  var teniaMetodosMultiples = !!(pago.metodos && pago.metodos.length > 1);
+
+  var overlay = document.getElementById('editor-pago-overlay');
+  if(!overlay){
+    overlay = document.createElement('div');
+    overlay.id = 'editor-pago-overlay';
+    document.body.appendChild(overlay);
+  }
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px';
+
+  function botonMetodo(val, label){
+    var activo = (metodoActual === val);
+    return '<button type="button" onclick="_editorPagoMetodo=\''+val+'\';document.querySelectorAll(\'.epm-btn\').forEach(function(b){b.style.background=\'#F0F0F5\';b.style.color=\'#333\';});this.style.background=\'#1a237e\';this.style.color=\'white\';" '
+      +'class="epm-btn" style="flex:1;padding:9px;border:none;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;background:'+(activo?'#1a237e':'#F0F0F5')+';color:'+(activo?'white':'#333')+'">'+label+'</button>';
+  }
+
+  window._editorPagoMetodo = metodoActual;
+
+  overlay.innerHTML =
+    '<div style="background:white;border-radius:14px;padding:18px;max-width:400px;width:100%;max-height:90vh;overflow-y:auto">'
+    +'<div style="font-size:16px;font-weight:800;color:#1a237e;margin-bottom:14px">✏️ Corregir pago</div>'
+    +(teniaMetodosMultiples ? '<div style="background:#FFF3E0;border-radius:8px;padding:10px;margin-bottom:14px;font-size:12px;color:#E65100">⚠️ Este pago se hizo con varias formas de pago juntas. Al corregirlo, quedará con un solo método (el que elijas abajo).</div>' : '')
+    +'<label style="font-size:11px;color:#888;font-weight:700;display:block;margin-bottom:5px">MONTO ($)</label>'
+    +'<input id="editor-pago-monto" type="text" inputmode="decimal" value="'+(pago.monto||0).toFixed(2)+'" onfocus="this.select()" style="width:100%;padding:11px;border:1px solid #ccc;border-radius:8px;font-size:15px;font-weight:700;margin-bottom:14px;box-sizing:border-box">'
+    +'<label style="font-size:11px;color:#888;font-weight:700;display:block;margin-bottom:5px">FECHA</label>'
+    +'<input id="editor-pago-fecha" type="date" value="'+fechaUSAaISO(pago.fecha)+'" style="width:100%;padding:11px;border:1px solid #ccc;border-radius:8px;font-size:15px;margin-bottom:14px;box-sizing:border-box">'
+    +'<label style="font-size:11px;color:#888;font-weight:700;display:block;margin-bottom:5px">MÉTODO</label>'
+    +'<div style="display:flex;gap:6px;margin-bottom:18px">'
+    + botonMetodo('efectivo','💵 Efectivo') + botonMetodo('tarjeta','💳 Tarjeta') + botonMetodo('cashapp','📱 Zelle')
+    +'</div>'
+    +'<div style="display:flex;gap:8px;margin-bottom:10px">'
+    +'<button onclick="guardarEditorPago('+vid+','+pidx+')" style="flex:1;padding:12px;background:#2E7D32;color:white;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">✓ Guardar cambios</button>'
+    +'<button onclick="cerrarEditorPago()" style="flex:1;padding:12px;background:#F0F0F5;color:#333;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer">Cancelar</button>'
+    +'</div>'
+    +'<button onclick="borrarPagoDesdeEditor('+vid+','+pidx+')" style="width:100%;padding:11px;background:#FFEBEE;color:#C62828;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">🗑️ Borrar este pago</button>'
+    +'</div>';
+}
+
+function cerrarEditorPago(){
+  var o = document.getElementById('editor-pago-overlay');
+  if(o) o.style.display = 'none';
+}
+
+function guardarEditorPago(vid, pidx){
+  var monto = parseFloat(document.getElementById('editor-pago-monto').value);
+  if(isNaN(monto) || monto < 0){ alert('Ingresa un monto válido.'); return; }
+  var fechaISO = document.getElementById('editor-pago-fecha').value;
+  if(!fechaISO){ alert('Elige una fecha.'); return; }
+
+  ventas = LS('nv', []);
+  var vf = ventas.find(function(x){ return x.id === vid; });
+  if(!vf || !vf.pagosFactura || vf.pagosFactura[pidx] === undefined){ alert('No se encontró el pago.'); return; }
+
+  vf.pagosFactura[pidx].monto = monto;
+  vf.pagosFactura[pidx].fecha = fechaISOaUSA(fechaISO);
+  vf.pagosFactura[pidx].metodo = window._editorPagoMetodo || 'efectivo';
+  // Si el pago tenía varios métodos juntos (ej: parte efectivo + parte tarjeta), al corregirlo
+  // a un solo método hay que borrar ese array viejo para que el monto y el método no se contradigan.
+  if(vf.pagosFactura[pidx].metodos) delete vf.pagosFactura[pidx].metodos;
+  SS('nv', ventas);
+  cerrarEditorPago();
+  abrirAbono(cxcClienteId); // recalcula el saldo y refresca la pantalla
+  alert('✅ Pago corregido. El saldo se actualizó.');
+}
+
+function borrarPagoDesdeEditor(vid, pidx){
+  ventas = LS('nv', []);
+  var vf = ventas.find(function(x){ return x.id === vid; });
+  if(!vf || !vf.pagosFactura || vf.pagosFactura[pidx] === undefined){ alert('No se encontró el pago.'); return; }
+  var monto = vf.pagosFactura[pidx].monto || 0;
+  if(!confirm('¿Borrar este pago de $'+fmtNum(monto)+'? El saldo del cliente volverá a subir por ese monto.')) return;
+  vf.pagosFactura.splice(pidx, 1);
+  SS('nv', ventas);
+  cerrarEditorPago();
+  abrirAbono(cxcClienteId);
+  alert('Pago borrado. El saldo se actualizó.');
 }
 
 var METODOS_PAGO_LABELS = { efectivo:'💵 Efectivo', tarjeta:'💳 Tarjeta de Crédito', cashapp:'📱 CashApp / Zelle', credito_cliente:'🎁 Crédito del cliente' };
@@ -12301,7 +12400,7 @@ function eliminarDuplicadosClientes(){
       ventas.forEach(function(v){
         if(String(v.cid)===String(dup.id)){
           v.cid = principal.id;
-          v.cn = principal.nombre+' '+principal.apellido;
+          v.cn = nombreCl(principal);
         }
       });
       eliminados++;
@@ -12339,7 +12438,7 @@ function buscarClienteEspecifico(nombre){
   });
   msg += '📋 En lista de Clientes: '+enClientes.length+' coincidencia(s)\n';
   enClientes.forEach(function(c){
-    msg += '  - '+c.nombre+' '+c.apellido+' (id:'+c.id+')\n';
+    msg += '  - '+nombreCl(c)+' (id:'+c.id+')\n';
   });
 
   // Buscar en ventas (por nombre guardado cn)

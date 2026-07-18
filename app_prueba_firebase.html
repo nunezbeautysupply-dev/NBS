@@ -38,19 +38,26 @@
   --shadow:0 2px 12px rgba(0,0,0,0.08);
   --shadow-md:0 4px 20px rgba(0,0,0,0.12);
   /* --- Nuevo sistema de diseno (fase 1: modulo Facturas) --- */
-  --nbs-ink:#14141F;
-  --nbs-muted:#7A7A85;
-  --nbs-muted-2:#A0A0A8;
-  --nbs-line:#ECECEC;
-  --nbs-gold:#B8860B;
-  --nbs-gold-bg:#FDF6E9;
-  --nbs-gold-dark:#5C4813;
-  --nbs-red-bg:#FBECEC;
-  --nbs-red-text:#993C1D;
-  --nbs-red-dark:#712B13;
-  --nbs-green-bg:#EAF3E2;
-  --nbs-green-text:#3B6D11;
-  --nbs-shadow-card:0 1px 2px rgba(0,0,0,0.04);
+  /* ═══ Paleta actualizada el 18 de julio de 2026, aprobada por Sensei ═══
+     El texto chiquito tenia un contraste de 4.2:1 contra el blanco, cuando el minimo
+     recomendado para leer bien es 4.5:1. Estaba POR DEBAJO -no era impresion suya-.
+     Ahora llega a 6.8:1. El dorado paso de #B8860B (apagado, casi marron) a #D4A017,
+     que sigue siendo elegante pero SE VE. Las lineas pasaron de #ECECEC -casi del color
+     del fondo- a #C9C9D6, y las sombras de 0.04 a 0.09 de opacidad, para que las tarjetas
+     se despeguen del fondo. */
+  --nbs-ink:#0F0F18;
+  --nbs-muted:#5A5A66;
+  --nbs-muted-2:#8A8A96;
+  --nbs-line:#C9C9D6;
+  --nbs-gold:#D4A017;
+  --nbs-gold-bg:#FFF6DF;
+  --nbs-gold-dark:#6B520C;
+  --nbs-red-bg:#FFEDEA;
+  --nbs-red-text:#96331A;
+  --nbs-red-dark:#96331A;
+  --nbs-green-bg:#E6F5E4;
+  --nbs-green-text:#256B29;
+  --nbs-shadow-card:0 2px 10px rgba(0,0,0,0.09);
 }
 
 *{box-sizing:border-box;}
@@ -150,18 +157,54 @@ body{
 button{transition:transform 0.1s, filter 0.1s;}
 button:active{transform:scale(0.96);filter:brightness(0.93);}
 
+/* ===== LOS BUSCADORES SE TIENEN QUE VER =====
+   Antes tenian un borde de 0.5px en gris clarito sobre fondo blanco: practicamente
+   invisible, no se sabia donde escribir. Ahora llevan borde grueso, fondo propio, lupa,
+   y el texto de ayuda se lee de verdad. */
+.busca-fuerte{
+  flex:1;
+  border:none !important;
+  outline:none !important;
+  background:transparent !important;
+  padding:12px 0 !important;
+  font-size:14px !important;
+  font-weight:600 !important;
+  color:var(--nbs-ink) !important;
+  min-width:0;
+}
+.busca-fuerte::placeholder{
+  color:#9a9aa5 !important;
+  font-weight:600 !important;
+  opacity:1 !important;
+}
+.busca-caja{
+  flex:1;
+  display:flex;
+  align-items:center;
+  gap:7px;
+  background:white;
+  border-radius:11px;
+  padding:0 12px;
+  transition:box-shadow 0.15s;
+  min-width:0;
+}
+.busca-caja:focus-within{
+  box-shadow:0 0 0 3px rgba(212,160,23,0.28);
+}
+
 .inp{
   width:100%;
   padding:12px 14px;
-  font-size:14px;
+  font-size:15px;
   font-family:'Inter',sans-serif;
-  border:1.5px solid var(--border);
+  border:2px solid var(--nbs-line);
   border-radius:10px;
   outline:none;
   margin-bottom:10px;
   background:white;
   transition:border-color 0.2s;
   color:var(--text);
+  font-weight:600;
 }
 .inp:focus{border-color:var(--accent);}
 
@@ -183,7 +226,9 @@ button:active{transform:scale(0.96);filter:brightness(0.93);}
   padding:16px;
   margin-bottom:12px;
   box-shadow:var(--shadow);
-  border:1px solid rgba(0,0,0,0.04);
+  /* Antes: border:1px solid rgba(0,0,0,0.04) — un borde al 4% de opacidad, o sea,
+     practicamente invisible. Las tarjetas se perdian contra el fondo. */
+  border:2px solid var(--nbs-line);
   animation:tarjetaEntra 0.35s ease backwards;
 }
 @keyframes tarjetaEntra{
@@ -256,6 +301,24 @@ button:active{transform:scale(0.96);filter:brightness(0.93);}
 .mlb2-icon{width:30px;height:30px;border-radius:8px;background:var(--nbs-gold-bg);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
 .mlb2-icon i{font-size:15px;color:var(--nbs-gold-dark);}
 .menu-lat-btn:active{opacity:0.8;}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   LEGIBILIDAD — 18 de julio de 2026, pedido por Sensei y aprobado con ejemplos
+   El texto de 11-12px estaba en peso normal y gris claro: contraste 4.2:1, por
+   DEBAJO del minimo recomendado de 4.5:1. En la van, con sol y a la carrera, no
+   se leia. Se sube el peso y se oscurece el gris; los tamaños base suben 1px.
+   ═══════════════════════════════════════════════════════════════════════════ */
+.lbl{
+  font-size:12px !important;
+  font-weight:800 !important;
+  color:var(--nbs-muted) !important;
+  letter-spacing:0.3px;
+}
+.busca-fuerte{ font-size:15px !important; }
+.busca-caja{ border-width:2px !important; }
+/* Los botones de accion tambien se leen mejor */
+.btn{ font-weight:800 !important; }
+.mlb2{ font-weight:700 !important; }
 </style>
 
   <link rel="manifest" href="manifest.json">
@@ -528,7 +591,7 @@ button:active{transform:scale(0.96);filter:brightness(0.93);}
     <button class="btn" style="background:#6A1B9A;color:white" onclick="eliminarDuplicados()">🔍 Detectar y eliminar duplicados</button>
     <button class="btn" style="background:#00838F;color:white" onclick="exportarCatalogoParaPedidos()">📲 Generar página de pedidos por SMS para clientes</button>
     <div style="display:flex;gap:8px">
-      <input class="inp" id="catbuscar" type="text" placeholder="Buscar producto por nombre..." oninput="renderCatalogo(this.value)" style="flex:1">
+      <div class="busca-caja" style="border:2px solid var(--nbs-gold);margin-bottom:8px"><span style="font-size:16px;flex-shrink:0;opacity:0.75">🔍</span><input class="busca-fuerte" id="catbuscar" type="text" placeholder="Buscar producto por nombre..." oninput="renderCatalogo(this.value)"></div>
       <button id="btn-dictar-catalogo" onclick="dictarBusquedaSimple('catbuscar','btn-dictar-catalogo')" style="background:#5E35B1;color:white;border:none;border-radius:8px;width:44px;flex-shrink:0;cursor:pointer;font-size:18px">🎤</button>
     </div>
     <div id="busqueda-inteligente-wrap" style="margin-bottom:10px">
@@ -622,7 +685,7 @@ button:active{transform:scale(0.96);filter:brightness(0.93);}
   <div id="inv-resumen" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px"></div>
   <div id="inv-alerta-dormido" style="display:none;background:#FFF3E0;color:#E65100;border-radius:8px;padding:10px;font-size:12px;margin-bottom:14px"></div>
 
-  <input class="inp" id="invbuscar" type="text" placeholder="Buscar producto por nombre..." oninput="renderInventario(this.value)">
+  <div class="busca-caja" style="border:2px solid var(--nbs-gold);margin-bottom:8px"><span style="font-size:16px;flex-shrink:0;opacity:0.75">🔍</span><input class="busca-fuerte" id="invbuscar" type="text" placeholder="Buscar producto por nombre..." oninput="renderInventario(this.value)"></div>
   <div style="display:flex;gap:8px;margin-bottom:10px">
     <select class="inp" id="inv-filtro-marca" onchange="renderInventario(document.getElementById('invbuscar').value)" style="flex:1"><option value="">Todas las marcas</option></select>
     <select class="inp" id="inv-filtro-cat" onchange="renderInventario(document.getElementById('invbuscar').value)" style="flex:1"><option value="">Todas las categorías</option></select>
@@ -690,7 +753,10 @@ button:active{transform:scale(0.96);filter:brightness(0.93);}
   <div class="card" style="margin-bottom:10px">
     <label class="lbl">Buscar producto para agregar</label>
     <div style="display:flex;gap:8px">
-      <input class="inp" id="rel-buscar" type="text" placeholder="Escribe o dicta el producto..." oninput="filterRelleno(this.value)" onfocus="filterRelleno(this.value||'')" style="flex:1;margin-bottom:0">
+      <div class="busca-caja" style="border:2px solid var(--nbs-gold)">
+        <span style="font-size:16px;flex-shrink:0;opacity:0.75">🔍</span>
+        <input id="rel-buscar" class="busca-fuerte" type="text" placeholder="Escribe o dicta el producto..." oninput="filterRelleno(this.value)" onfocus="filterRelleno(this.value||'')">
+      </div>
       <button id="btn-dictar-relleno" onclick="dictarBusquedaSimple('rel-buscar','btn-dictar-relleno')" style="background:#5E35B1;color:white;border:none;border-radius:8px;width:44px;flex-shrink:0;cursor:pointer;font-size:18px">🎤</button>
     </div>
     <div id="rel-plist" style="background:white;border:1px solid #ddd;border-radius:8px;max-height:260px;overflow-y:auto;display:none;margin-top:8px"></div>
@@ -723,7 +789,7 @@ button:active{transform:scale(0.96);filter:brightness(0.93);}
     <button class="btn" style="background:#6A1B9A;color:white" onclick="eliminarDuplicadosClientes()">🔍 Eliminar clientes duplicados</button>
   </div>
   <div id="cl-l">
-    <input class="inp" id="cl-buscar-input" type="text" placeholder="Buscar cliente..." oninput="window._clUltimaBusqueda=this.value;renderCl(this.value)">
+    <div class="busca-caja" style="border:2px solid var(--nbs-gold);margin-bottom:8px"><span style="font-size:16px;flex-shrink:0;opacity:0.75">🔍</span><input class="busca-fuerte" id="cl-buscar-input" type="text" placeholder="Buscar cliente..." oninput="window._clUltimaBusqueda=this.value;renderCl(this.value)"></div>
     <div id="cl-filtro-tipos" style="display:flex;overflow-x:auto;gap:6px;margin-bottom:12px;padding-bottom:2px"></div>
     <div id="lcl"><p style="color:#aaa;font-size:13px;text-align:center;padding:20px">Sin clientes</p></div>
   </div>
@@ -1372,6 +1438,10 @@ function hacerCopiaAutomatica(forzada){
     }
     localStorage.setItem(CLAVE_ULTIMA_COPIA, String(Date.now()));
     console.log('Copia verificada en la nube: '+v.encontradas+' parte(s) leidas de vuelta');
+    // Se te avisa en pantalla: antes se hacia en silencio y no habia forma de saber que
+    // estaba pasando -Sensei paso un dia entero sin ver una sola copia y creyendo que no
+    // funcionaba, cuando si funcionaba-.
+    if(!forzada) mostrarAvisoCopiaHecha();
     limpiarCopiasViejas();
     return true;
   }).catch(function(e){
@@ -1383,6 +1453,24 @@ function hacerCopiaAutomatica(forzada){
 
 // Vuelve a LEER de la nube lo que se acaba de guardar, y comprueba que este completo.
 // Devuelve { completa, encontradas, esperadas }.
+// Un aviso breve -3 segundos- para que sepas que la copia automatica se hizo. Sin esto,
+// todo pasaba por detras y no tenias forma de saber si estaba funcionando o no.
+function mostrarAvisoCopiaHecha(){
+  var t = document.getElementById('toast-copia-auto');
+  if(!t){
+    t = document.createElement('div');
+    t.id = 'toast-copia-auto';
+    t.style.cssText = 'position:fixed;top:64px;left:50%;transform:translateX(-50%);background:#2E7D32;color:white;padding:9px 16px;border-radius:20px;font-size:12px;font-weight:700;z-index:99988;box-shadow:0 3px 12px rgba(0,0,0,0.25);transition:opacity 0.4s;white-space:nowrap';
+    document.body.appendChild(t);
+  }
+  var hora = new Date().toLocaleTimeString('es', {hour:'2-digit', minute:'2-digit'});
+  t.textContent = '🛡️ Copia automática guardada · ' + hora;
+  t.style.display = 'block';
+  t.style.opacity = '1';
+  setTimeout(function(){ t.style.opacity = '0'; }, 3000);
+  setTimeout(function(){ t.style.display = 'none'; }, 3500);
+}
+
 function verificarCopiaDeVerdad(idCopia){
   return fbDb.collection('nbs_copias').doc(idCopia).get().then(function(doc){
     if(!doc.exists) return { completa: false, encontradas: 0, esperadas: 0 };
@@ -1531,9 +1619,8 @@ function revisarSiFaltaAlgo(){
 
 function iniciarCopiasAutomaticas(){
   revisarSiFaltaAlgo();
-  // Si ya vienes con facturas acumuladas de antes, el aviso aparece al abrir la app -no
-  // hay que esperar a que hagas 5 mas para enterarte-
-  setTimeout(mostrarAvisoRespaldo, 2500);
+  // El recordatorio de bajar respaldo se revisa cada minuto, y aparece solo a los 30 min
+  setTimeout(iniciarVigilanteDeRespaldo, 2500);
   // La primera copia se intenta a los 20 segundos de abrir -sin estorbar el arranque-
   setTimeout(function(){ hacerCopiaAutomatica(false); }, 20000);
   // Y despues se revisa cada 10 minutos si ya toca hacer la siguiente
@@ -1649,11 +1736,17 @@ function restaurarCopiaLocal(hora){
 // Una barrita que NO te bloquea: la puedes ignorar mientras atiendes al barbero, y sigue
 // ahi cuando tengas un momento. Nada de ventanas que te paren en medio de la ruta.
 //
+// AVISA CADA 30 MINUTOS -decidido con Sensei el 17 de julio de 2026-. Antes solo avisaba
+// cada 5 facturas, y eso dejaba un hueco: un dia de pocas ventas podias pasar horas -o
+// dias- sin bajar un respaldo y la app no decia nada.
+//
 // POR QUE TIENES QUE TOCARLA TU -verificado el 17 de julio de 2026-:
 // Desde Chrome 125 (mayo 2024), el navegador BLOQUEA toda descarga que no venga de un toque
 // del usuario dentro de los 500 ms siguientes. Una descarga automatica seria bloqueada
 // siempre. Tu toque ES el permiso que Chrome exige. Por eso hay un boton y no magia.
 var CLAVE_NV_ULTIMO_RESPALDO = 'nbs_nv_al_bajar_respaldo';
+var CLAVE_SNOOZE_RESPALDO = 'nbs_snooze_respaldo';
+var MINUTOS_ENTRE_AVISOS = 30;
 
 // Cuantas facturas llevas desde la ultima vez que bajaste un respaldo
 function facturasSinRespaldar(){
@@ -1668,21 +1761,47 @@ function facturasSinRespaldar(){
   return Math.max(0, ahora - parseInt(alBajar, 10));
 }
 
+// Cuantos minutos llevas sin bajar un respaldo
+function minutosSinRespaldar(){
+  var ultimo = parseInt(localStorage.getItem('ultimoBackup') || '0', 10);
+  if(!ultimo) return 9999; // nunca has bajado uno
+  return Math.floor((Date.now() - ultimo) / 60000);
+}
+
+function textoTiempo(mins){
+  if(mins >= 9999) return 'nunca has bajado un respaldo';
+  if(mins < 60) return 'Llevas ' + mins + ' min sin bajar respaldo';
+  var h = Math.floor(mins / 60);
+  if(h < 24) return 'Llevas ' + h + ' hora(s) sin bajar respaldo';
+  return 'Llevas ' + Math.floor(h/24) + ' día(s) sin bajar respaldo';
+}
+
 function marcarRespaldoBajado(){
   localStorage.setItem(CLAVE_NV_ULTIMO_RESPALDO, String((LS('nv', []) || []).length));
+  localStorage.removeItem(CLAVE_SNOOZE_RESPALDO);
   ocultarAvisoRespaldo();
 }
 
 function mostrarAvisoRespaldo(){
-  var n = facturasSinRespaldar();
-  if(n < FACTURAS_ENTRE_COPIAS){ ocultarAvisoRespaldo(); return; }
+  var mins = minutosSinRespaldar();
+  var facturas = facturasSinRespaldar();
 
-  // Mientras mas facturas se acumulen, mas se nota — para que sepas de un vistazo que tan
+  // Si lo cerraste con la ✕, se calla 30 minutos y despues vuelve
+  var snooze = parseInt(localStorage.getItem(CLAVE_SNOOZE_RESPALDO) || '0', 10);
+  if(snooze && Date.now() < snooze){ ocultarAvisoRespaldo(); return; }
+
+  // Aparece por TIEMPO -cada 30 min- o por facturas, lo que llegue primero
+  if(mins < MINUTOS_ENTRE_AVISOS && facturas < FACTURAS_ENTRE_COPIAS){ ocultarAvisoRespaldo(); return; }
+
+  // Mientras mas tiempo pase, mas se nota — para que sepas de un vistazo que tan
   // expuesto estas, sin tener que pensarlo.
-  var fondo, texto;
-  if(n >= 25){      fondo = '#B71C1C'; texto = '🚨 Llevas ' + n + ' facturas sin bajar respaldo'; }
-  else if(n >= 15){ fondo = '#E65100'; texto = '⚠️ Llevas ' + n + ' facturas sin bajar respaldo'; }
-  else {            fondo = '#1a237e'; texto = '💾 Llevas ' + n + ' facturas sin bajar respaldo'; }
+  var fondo, icono;
+  if(mins >= 240 || facturas >= 25){      fondo = '#B71C1C'; icono = '🚨'; }
+  else if(mins >= 120 || facturas >= 15){ fondo = '#E65100'; icono = '⚠️'; }
+  else {                                   fondo = '#1a237e'; icono = '💾'; }
+
+  var texto = icono + ' ' + textoTiempo(mins);
+  if(facturas > 0) texto += ' · ' + facturas + ' factura(s)';
 
   var a = document.getElementById('aviso-bajar-respaldo');
   if(!a){
@@ -1690,12 +1809,18 @@ function mostrarAvisoRespaldo(){
     a.id = 'aviso-bajar-respaldo';
     a.innerHTML = '<span id="aviso-respaldo-texto" style="flex:1"></span>'
       + '<button onclick="bajarRespaldoDesdeAviso()" style="background:white;color:#1a237e;border:none;border-radius:7px;padding:6px 11px;font-size:11px;font-weight:800;cursor:pointer;flex-shrink:0">Bajar</button>'
-      + '<button onclick="ocultarAvisoRespaldo()" style="background:none;border:none;color:rgba(255,255,255,0.65);font-size:17px;cursor:pointer;flex-shrink:0;padding:0 4px">✕</button>';
+      + '<button onclick="posponerAvisoRespaldo()" style="background:none;border:none;color:rgba(255,255,255,0.65);font-size:17px;cursor:pointer;flex-shrink:0;padding:0 4px">✕</button>';
     document.body.appendChild(a);
   }
   a.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:'+fondo+';color:white;padding:9px 12px;font-size:12px;font-weight:600;z-index:99989;display:flex;align-items:center;gap:8px;box-shadow:0 -2px 8px rgba(0,0,0,0.2)';
   var t = document.getElementById('aviso-respaldo-texto');
   if(t) t.textContent = texto;
+}
+
+// La ✕ no lo apaga para siempre: lo calla 30 minutos y despues vuelve
+function posponerAvisoRespaldo(){
+  localStorage.setItem(CLAVE_SNOOZE_RESPALDO, String(Date.now() + MINUTOS_ENTRE_AVISOS*60*1000));
+  ocultarAvisoRespaldo();
 }
 
 // Se llama desde el boton "Bajar" del aviso. El toque del usuario es lo que Chrome exige,
@@ -1708,6 +1833,13 @@ function bajarRespaldoDesdeAviso(){
 function ocultarAvisoRespaldo(){
   var a = document.getElementById('aviso-bajar-respaldo');
   if(a) a.style.display = 'none';
+}
+
+// Revisa cada minuto si ya toca avisar -asi el aviso aparece solo a los 30 minutos, sin
+// que tengas que hacer nada ni recargar la app-
+function iniciarVigilanteDeRespaldo(){
+  mostrarAvisoRespaldo();
+  setInterval(mostrarAvisoRespaldo, 60000);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -3007,7 +3139,7 @@ function activarBusquedaInteligente(){
 function mostrarCajaBusquedaIA(){
   var wrap = document.getElementById('busqueda-inteligente-resultado');
   wrap.style.display = 'block';
-  wrap.innerHTML = '<input type="text" id="ia-buscar-input" placeholder="Escribe lo que buscas..." style="width:100%;padding:10px;border:1px solid #D1C4E9;border-radius:8px;font-size:13px;box-sizing:border-box;margin-bottom:8px">'
+  wrap.innerHTML = '<div class="busca-caja" style="border:2px solid var(--nbs-gold);margin-bottom:8px"><span style="font-size:16px;flex-shrink:0;opacity:0.75">🔍</span><input class="busca-fuerte" type="text" id="ia-buscar-input" placeholder="Escribe lo que buscas..."></div>'
     + '<div id="ia-buscar-resultados"></div>';
   document.getElementById('ia-buscar-input').addEventListener('input', debounce(function(){
     buscarConIA(document.getElementById('ia-buscar-input').value);
@@ -8282,12 +8414,15 @@ function renderPedidosMultiples(){
 
     // --- Buscador propio de esta tarjeta ---
     html += '<div style="padding:9px 12px 4px">'
-      +'<div style="display:flex;gap:6px">'
-      +'<input id="multi-buscar-'+idx+'" type="text" placeholder="Buscar producto..." oninput="filterPedMulti('+idx+', this.value)" onfocus="filterPedMulti('+idx+', this.value||\'\')" style="flex:1;padding:9px 10px;border:0.5px solid #ddd;border-radius:8px;font-size:13px">'
-      +'<button id="multi-mic-'+idx+'" onclick="dictarBusquedaSimple(\'multi-buscar-'+idx+'\', \'multi-mic-'+idx+'\')" style="background:#5E35B1;color:white;border:none;border-radius:8px;width:40px;flex-shrink:0;cursor:pointer;font-size:16px">🎤</button>'
-      +'<button onclick="toggleNuevoProdPed('+idx+')" title="Agregar producto nuevo al catálogo" style="background:#00838F;color:white;border:none;border-radius:8px;width:40px;flex-shrink:0;cursor:pointer;font-size:16px">📦</button>'
+      +'<div style="display:flex;gap:6px;background:'+col.suave+';padding:7px;border-radius:13px;border:1px solid '+col.fuerte+'33">'
+      +'<div class="busca-caja" style="border:2px solid '+col.fuerte+'">'
+      +'<span style="font-size:15px;flex-shrink:0;opacity:0.75">🔍</span>'
+      +'<input id="multi-buscar-'+idx+'" class="busca-fuerte" type="text" placeholder="Buscar producto..." oninput="filterPedMulti('+idx+', this.value)" onfocus="filterPedMulti('+idx+', this.value||\'\')">'
       +'</div>'
-      +'<div id="multi-plist-'+idx+'" style="background:white;border:1px solid #ddd;border-radius:8px;max-height:180px;overflow-y:auto;display:none;margin-top:6px"></div>';
+      +'<button id="multi-mic-'+idx+'" onclick="dictarBusquedaSimple(\'multi-buscar-'+idx+'\', \'multi-mic-'+idx+'\')" title="Dictar por voz" style="background:#5E35B1;color:white;border:none;border-radius:11px;width:46px;flex-shrink:0;cursor:pointer;font-size:18px;box-shadow:0 2px 5px rgba(94,53,177,0.35)">🎤</button>'
+      +'<button onclick="toggleNuevoProdPed('+idx+')" title="Agregar producto nuevo al catálogo" style="background:#00838F;color:white;border:none;border-radius:11px;width:46px;flex-shrink:0;cursor:pointer;font-size:18px;box-shadow:0 2px 5px rgba(0,131,143,0.35)">📦</button>'
+      +'</div>'
+      +'<div id="multi-plist-'+idx+'" style="background:white;border:2px solid '+col.fuerte+'55;border-radius:11px;max-height:180px;overflow-y:auto;display:none;margin-top:7px;box-shadow:0 4px 12px rgba(0,0,0,0.12)"></div>';
 
     // --- Producto elegido + cantidad + boton de agregar ---
     if(prodSel){
@@ -12440,7 +12575,7 @@ function editarFactura(vid){
   var addBox = document.createElement('div');
   addBox.style.cssText = 'background:var(--nbs-gold-bg);border-radius:12px;padding:12px;margin-bottom:14px';
   addBox.innerHTML = '<label style="font-size:11px;color:var(--nbs-gold-dark);font-weight:700;display:block;margin-bottom:6px">➕ AGREGAR PRODUCTO A ESTA FACTURA</label>'
-    +'<input type="text" id="fact-edit-buscar-prod" placeholder="Buscar producto del catálogo..." autocomplete="off" oninput="buscarProductoParaFactura(this.value)" style="width:100%;padding:9px 10px;border:0.5px solid #d8d8dc;border-radius:8px;font-size:14px;box-sizing:border-box;margin-bottom:6px">'
+    +'<div class="busca-caja" style="border:2px solid var(--nbs-gold);margin-bottom:8px"><span style="font-size:16px;flex-shrink:0;opacity:0.75">🔍</span><input class="busca-fuerte" type="text" id="fact-edit-buscar-prod" placeholder="Buscar producto del catálogo..." autocomplete="off" oninput="buscarProductoParaFactura(this.value)"></div>'
     +'<div id="fact-edit-resultados" style="background:white;border-radius:8px;max-height:180px;overflow-y:auto;display:none"></div>';
   wrap.appendChild(addBox);
 
@@ -14996,7 +15131,7 @@ function abrirDevolucion(vid){
   cambioWrap.id = 'dev-cambio-wrap';
   cambioWrap.style.cssText = 'display:none;margin-bottom:12px';
   cambioWrap.innerHTML = '<label class="lbl">Buscar el producto nuevo que se lleva el cliente</label>'
-    +'<input class="inp" id="dev-cambio-buscar" type="text" placeholder="Escribe el nombre del producto..." autocomplete="off" oninput="buscarProductoParaCambio(\''+vid+'\')">'
+    +'<div class="busca-caja" style="border:2px solid var(--nbs-gold);margin-bottom:8px"><span style="font-size:16px;flex-shrink:0;opacity:0.75">🔍</span><input class="busca-fuerte" id="dev-cambio-buscar" type="text" placeholder="Escribe el nombre del producto..." autocomplete="off" oninput="buscarProductoParaCambio(\''+vid+'\')"></div>'
     +'<div id="dev-cambio-resultados" style="display:none;max-height:180px;overflow-y:auto;background:white;border:1px solid #ddd;border-radius:8px;margin-top:4px"></div>'
     +'<div id="dev-cambio-items"></div>';
   wrap.appendChild(cambioWrap);
@@ -15723,7 +15858,7 @@ function verHistorialCliente(cid, modo){
       <option value="">-- Cliente general --</option>
     </select>
     <label class="lbl">Buscar producto</label>
-    <input class="inp" id="vb" type="text" placeholder="Escribe para buscar..." oninput="filterV(this.value)" onfocus="filterV(this.value||'')">
+    <div class="busca-caja" style="border:2px solid var(--nbs-gold);margin-bottom:8px"><span style="font-size:16px;flex-shrink:0;opacity:0.75">🔍</span><input class="busca-fuerte" id="vb" type="text" placeholder="Escribe para buscar..." oninput="filterV(this.value)" onfocus="filterV(this.value||'')"></div>
     <div id="vlist" style="background:white;border:1px solid #ddd;border-radius:8px;max-height:200px;overflow-y:auto;display:none;margin-bottom:8px"></div>
     <div id="vchip" style="display:none;align-items:center;justify-content:space-between;background:#E3F2FD;border-radius:20px;padding:8px 14px;margin-bottom:8px">
       <span id="vsn" style="font-size:13px;color:#1565C0;font-weight:500"></span>
@@ -15801,7 +15936,10 @@ function verHistorialCliente(cid, modo){
     <!-- Pedidos pendientes primero, para no tener que bajar a buscarlos -->
     <div id="ped-pendientes-wrap" style="margin-bottom:8px"></div>
     <!-- Buscador de barberías/barberos -->
-    <input class="inp" id="ped-inicio-buscar" type="text" placeholder="🔍 Buscar barbería o barbero..." oninput="renderBarberiasInicio(this.value)" autocomplete="off" style="margin-bottom:8px">
+    <div class="busca-caja" style="border:2px solid var(--nbs-gold);background:white">
+      <span style="font-size:16px;flex-shrink:0;opacity:0.75">🔍</span>
+      <input id="ped-inicio-buscar" class="busca-fuerte" type="text" placeholder="Buscar barbería o barbero..." oninput="renderBarberiasInicio(this.value)">
+    </div>
     <!-- Lista de barberías con sus barberos -->
     <div id="ped-inicio-lista"></div>
   </div>
@@ -15811,7 +15949,7 @@ function verHistorialCliente(cid, modo){
     <div class="card">
       <p style="font-size:15px;font-weight:700;margin-bottom:4px">⚡ Nuevo pedido</p>
       <p style="font-size:12px;color:#aaa;margin-bottom:14px">Paso 1 de 2 — Selecciona la barbería</p>
-      <input class="inp" id="ped-barberia-buscar" type="text" placeholder="Buscar barbería..." oninput="renderBarberias(this.value)" autocomplete="off">
+      <div class="busca-caja" style="border:2px solid var(--nbs-gold);margin-bottom:8px"><span style="font-size:16px;flex-shrink:0;opacity:0.75">🔍</span><input class="busca-fuerte" id="ped-barberia-buscar" type="text" placeholder="Buscar barbería..." oninput="renderBarberias(this.value)" autocomplete="off"></div>
       <button class="btn" style="background:#546E7A;color:white;font-size:12px" onclick="var n=prompt('Nombre del cliente a verificar:');if(n)diagnosticoBarberias(n);">🔍 Verificar cliente</button>
       <div id="ped-barberia-lista"></div>
       <button class="btn" style="background:#546E7A;color:white" onclick="cancelarPedido()">← Cancelar</button>
@@ -15848,7 +15986,10 @@ function verHistorialCliente(cid, modo){
       </div>
       <label class="lbl">Buscar producto</label>
       <div style="display:flex;gap:8px">
-        <input class="inp" id="pedb" type="text" placeholder="Escribe para buscar..." oninput="filterPed(this.value)" onfocus="filterPed(this.value||'')" style="flex:1">
+        <div class="busca-caja" style="border:2px solid var(--nbs-gold)">
+          <span style="font-size:16px;flex-shrink:0;opacity:0.75">🔍</span>
+          <input id="pedb" class="busca-fuerte" type="text" placeholder="Escribe o dicta el producto..." oninput="filterPed(this.value)" onfocus="filterPed(this.value||'')">
+        </div>
         <button id="btn-dictar-pedido" onclick="dictarProductoPedido()" style="background:#5E35B1;color:white;border:none;border-radius:8px;width:44px;flex-shrink:0;cursor:pointer;font-size:18px">🎤</button>
       </div>
       <div id="dictado-resultado-wrap" style="display:none;background:#EDE7F6;border-radius:10px;padding:12px;margin-bottom:8px"></div>
@@ -15928,7 +16069,7 @@ function verHistorialCliente(cid, modo){
     </div>
     <label class="lbl">Buscar producto existente</label>
     <div style="display:flex;gap:8px">
-      <input class="inp" id="ccb" type="text" placeholder="Escribe para buscar..." oninput="filterCC(this.value)" onfocus="filterCC(this.value||'')" style="flex:1">
+      <div class="busca-caja" style="border:2px solid var(--nbs-gold);margin-bottom:8px"><span style="font-size:16px;flex-shrink:0;opacity:0.75">🔍</span><input class="busca-fuerte" id="ccb" type="text" placeholder="Escribe para buscar..." oninput="filterCC(this.value)" onfocus="filterCC(this.value||'')"></div>
       <button id="btn-dictar-compra" onclick="dictarProductoCompra()" style="background:#5E35B1;color:white;border:none;border-radius:8px;width:44px;flex-shrink:0;cursor:pointer;font-size:18px">🎤</button>
     </div>
     <div id="dictado-compra-wrap" style="display:none;background:#EDE7F6;border-radius:10px;padding:12px;margin-bottom:8px"></div>
@@ -15999,7 +16140,7 @@ function verHistorialCliente(cid, modo){
 <div id="p-facturas" class="pg">
   <div style="display:flex;gap:8px;margin-bottom:16px"><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="volverAtras()">← Atrás</button><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="ir('p-ped')">🏠 Inicio</button></div>
   <h2 style="font-size:20px;font-weight:700;color:#1a237e;margin-bottom:10px">🧾 Facturas</h2>
-  <input class="inp" id="fact-buscar" type="text" placeholder="Buscar por nombre, apodo, negocio, teléfono..." oninput="renderFacturas(this.value)" autocomplete="off" style="margin-bottom:8px">
+  <div class="busca-caja" style="border:2px solid var(--nbs-gold);margin-bottom:8px"><span style="font-size:16px;flex-shrink:0;opacity:0.75">🔍</span><input class="busca-fuerte" id="fact-buscar" type="text" placeholder="Buscar por nombre, apodo, negocio, teléfono..." oninput="renderFacturas(this.value)" autocomplete="off"></div>
 
   <div class="card" style="padding:12px;margin-bottom:10px">
     <p style="font-size:11px;font-weight:700;color:var(--nbs-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Ordenar y filtrar</p>
@@ -16167,7 +16308,7 @@ function verHistorialCliente(cid, modo){
   <div class="card" style="margin-bottom:12px">
     <p style="font-size:13px;font-weight:700;margin-bottom:8px">🔍 Buscar cliente (ver estatus o inscribir)</p>
     <div style="display:flex;gap:8px">
-      <input class="inp" id="vip-buscar-cl" type="text" placeholder="Escribe el nombre del cliente..." oninput="filtrarVIPBusqueda(this.value)" autocomplete="off" style="flex:1">
+      <div class="busca-caja" style="border:2px solid var(--nbs-gold);margin-bottom:8px"><span style="font-size:16px;flex-shrink:0;opacity:0.75">🔍</span><input class="busca-fuerte" id="vip-buscar-cl" type="text" placeholder="Escribe el nombre del cliente..." oninput="filtrarVIPBusqueda(this.value)" autocomplete="off"></div>
       <button id="btn-dictar-vip" onclick="dictarBusquedaSimple('vip-buscar-cl','btn-dictar-vip')" style="background:#5E35B1;color:white;border:none;border-radius:8px;width:44px;flex-shrink:0;cursor:pointer;font-size:18px">🎤</button>
     </div>
     <div id="vip-buscar-lista" style="background:white;border:1px solid #ddd;border-radius:8px;max-height:200px;overflow-y:auto;display:none"></div>
@@ -16186,7 +16327,7 @@ function verHistorialCliente(cid, modo){
     <button id="cxc-tab-pendientes" onclick="cambiarPestanaCxC('pendientes')" style="flex:1;padding:10px;background:var(--nbs-gold);color:white;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">📋 Pendientes</button>
     <button id="cxc-tab-saldadas" onclick="cambiarPestanaCxC('saldadas')" style="flex:1;padding:10px;background:#F0F0F2;color:var(--nbs-ink);border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">✅ Facturas Saldadas</button>
   </div>
-  <input class="inp" id="cxc-buscar" type="text" placeholder="Buscar por nombre o negocio..." oninput="cxcBuscarActivo(this.value)" autocomplete="off" style="margin-bottom:10px">
+  <div class="busca-caja" style="border:2px solid var(--nbs-gold);margin-bottom:8px"><span style="font-size:16px;flex-shrink:0;opacity:0.75">🔍</span><input class="busca-fuerte" id="cxc-buscar" type="text" placeholder="Buscar por nombre o negocio..." oninput="cxcBuscarActivo(this.value)" autocomplete="off"></div>
   <div id="cxc-lista"></div>
   <div id="cxc-saldadas-lista" style="display:none"></div>
 
@@ -16235,7 +16376,7 @@ function verHistorialCliente(cid, modo){
   <div style="display:flex;gap:8px;margin-bottom:16px"><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="volverAtras()">← Atrás</button><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="ir('p-ped')">🏠 Inicio</button></div>
   <h2 style="font-size:20px;font-weight:700;color:var(--nbs-ink);margin-bottom:4px;text-align:center">📖 Manual de Usuario</h2>
   <p style="font-size:12px;color:var(--nbs-muted);text-align:center;margin-bottom:16px">Toca cada tema para abrirlo</p>
-  <input class="inp" id="manual-buscar" type="text" placeholder="Buscar en el manual..." oninput="renderManual(this.value)" style="margin-bottom:14px">
+  <div class="busca-caja" style="border:2px solid var(--nbs-gold);margin-bottom:8px"><span style="font-size:16px;flex-shrink:0;opacity:0.75">🔍</span><input class="busca-fuerte" id="manual-buscar" type="text" placeholder="Buscar en el manual..." oninput="renderManual(this.value)"></div>
   <div id="manual-contenido"></div>
 </div>
 

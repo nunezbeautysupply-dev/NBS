@@ -480,6 +480,12 @@ body.inicio-oscuro .top{ background:#2C2C3B; border-bottom-color:#3E3E52; }
     <div id="inicio-resumen" class="ini-resumen" style="font-size:12.5px;margin-top:5px;font-weight:600">&nbsp;</div>
   </div>
 
+  <button onclick="abrirAyuda()" class="ini-btn" style="--c:#6A1B9A;--cb:#F3E5F5">
+    <span class="ini-ico">❓</span>
+    <span class="ini-txt"><b>AYUDA — ¿Cómo hago tal cosa?</b><i>Consultas: escribe y te digo dónde está</i></span>
+    <span class="ini-fl">›</span>
+  </button>
+
   <button onclick="ir('p-ped')" class="ini-btn" style="--c:#D4A017;--cb:#FFF6DF">
     <span class="ini-ico">⚡</span>
     <span class="ini-txt"><b>Pedidos Rápidos</b><i>Toma pedidos en la barbería</i></span>
@@ -6100,6 +6106,155 @@ function cargarDatosVan(){
 function guardarDatosVan(v){ SS('nvan', v); }
 
 var _van = null;
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  AYUDA / CONSULTAS  (18 jul 2026, pedido por Sensei)
+//  Un buscador de ayuda que funciona SIN INTERNET y GRATIS. Las respuestas están
+//  escritas aquí (no las inventa una IA), así que siempre son exactas para esta app.
+//  Cada tema tiene: título, palabras clave (para que encuentre aunque escribas
+//  distinto), y la respuesta con dónde está y cómo se usa.
+// ═══════════════════════════════════════════════════════════════════════════
+function baseAyudaNBS(){
+  return [
+    { t:'✏️ Corregir o borrar un pago',
+      k:'pago pagos cobro cobrar abono abonos me pagaron editar corregir borrar eliminar cambiar monto fecha metodo dividir efectivo tarjeta zelle equivocado error',
+      r:'Ve a Cuentas por Cobrar (💳) → toca el cliente → toca la factura. En "Pagos aplicados" cada pago tiene un lápiz ✏️. Tócalo para cambiar el monto, la fecha y el método, o dividirlo en varios (efectivo + tarjeta + Zelle). El total se suma solo. También puedes borrarlo con 🗑️. El saldo del cliente se ajusta solo.' },
+    { t:'💳 Ver lo que me deben los clientes',
+      k:'deben deuda deudas cobrar cuentas por cobrar cxc saldo balance pendiente quien me debe cuanto',
+      r:'Ve a Cuentas por Cobrar (💳) desde el inicio o el menú (☰). Ahí ves la lista de clientes que te deben y cuánto. Toca un cliente para ver sus facturas y aplicar pagos.' },
+    { t:'💵 Registrar un pago que me hicieron',
+      k:'pago abono cobrar cobro me pagaron aplicar pago registrar recibir dinero cliente pago factura',
+      r:'Ve a Cuentas por Cobrar (💳) → toca el cliente → toca la factura que te está pagando → en "Aplicar pago" pones el monto y el método. Si te paga con varias formas, agregas más métodos. Si sobra dinero, se aplica solo a la factura más vieja.' },
+    { t:'⚡ Tomar un pedido en la barbería',
+      k:'pedido pedidos rapidos tomar pedido barberia orden anotar vender apuntar',
+      r:'Toca "Pedidos Rápidos" (⚡) en el inicio. Buscas la barbería, marcas los barberos, agregas los productos y cantidades. El pedido queda en "Pendientes" hasta que lo conviertas en factura.' },
+    { t:'🧾 Hacer una venta / factura',
+      k:'vender venta factura facturar nueva venta cobrar contado credito',
+      r:'Toca "Vender" para una venta directa, o convierte un pedido en factura desde Pedidos Rápidos. Eliges cliente, productos, y si es de contado o crédito. La factura descuenta el inventario solo.' },
+    { t:'🚐 Control de la Van (cargué, vendí, me quedan)',
+      k:'van control van cargar van inventario van cuanto cargue cuanto vendi cuanto queda reponer recarga camioneta',
+      r:'En el menú (☰) → "Control de la Van". Toca "➕ Cargar la van" y pones cuánto metes de cada producto. Según vendes, se rebaja solo y te dice cuánto te queda y qué recargar. Es aparte de tu inventario general.' },
+    { t:'📋 Lista de Relleno (qué reponer)',
+      k:'relleno lista relleno reponer que reponer que vendi surtir llenar',
+      r:'En el menú (☰) → "Lista de Relleno". Eliges las fechas y se llena sola con lo que vendiste, para reponerlo. Ajustas las cantidades o agregas más a mano. La compartes por WhatsApp como texto.' },
+    { t:'📦 Crear un producto nuevo',
+      k:'producto nuevo crear producto agregar producto catalogo registrar articulo mercancia',
+      r:'En Catálogo (📦) → "+ Nuevo producto". También puedes crearlo al vuelo cuando cargas la van: si buscas un producto que no existe, sale el botón "➕ Crear producto nuevo".' },
+    { t:'💰 Ver el valor de mi inventario',
+      k:'inventario valor inventario cuanto tengo stock mercancia ganancia potencial cuanto vale',
+      r:'En el menú (☰) → "Inventario". Te muestra cuánto tienes invertido, el valor de venta, la ganancia potencial y qué productos no se han vendido en mucho tiempo.' },
+    { t:'📊 Ver ganancias, ventas y márgenes',
+      k:'ganancia ganancias ventas margen beneficio reporte reportes cuanto gane cuanto vendi por cliente',
+      r:'En el menú (☰) → "Reportes". Eliges fechas y el tipo: ventas por cliente (con cuánto ganaste y el margen), pagos recibidos, ganancias, gastos, y más.' },
+    { t:'📈 Resumen del negocio (Dashboard)',
+      k:'dashboard resumen financiero negocio como voy ventas del mes ganancia del mes cuanto me queda',
+      r:'En el menú (☰) → "Resumen Financiero". Te muestra las ventas de hoy y del mes, la ganancia menos gastos, lo que te deben y lo que tú debes.' },
+    { t:'💸 Registrar un gasto',
+      k:'gasto gastos gasolina comida anotar gasto registrar gasto egreso',
+      r:'En el menú (☰) → "Gastos". Pones la categoría (gasolina, comida, etc.), el monto y la fecha. Los gastos se restan de tu ganancia en el Resumen Financiero.' },
+    { t:'🏭 Suplidores y lo que les debo',
+      k:'suplidor suplidores proveedor proveedores lo que debo cuentas por pagar compras a credito',
+      r:'En el menú (☰) → "Suplidores" para ver tus proveedores y lo que les debes. En "Compras" registras la mercancía que les compras.' },
+    { t:'🚚 Registrar una compra de mercancía',
+      k:'compra compras comprar mercancia registrar compra suplidor proveedor factura de compra',
+      r:'En el menú (☰) → "Compras". Eliges el suplidor, agregas los productos y cantidades, el costo, y si es de contado o crédito. Esto sube tu inventario.' },
+    { t:'⭐ Programa VIP de clientes',
+      k:'vip programa vip fidelidad premio regalo cliente frecuente lealtad',
+      r:'En el menú (☰) → "Programa VIP". Inscribes un cliente desde su perfil. Al comprar 10 del mismo producto, el 11 va gratis.' },
+    { t:'🗺️ Ruta de visitas por día',
+      k:'ruta rutas visita visitas dia semana a quien visito lunes martes barberias del dia',
+      r:'En el menú (☰) → "Ruta de Visitas". Organizas qué barberías visitar cada día de la semana. Buscas por nombre de barbería o barbero.' },
+    { t:'👥 Agregar o buscar un cliente',
+      k:'cliente clientes nuevo cliente agregar cliente barbero barberia buscar cliente registrar',
+      r:'Toca "Clientes" (👥) en el inicio. Con "+ Nuevo" agregas un cliente (nombre, negocio, teléfono, barberos). Usa el buscador para encontrar uno.' },
+    { t:'💾 Hacer un respaldo (backup)',
+      k:'respaldo backup copia seguridad guardar datos bajar respaldo perder datos proteger',
+      r:'En el inicio, toca "Hacer respaldo ahora" para bajar una copia a tu teléfono. Además, la app guarda solo en la nube cada 2 horas. En "Copias de Seguridad" puedes restaurar.' },
+    { t:'🖨️ Imprimir una factura',
+      k:'imprimir impresora factura ticket recibo bluetooth esc pos compartir factura',
+      r:'Desde la factura, usa el botón de compartir para mandarla a tu app de impresora (ESC POS) por el menú de compartir de Android.' },
+    { t:'📷 Cargador de fotos de productos',
+      k:'foto fotos imagen imagenes producto cargar fotos subir fotos',
+      r:'Esta función está planeada pero aún no está lista. Cuando esté, emparejarás las fotos con los productos por el número del producto en el nombre del archivo.' },
+  ];
+}
+
+var _ayudaAbierta = false;
+
+function abrirAyuda(){
+  var overlay = document.getElementById('ayuda-overlay');
+  if(!overlay){
+    overlay = document.createElement('div');
+    overlay.id = 'ayuda-overlay';
+    document.body.appendChild(overlay);
+  }
+  overlay.style.cssText = 'position:fixed;inset:0;background:white;z-index:99998;overflow-y:auto;padding:16px';
+  overlay.scrollTop = 0;
+  overlay.innerHTML =
+    '<div style="max-width:480px;margin:0 auto">'
+    +'<div style="display:flex;gap:8px;margin-bottom:14px">'
+    +'<button onclick="cerrarAyuda()" style="flex:1;background:#E8EAF6;border:none;border-radius:8px;padding:12px;font-size:14px;font-weight:700;color:#1a237e;cursor:pointer">← Volver</button>'
+    +'</div>'
+    +'<h2 style="font-size:20px;font-weight:800;color:#1a237e;margin-bottom:4px">❓ Ayuda — ¿Cómo hago tal cosa?</h2>'
+    +'<p style="font-size:13px;color:#888;margin-bottom:14px">Escribe tu pregunta con tus palabras y te digo dónde está y cómo se hace.</p>'
+    +'<div class="busca-caja" style="border:2px solid var(--nbs-gold);margin-bottom:6px">'
+    +'<span style="font-size:18px;flex-shrink:0;opacity:0.75">🔎</span>'
+    +'<input id="ayuda-buscar" class="busca-fuerte" type="text" placeholder="Ej: cómo edito un pago, cargar la van..." oninput="renderAyuda(this.value)" autocomplete="off">'
+    +'</div>'
+    +'<p style="font-size:11px;color:#aaa;margin-bottom:14px">Ejemplos: "editar pago", "lo que me deben", "hacer respaldo", "crear producto"</p>'
+    +'<div id="ayuda-resultados"></div>'
+    +'</div>';
+  renderAyuda('');
+  setTimeout(function(){ var i=document.getElementById('ayuda-buscar'); if(i) i.focus(); }, 100);
+}
+
+function cerrarAyuda(){
+  var o = document.getElementById('ayuda-overlay');
+  if(o) o.style.display = 'none';
+}
+
+// Quita acentos y pasa a minúsculas, para que "cómo" y "como" encuentren lo mismo
+function normalizarTexto(s){
+  return (s||'').toLowerCase()
+    .replace(/á/g,'a').replace(/é/g,'e').replace(/í/g,'i').replace(/ó/g,'o').replace(/ú/g,'u').replace(/ñ/g,'n');
+}
+
+function renderAyuda(q){
+  var el = document.getElementById('ayuda-resultados');
+  if(!el) return;
+  var temas = baseAyudaNBS();
+  var qn = normalizarTexto(q).trim();
+
+  var lista;
+  if(!qn){
+    lista = temas; // sin búsqueda: mostrar todos
+  } else {
+    var palabras = qn.split(/\s+/).filter(function(w){ return w.length >= 2; });
+    // Puntuar cada tema según cuántas palabras de la pregunta aparecen en su título o claves
+    lista = temas.map(function(tema){
+      var texto = normalizarTexto(tema.t + ' ' + tema.k);
+      var puntos = 0;
+      palabras.forEach(function(w){ if(texto.indexOf(w) > -1) puntos++; });
+      return { tema: tema, puntos: puntos };
+    }).filter(function(x){ return x.puntos > 0; })
+      .sort(function(a,b){ return b.puntos - a.puntos; })
+      .map(function(x){ return x.tema; });
+  }
+
+  if(!lista.length){
+    el.innerHTML = '<div class="card" style="text-align:center;color:#999;font-size:14px;padding:24px">'
+      +'No encontré nada con esas palabras.<br>Prueba con otra palabra, por ejemplo: <b>pago</b>, <b>venta</b>, <b>cliente</b>, <b>van</b>, <b>respaldo</b>.'
+      +'</div>';
+    return;
+  }
+
+  el.innerHTML = lista.map(function(tema){
+    return '<div class="card" style="margin-bottom:10px;padding:14px">'
+      +'<div style="font-size:15px;font-weight:700;color:#1a237e;margin-bottom:6px">'+tema.t+'</div>'
+      +'<div style="font-size:13px;color:#444;line-height:1.5">'+tema.r+'</div>'
+      +'</div>';
+  }).join('');
+}
 
 function abrirVan(){
   loadProds();

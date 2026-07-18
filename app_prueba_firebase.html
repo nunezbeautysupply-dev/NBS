@@ -6416,27 +6416,36 @@ function guardarCargaVan(modo){
 
 // Arma un texto con lo que hay que recargar (los productos bajos) y lo comparte.
 function compartirRecargaVan(){
+  loadProds();
   var estado = calcularEstadoVan();
   var bajos = estado.filas.filter(function(f){ return f.bajo; });
   if(!bajos.length){
     alert('No hay nada bajo por ahora. Todo lo que cargaste todavía tiene suficiente en la van.');
     return;
   }
-  var texto = '🚐 RECARGA DE LA VAN\\n';
-  texto += '(según lo que se vendió)\\n\\n';
+  var lineas = ['RECARGA DE LA VAN \u2014 NBS', fechaHoy(), '(seg\u00fan lo que se vendi\u00f3)', ''];
   bajos.forEach(function(f){
-    // Sugerencia: reponer lo que se vendio, para volver a dejar la van como estaba
-    texto += '• ' + f.nombre + ': recargar ' + f.vendido + ' (quedan ' + f.quedan + ')\\n';
+    var prod = productos.find(function(p){ return String(p.id) === String(f.pid); });
+    var marca = (prod && prod.marca) ? prod.marca.trim() : '';
+    var nombreCorto = (prod && prod.nombreCorto) ? prod.nombreCorto.trim() : '';
+    var linea;
+    if(marca && nombreCorto){
+      linea = f.vendido + '  \u00b7  ' + marca + '  \u00b7  ' + nombreCorto;
+    } else {
+      linea = f.vendido + '  \u00b7  ' + f.nombre;
+    }
+    lineas.push(linea);
+    lineas.push('');
   });
-  texto += '\\nTotal de productos a recargar: ' + bajos.length;
+  lineas.push('Total: ' + bajos.length + ' productos para recargar');
+  var texto = lineas.join('\n');
 
   if(navigator.share){
-    navigator.share({ text: texto }).catch(function(){});
+    navigator.share({ title:'Recarga de la Van NBS', text: texto }).catch(function(){});
   } else {
-    // Copiar al portapapeles como respaldo
     try {
       navigator.clipboard.writeText(texto);
-      alert('Lista de recarga copiada. Pégala donde quieras.\\n\\n' + texto);
+      alert('Lista de recarga copiada. P\u00e9gala donde quieras.\n\n' + texto);
     } catch(e){
       alert(texto);
     }
@@ -6594,7 +6603,7 @@ function renderRelleno(){
   var html = '<div class="card" style="margin-bottom:10px;padding:12px">'
     +'<div style="display:flex;justify-content:space-between;align-items:center">'
     +'<span style="font-size:13px;font-weight:700;color:var(--nbs-ink)">📋 Tu lista</span>'
-    +'<span style="font-size:13px;font-weight:800;color:var(--nbs-gold-dark)">'+totalUnidades+' unidad(es) · '+listaRelleno.items.length+' producto(s)</span>'
+    +'<span style="font-size:13px;font-weight:800;color:var(--nbs-gold-dark)">'+listaRelleno.items.length+' producto(s) · '+totalUnidades+' piezas en total</span>'
     +'</div></div>';
 
   listaRelleno.items.forEach(function(it, i){
@@ -6799,27 +6808,37 @@ function generarCanvasRelleno(){
 
 function compartirListaRelleno(){
   if(!listaRelleno.items.length){ alert('Tu lista está vacía.'); return; }
-  conLogoListo(function(){
-    var canvas = generarCanvasRelleno();
-    canvas.toBlob(function(blob){
-      if(!blob) return;
-      var archivo;
-      try{ archivo = new File([blob], 'lista-relleno-'+fechaHoy().replace(/\//g,'-')+'.png', {type:'image/png'}); }catch(e){ archivo = null; }
-      if(archivo && navigator.canShare && navigator.canShare({files:[archivo]})){
-        navigator.share({ files:[archivo], title:'Lista de Relleno NBS' }).catch(function(err){ console.log('Compartir cancelado:', err && err.message); });
-      } else {
-        // Respaldo: texto plano, por si el telefono no deja compartir imagenes
-        var lineas = ['LISTA DE RELLENO DE NBS', fechaHoy(), '------------------------'];
-        listaRelleno.items.forEach(function(it){ lineas.push('☐ '+it.cant+' — '+it.nombre); });
-        lineas.push('------------------------');
-        var tot = listaRelleno.items.reduce(function(s,it){ return s+(it.cant||0); }, 0);
-        lineas.push(tot+' unidades · '+listaRelleno.items.length+' productos');
-        var texto = lineas.join('\n');
-        if(navigator.share){ navigator.share({ title:'Lista de Relleno NBS', text: texto }).catch(function(){}); }
-        else { mostrarBackupTexto(texto); }
-      }
-    }, 'image/png');
+  loadProds();
+  var lineas = ['LISTA DE RELLENO — NBS', fechaHoy(), ''];
+  listaRelleno.items.forEach(function(it){
+    // Buscar el producto para sacar marca y nombre por separado si los tiene
+    var prod = productos.find(function(p){ return String(p.id) === String(it.pid); });
+    var marca = (prod && prod.marca) ? prod.marca.trim() : '';
+    var nombreCorto = (prod && prod.nombreCorto) ? prod.nombreCorto.trim() : '';
+    var linea;
+    if(marca && nombreCorto){
+      // Producto con marca separada: cantidad · marca · nombre
+      linea = it.cant + '  ·  ' + marca + '  ·  ' + nombreCorto;
+    } else {
+      // Producto viejo (todo junto): cantidad · nombre completo
+      linea = it.cant + '  ·  ' + (it.nombre || (prod ? prod.nombre : 'Producto'));
+    }
+    lineas.push(linea);
+    lineas.push('');
   });
+  lineas.push('Total: ' + listaRelleno.items.length + ' productos para reponer');
+  var texto = lineas.join('\n');
+
+  if(navigator.share){
+    navigator.share({ title:'Lista de Relleno NBS', text: texto }).catch(function(){});
+  } else {
+    // Respaldo si el telefono no deja compartir: mostrar para copiar
+    if(typeof mostrarBackupTexto === 'function'){ mostrarBackupTexto(texto); }
+    else {
+      try{ navigator.clipboard.writeText(texto); alert('Lista copiada:\n\n'+texto); }
+      catch(e){ alert(texto); }
+    }
+  }
 }
 
 function escaparHtml(txt){

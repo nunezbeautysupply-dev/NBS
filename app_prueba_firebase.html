@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="20260719-2000">
+<meta name="app-version" content="20260719-2015">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -15783,10 +15783,35 @@ function exportarPanoramaPDF(){
   if(!contenido){ alert('No hay datos para exportar.'); return; }
   var nombrePeriodo = { hoy:'Hoy', semana:'Esta semana', mes:'Este mes', ano:'Este año' }[_panoramaPeriodo];
   var hoy = new Date().toLocaleDateString('es-US');
-  var html = '<h1>Panorama Completo — NBS</h1>'
-    +'<p class="sub">'+nombrePeriodo+' · Generado el '+hoy+'</p>'
-    +'<div>'+contenido.innerHTML+'</div>';
-  abrirVentanaImpresion('Panorama Completo NBS', html);
+
+  // Estilos propios para que el panorama use TODO el ancho de la hoja carta
+  var estilos = '<style>'
+    + '@page { size: letter; margin: 14mm; }'
+    + '* { box-sizing: border-box; }'
+    + 'body { font-family: -apple-system, Arial, sans-serif; color:#222; margin:0; padding:0; width:100%; }'
+    + '.cab { text-align:center; border-bottom:3px solid #D4A017; padding-bottom:12px; margin-bottom:20px; }'
+    + '.cab h1 { font-size:26px; color:#1a237e; margin:0 0 4px; }'
+    + '.cab .sub { font-size:14px; color:#666; margin:0; }'
+    // Forzar que todas las tarjetas del panorama usen el ancho completo
+    + '.pan-print > div { width:100% !important; max-width:100% !important; margin-bottom:16px !important; page-break-inside:avoid; }'
+    + '.pan-print svg { width:200px !important; height:200px !important; }'
+    // Agrandar los textos para la hoja grande
+    + '.pan-print { font-size:15px; }'
+    + '.pan-print div[style*="font-size:32px"] { font-size:40px !important; }'
+    + '.pan-print div[style*="font-size:20px"] { font-size:26px !important; }'
+    + '</style>';
+
+  var html = estilos
+    + '<div class="cab"><h1>Panorama Completo — NBS</h1>'
+    + '<p class="sub">'+nombrePeriodo+' · Generado el '+hoy+'</p></div>'
+    + '<div class="pan-print">'+contenido.innerHTML+'</div>';
+
+  var vent = window.open('', '_blank');
+  if(!vent){ alert('Permite las ventanas emergentes para guardar el PDF.'); return; }
+  vent.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>Panorama Completo NBS</title></head><body>'+html+'</body></html>');
+  vent.document.close();
+  // Dar un momento para que cargue y luego abrir el diálogo de impresión/guardar PDF
+  setTimeout(function(){ try{ vent.focus(); vent.print(); }catch(e){} }, 400);
 }
 
 function renderDashboard(){

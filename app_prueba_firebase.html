@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="20260719-2015">
+<meta name="app-version" content="20260719-2030">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -15784,21 +15784,25 @@ function exportarPanoramaPDF(){
   var nombrePeriodo = { hoy:'Hoy', semana:'Esta semana', mes:'Este mes', ano:'Este año' }[_panoramaPeriodo];
   var hoy = new Date().toLocaleDateString('es-US');
 
-  // Estilos propios para que el panorama use TODO el ancho de la hoja carta
+  // Estilos COMPACTOS para que todo quepa en una sola hoja carta
   var estilos = '<style>'
-    + '@page { size: letter; margin: 14mm; }'
+    + '@page { size: letter; margin: 8mm; }'
     + '* { box-sizing: border-box; }'
     + 'body { font-family: -apple-system, Arial, sans-serif; color:#222; margin:0; padding:0; width:100%; }'
-    + '.cab { text-align:center; border-bottom:3px solid #D4A017; padding-bottom:12px; margin-bottom:20px; }'
-    + '.cab h1 { font-size:26px; color:#1a237e; margin:0 0 4px; }'
-    + '.cab .sub { font-size:14px; color:#666; margin:0; }'
-    // Forzar que todas las tarjetas del panorama usen el ancho completo
-    + '.pan-print > div { width:100% !important; max-width:100% !important; margin-bottom:16px !important; page-break-inside:avoid; }'
-    + '.pan-print svg { width:200px !important; height:200px !important; }'
-    // Agrandar los textos para la hoja grande
-    + '.pan-print { font-size:15px; }'
-    + '.pan-print div[style*="font-size:32px"] { font-size:40px !important; }'
-    + '.pan-print div[style*="font-size:20px"] { font-size:26px !important; }'
+    + '.cab { text-align:center; border-bottom:2px solid #D4A017; padding-bottom:6px; margin-bottom:10px; }'
+    + '.cab h1 { font-size:20px; color:#1a237e; margin:0 0 2px; }'
+    + '.cab .sub { font-size:11px; color:#666; margin:0; }'
+    // Tarjetas: ancho completo pero MENOS espacio entre ellas y menos padding interno
+    + '.pan-print > div { width:100% !important; max-width:100% !important; margin-bottom:8px !important; padding:8px 10px !important; page-break-inside:avoid; }'
+    + '.pan-print svg { width:110px !important; height:110px !important; }'
+    + '.pan-print { font-size:12px; }'
+    // La tarjeta grande de ganancia: reducir su altura interna
+    + '.pan-print div[style*="font-size:32px"] { font-size:28px !important; margin:2px 0 !important; }'
+    + '.pan-print div[style*="font-size:20px"] { font-size:18px !important; }'
+    // Gráfico de barras: bajarle la altura para que no ocupe tanto
+    + '.pan-print div[style*="height:120px"] { height:70px !important; }'
+    // Quitar márgenes internos grandes de los títulos de cada tarjeta
+    + '.pan-print div[style*="margin-bottom:10px"] { margin-bottom:5px !important; }'
     + '</style>';
 
   var html = estilos
@@ -15806,12 +15810,42 @@ function exportarPanoramaPDF(){
     + '<p class="sub">'+nombrePeriodo+' · Generado el '+hoy+'</p></div>'
     + '<div class="pan-print">'+contenido.innerHTML+'</div>';
 
+  // Intentar compartir con el menú del teléfono (WhatsApp, email, etc.) usando un texto resumen.
+  // El reporte visual completo se abre en una ventana para guardar/compartir como PDF.
+  var resumen = armarResumenPanoramaTexto(nombrePeriodo, hoy);
+  if(navigator.share){
+    navigator.share({ title:'Panorama Completo NBS', text: resumen }).catch(function(){});
+  }
+
+  // Además, abrir el reporte visual completo (con gráficos) para imprimir/guardar/compartir como PDF
   var vent = window.open('', '_blank');
-  if(!vent){ alert('Permite las ventanas emergentes para guardar el PDF.'); return; }
+  if(!vent){
+    if(!navigator.share) alert('Permite las ventanas emergentes para compartir el reporte.');
+    return;
+  }
   vent.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>Panorama Completo NBS</title></head><body>'+html+'</body></html>');
   vent.document.close();
-  // Dar un momento para que cargue y luego abrir el diálogo de impresión/guardar PDF
   setTimeout(function(){ try{ vent.focus(); vent.print(); }catch(e){} }, 400);
+}
+
+// Arma un resumen en texto del panorama, para compartir por WhatsApp/email
+function armarResumenPanoramaTexto(nombrePeriodo, hoy){
+  var r = rangoPanorama();
+  var ventas = LS('nv', []).filter(function(v){ return !v.cancelada && ventaEnRango(v, r.desde, r.hasta); });
+  var totalVentas = ventas.reduce(function(s,v){ return s+(v.total||0); }, 0);
+  var totalGanancia = ventas.reduce(function(s,v){ return s+(v.ganancia||0); }, 0);
+  var gastos = LS('ngastos', []).filter(function(g){ var f=parsearFechaVenta(g.fecha); return f && f>=r.desde && f<=r.hasta; });
+  var totalGastos = gastos.reduce(function(s,g){ return s+(g.monto||0); }, 0);
+  var gananciaReal = totalGanancia - totalGastos;
+  var balances = calcularBalancesClientes();
+  var teDeben = Object.keys(balances.total).reduce(function(s,cid){ var d=balances.total[cid]; return s+(d>0?d:0); }, 0);
+  var tuDebes = calcularTotalPorPagar();
+  return '📊 PANORAMA COMPLETO — NBS\n'+nombrePeriodo+' · '+hoy+'\n\n'
+    + '💵 Ganancia real: $'+fmtNum(gananciaReal)+'\n'
+    + '📈 Ventas: $'+fmtNum(totalVentas)+'\n'
+    + '💳 Te deben: $'+fmtNum(teDeben)+'\n'
+    + '📤 Tú debes: $'+fmtNum(tuDebes)+'\n\n'
+    + 'Nunez Beauty Supply';
 }
 
 function renderDashboard(){
@@ -18274,7 +18308,7 @@ function verHistorialCliente(cid, modo){
   <p style="font-size:12px;color:var(--nbs-muted);text-align:center;margin-bottom:14px">Toda la salud de tu negocio en un solo lugar</p>
   <div id="panorama-periodo" style="display:flex;gap:6px;margin-bottom:16px"></div>
   <div id="panorama-contenido"></div>
-  <button class="btn" style="background:#1a237e;color:white;margin-top:16px" onclick="exportarPanoramaPDF()">📄 Guardar este reporte en PDF</button>
+  <button class="btn" style="background:#1a237e;color:white;margin-top:16px" onclick="exportarPanoramaPDF()">📤 Compartir este reporte</button>
 </div>
 
 <div id="p-dashboard" class="pg">

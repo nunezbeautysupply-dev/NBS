@@ -480,10 +480,9 @@ body.inicio-oscuro .top{ background:#2C2C3B; border-bottom-color:#3E3E52; }
     <div id="inicio-resumen" class="ini-resumen" style="font-size:12.5px;margin-top:5px;font-weight:600">&nbsp;</div>
   </div>
 
-  <button onclick="abrirAyuda()" class="ini-btn" style="--c:#6A1B9A;--cb:#F3E5F5">
-    <span class="ini-ico">❓</span>
-    <span class="ini-txt"><b>AYUDA — ¿Cómo hago tal cosa?</b><i>Consultas: escribe y te digo dónde está</i></span>
-    <span class="ini-fl">›</span>
+  <button onclick="abrirAyuda()" style="width:100%;display:flex;align-items:center;justify-content:center;gap:7px;background:#F3E5F5;color:#6A1B9A;border:1px solid #E1BEE7;border-radius:10px;padding:9px;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:10px">
+    <span style="font-size:15px">❓</span>
+    <span>Ayuda — ¿Cómo hago tal cosa?</span>
   </button>
 
   <button onclick="ir('p-ped')" class="ini-btn" style="--c:#D4A017;--cb:#FFF6DF">
@@ -930,6 +929,10 @@ body.inicio-oscuro .top{ background:#2C2C3B; border-bottom-color:#3E3E52; }
     <button class="btn" style="flex:1;background:#1565C0;color:white;margin:0" onclick="verTodosLosClientes()">📋 Ver todos</button>
     <button class="btn" style="flex:1;background:#2E7D32;color:white;margin:0" onclick="document.getElementById('cl-n').style.display='block';document.getElementById('cl-l').style.display='none';document.getElementById('cbi-fecha').value=fechaHoyISO()">+ Nuevo</button>
     <button class="btn" style="background:#6A1B9A;color:white" onclick="eliminarDuplicadosClientes()">🔍 Eliminar clientes duplicados</button>
+  </div>
+  <div style="display:flex;gap:8px;margin-bottom:14px">
+    <button class="btn" style="flex:1;background:#455A64;color:white;margin:0" onclick="imprimirFichasClientes()">🖨️ Imprimir fichas completas</button>
+    <button class="btn" style="flex:1;background:#455A64;color:white;margin:0" onclick="imprimirListaClientes()">🖨️ Imprimir lista resumida</button>
   </div>
   <div id="cl-l">
     <div class="busca-caja" style="border:2px solid var(--nbs-gold);margin-bottom:8px"><span style="font-size:16px;flex-shrink:0;opacity:0.75">🔍</span><input class="busca-fuerte" id="cl-buscar-input" type="text" placeholder="Buscar cliente..." oninput="window._clUltimaBusqueda=this.value;renderCl(this.value)"></div>
@@ -5314,6 +5317,120 @@ function verTodosLosClientes(){
   renderCl('');
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+//  LISTADOS IMPRIMIBLES DE CLIENTES  (18 jul 2026, pedido por Sensei)
+//  Para tener una prueba física de todos los clientes. Usa window.print() del
+//  teléfono, que deja imprimir a papel o guardar como PDF, sin apps extras.
+//  Dos formatos: fichas completas (cada uno en su cuadro) y lista resumida.
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Abre una ventana nueva con el HTML listo para imprimir y lanza la impresión.
+function abrirVentanaImpresion(titulo, contenidoHtml){
+  var estilos = '<style>'
+    +'@page { margin: 12mm; }'
+    +'body { font-family: -apple-system, Arial, sans-serif; color:#222; margin:0; padding:0; }'
+    +'h1 { font-size:18px; color:#1a237e; margin:0 0 4px; }'
+    +'.sub { font-size:12px; color:#666; margin:0 0 16px; }'
+    +'.ficha { border:1px solid #bbb; border-radius:8px; padding:10px 12px; margin-bottom:10px; page-break-inside:avoid; }'
+    +'.ficha .nom { font-size:15px; font-weight:bold; color:#1a237e; margin-bottom:4px; }'
+    +'.ficha .fila { font-size:12px; color:#333; margin:2px 0; }'
+    +'.ficha .et { color:#888; display:inline-block; min-width:70px; }'
+    +'.deuda { font-weight:bold; color:#C62828; }'
+    +'.aldia { font-weight:bold; color:#2E7D32; }'
+    +'.vip { display:inline-block; background:#FFF3E0; color:#E65100; font-size:10px; font-weight:bold; padding:1px 6px; border-radius:8px; }'
+    +'table { width:100%; border-collapse:collapse; font-size:12px; }'
+    +'th { background:#1a237e; color:white; text-align:left; padding:6px 8px; font-size:11px; }'
+    +'td { border-bottom:1px solid #ddd; padding:6px 8px; }'
+    +'tr:nth-child(even) td { background:#f6f6fa; }'
+    +'.total-row td { font-weight:bold; background:#eee; }'
+    +'@media print { .noprint { display:none; } }'
+    +'.noprint { text-align:center; margin:16px 0; }'
+    +'.noprint button { background:#1a237e; color:white; border:none; border-radius:8px; padding:12px 24px; font-size:15px; font-weight:bold; cursor:pointer; }'
+    +'</style>';
+  var htmlCompleto = '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
+    +'<title>'+titulo+'</title>'+estilos+'</head><body>'
+    +'<div class="noprint"><button onclick="window.print()">🖨️ Imprimir / Guardar PDF</button></div>'
+    +contenidoHtml
+    +'<div class="noprint"><button onclick="window.print()">🖨️ Imprimir / Guardar PDF</button></div>'
+    +'</body></html>';
+  var win = window.open('', '_blank');
+  if(!win){ alert('Tu navegador bloqueó la ventana. Permite las ventanas emergentes para imprimir.'); return; }
+  win.document.write(htmlCompleto);
+  win.document.close();
+}
+
+// LISTADO 1: fichas completas de cada cliente
+function imprimirFichasClientes(){
+  clientes = LS('ncl', []);
+  if(!clientes.length){ alert('No hay clientes para imprimir.'); return; }
+  var balances = calcularBalancesClientes();
+  var lista = [].concat(clientes).sort(function(a,b){ return nombreCl(a).localeCompare(nombreCl(b)); });
+
+  var hoy = fechaHoy();
+  var html = '<h1>Fichas de Clientes — NBS</h1>'
+    +'<p class="sub">'+lista.length+' clientes · Generado el '+hoy+'</p>';
+
+  lista.forEach(function(c){
+    var deuda = balances.total[String(c.id)] || 0;
+    var nombre = nombreCl(c) || 'Sin nombre';
+    var partes = [];
+    if(c.negocio) partes.push('<div class="fila"><span class="et">Negocio:</span> '+escaparHtml(c.negocio)+'</div>');
+    if(c.tipoNegocio) partes.push('<div class="fila"><span class="et">Tipo:</span> '+escaparHtml(c.tipoNegocio)+'</div>');
+    if(c.tel) partes.push('<div class="fila"><span class="et">Teléfono:</span> '+escaparHtml(c.tel)+'</div>');
+    // Dirección armada
+    var dir = [c.dir, c.ciudad, c.estado, c.zip].filter(function(x){ return x && x.trim(); }).join(', ');
+    if(dir) partes.push('<div class="fila"><span class="et">Dirección:</span> '+escaparHtml(dir)+'</div>');
+    // Contacto adicional
+    if(c.contacto || c.contactoTel){
+      var cont = [c.contacto, c.contactoApodo ? '"'+c.contactoApodo+'"' : '', c.contactoTel].filter(function(x){return x && x.trim();}).join(' · ');
+      partes.push('<div class="fila"><span class="et">Contacto:</span> '+escaparHtml(cont)+'</div>');
+    }
+    var deudaHtml = deuda > 0
+      ? '<div class="fila"><span class="et">Deuda:</span> <span class="deuda">$'+fmtNum(deuda)+'</span></div>'
+      : '<div class="fila"><span class="et">Deuda:</span> <span class="aldia">Al día ($0.00)</span></div>';
+    partes.push(deudaHtml);
+
+    html += '<div class="ficha">'
+      +'<div class="nom">'+escaparHtml(nombre)+(c.vipActivo?' <span class="vip">⭐ VIP</span>':'')+'</div>'
+      + partes.join('')
+      +'</div>';
+  });
+
+  abrirVentanaImpresion('Fichas de Clientes NBS', html);
+}
+
+// LISTADO 2: tabla resumida (nombre, apodo, teléfono, deuda)
+function imprimirListaClientes(){
+  clientes = LS('ncl', []);
+  if(!clientes.length){ alert('No hay clientes para imprimir.'); return; }
+  var balances = calcularBalancesClientes();
+  var lista = [].concat(clientes).sort(function(a,b){ return nombreCl(a).localeCompare(nombreCl(b)); });
+
+  var hoy = fechaHoy();
+  var totalDeuda = 0;
+  var filas = lista.map(function(c){
+    var deuda = balances.total[String(c.id)] || 0;
+    totalDeuda += deuda;
+    var nombre = ((c.nombre||'')+' '+(c.apellido||'')).replace(/\s+/g,' ').trim() || 'Sin nombre';
+    return '<tr>'
+      +'<td>'+escaparHtml(nombre)+'</td>'
+      +'<td>'+escaparHtml(c.apodo||'—')+'</td>'
+      +'<td>'+escaparHtml(c.tel||'—')+'</td>'
+      +'<td style="text-align:right">'+(deuda>0?'<span class="deuda">$'+fmtNum(deuda)+'</span>':'—')+'</td>'
+      +'</tr>';
+  }).join('');
+
+  var html = '<h1>Lista de Clientes — NBS</h1>'
+    +'<p class="sub">'+lista.length+' clientes · Generado el '+hoy+'</p>'
+    +'<table>'
+    +'<thead><tr><th>Nombre</th><th>Apodo</th><th>Teléfono</th><th style="text-align:right">Debe</th></tr></thead>'
+    +'<tbody>'+filas
+    +'<tr class="total-row"><td colspan="3">TOTAL POR COBRAR</td><td style="text-align:right">$'+fmtNum(totalDeuda)+'</td></tr>'
+    +'</tbody></table>';
+
+  abrirVentanaImpresion('Lista de Clientes NBS', html);
+}
+
 function renderCl(q){
   clientes = LS('ncl', []);
   // Actualizar contadores
@@ -8090,6 +8207,155 @@ function actualizarPrecioIV(i, val){
 
 function rmIV(i){ iV.splice(i,1); renderIV(); }
 
+// ═══════════════════════════════════════════════════════════════════════════
+//  FIRMA DEL CLIENTE  (18 jul 2026, pedido por Sensei)
+//  Al registrar una venta, pregunta si el cliente debe firmar. Si sí, abre un
+//  recuadro para firmar con el dedo. La firma se guarda con la factura.
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Este es el nuevo punto de entrada del botón "Registrar venta".
+// Primero valida que haya productos, luego pregunta por la firma.
+function registrarVentaConFirma(){
+  if(!iV.length){ alert('Agrega al menos un producto'); return; }
+  // Preguntar si el cliente firma
+  var overlay = document.getElementById('firma-pregunta-overlay');
+  if(!overlay){
+    overlay = document.createElement('div');
+    overlay.id = 'firma-pregunta-overlay';
+    document.body.appendChild(overlay);
+  }
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px';
+  overlay.innerHTML =
+    '<div style="background:white;border-radius:14px;padding:20px;max-width:380px;width:100%;text-align:center">'
+    +'<div style="font-size:17px;font-weight:800;color:#1a237e;margin-bottom:8px">✍️ ¿El cliente va a firmar?</div>'
+    +'<p style="font-size:13px;color:#666;margin-bottom:18px">Si el cliente debe firmar esta factura, tócalo abajo. Si no, guárdala sin firma.</p>'
+    +'<button onclick="pedirFirmaCliente()" style="width:100%;padding:13px;background:#2E7D32;color:white;border:none;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px">✍️ Sí, debe firmar</button>'
+    +'<button onclick="cerrarPreguntaFirma(); saveV();" style="width:100%;padding:13px;background:#F0F0F5;color:#333;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer">No es necesario, guardar</button>'
+    +'</div>';
+}
+
+function cerrarPreguntaFirma(){
+  var o = document.getElementById('firma-pregunta-overlay');
+  if(o) o.style.display = 'none';
+}
+
+// Abre el recuadro para firmar con el dedo
+function pedirFirmaCliente(){
+  cerrarPreguntaFirma();
+  var overlay = document.getElementById('firma-canvas-overlay');
+  if(!overlay){
+    overlay = document.createElement('div');
+    overlay.id = 'firma-canvas-overlay';
+    document.body.appendChild(overlay);
+  }
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px';
+  overlay.innerHTML =
+    '<div style="background:white;border-radius:14px;padding:16px;max-width:440px;width:100%">'
+    +'<div style="font-size:16px;font-weight:800;color:#1a237e;margin-bottom:4px;text-align:center">✍️ Firma del cliente</div>'
+    +'<p style="font-size:12px;color:#888;margin-bottom:10px;text-align:center">Firma con el dedo en el recuadro</p>'
+    +'<canvas id="firma-canvas" width="400" height="200" style="width:100%;height:200px;border:2px dashed #bbb;border-radius:10px;background:#FAFAFA;touch-action:none;display:block"></canvas>'
+    +'<div style="display:flex;gap:8px;margin-top:12px">'
+    +'<button onclick="limpiarFirma()" style="flex:1;padding:11px;background:#FFF3E0;color:#E65100;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">🔄 Borrar</button>'
+    +'<button onclick="cancelarFirma()" style="flex:1;padding:11px;background:#F0F0F5;color:#333;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer">Cancelar</button>'
+    +'<button onclick="guardarFirmaYVenta()" style="flex:1.4;padding:11px;background:#2E7D32;color:white;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">✓ Firmar y guardar</button>'
+    +'</div>'
+    +'</div>';
+  setTimeout(iniciarCanvasFirma, 60);
+}
+
+var _firmaCtx = null, _firmaDibujando = false, _firmaHayTrazo = false;
+
+function iniciarCanvasFirma(){
+  var canvas = document.getElementById('firma-canvas');
+  if(!canvas) return;
+  // Ajustar la resolución real del canvas al tamaño en pantalla, para que la firma no salga borrosa
+  var rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * 2;
+  canvas.height = rect.height * 2;
+  _firmaCtx = canvas.getContext('2d');
+  _firmaCtx.scale(2, 2);
+  _firmaCtx.strokeStyle = '#111';
+  _firmaCtx.lineWidth = 2.2;
+  _firmaCtx.lineCap = 'round';
+  _firmaCtx.lineJoin = 'round';
+  _firmaHayTrazo = false;
+
+  function pos(e){
+    var r = canvas.getBoundingClientRect();
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
+  }
+
+  // Usamos "Pointer Events": un solo sistema que reconoce el dedo, el mouse Y el S Pen
+  // (Samsung stylus). Así el cliente puede firmar con el lápiz del S26 Ultra o con el dedo.
+  if(window.PointerEvent){
+    function empezar(e){
+      e.preventDefault();
+      _firmaDibujando = true;
+      // Grosor un poco más fino si es lápiz (pen), para que se vea como pluma de verdad
+      _firmaCtx.lineWidth = (e.pointerType === 'pen') ? 1.8 : 2.2;
+      var p = pos(e);
+      _firmaCtx.beginPath();
+      _firmaCtx.moveTo(p.x, p.y);
+      try{ canvas.setPointerCapture(e.pointerId); }catch(err){}
+    }
+    function mover(e){
+      if(!_firmaDibujando) return;
+      e.preventDefault();
+      var p = pos(e);
+      _firmaCtx.lineTo(p.x, p.y);
+      _firmaCtx.stroke();
+      _firmaHayTrazo = true;
+    }
+    function terminar(e){ if(e) e.preventDefault(); _firmaDibujando = false; }
+
+    canvas.addEventListener('pointerdown', empezar);
+    canvas.addEventListener('pointermove', mover);
+    canvas.addEventListener('pointerup', terminar);
+    canvas.addEventListener('pointercancel', terminar);
+    canvas.addEventListener('pointerleave', terminar);
+  } else {
+    // Respaldo para navegadores viejos que no tienen Pointer Events: dedo y mouse.
+    function pos2(e){
+      var r = canvas.getBoundingClientRect();
+      var punto = e.touches ? e.touches[0] : e;
+      return { x: punto.clientX - r.left, y: punto.clientY - r.top };
+    }
+    function empezar2(e){ e.preventDefault(); _firmaDibujando = true; var p = pos2(e); _firmaCtx.beginPath(); _firmaCtx.moveTo(p.x, p.y); }
+    function mover2(e){ if(!_firmaDibujando) return; e.preventDefault(); var p = pos2(e); _firmaCtx.lineTo(p.x, p.y); _firmaCtx.stroke(); _firmaHayTrazo = true; }
+    function terminar2(e){ if(e) e.preventDefault(); _firmaDibujando = false; }
+    canvas.addEventListener('mousedown', empezar2);
+    canvas.addEventListener('mousemove', mover2);
+    canvas.addEventListener('mouseup', terminar2);
+    canvas.addEventListener('touchstart', empezar2, {passive:false});
+    canvas.addEventListener('touchmove', mover2, {passive:false});
+    canvas.addEventListener('touchend', terminar2, {passive:false});
+  }
+}
+
+function limpiarFirma(){
+  var canvas = document.getElementById('firma-canvas');
+  if(canvas && _firmaCtx){ _firmaCtx.clearRect(0, 0, canvas.width, canvas.height); _firmaHayTrazo = false; }
+}
+
+function cancelarFirma(){
+  var o = document.getElementById('firma-canvas-overlay');
+  if(o) o.style.display = 'none';
+  // No guarda nada; el usuario puede volver a darle a Registrar venta
+}
+
+function guardarFirmaYVenta(){
+  if(!_firmaHayTrazo){ alert('El recuadro está vacío. Pide al cliente que firme, o toca Cancelar.'); return; }
+  var canvas = document.getElementById('firma-canvas');
+  if(canvas){
+    // Guardar la firma como imagen comprimida (JPEG chico) para que no pese mucho
+    window._firmaVentaActual = canvas.toDataURL('image/jpeg', 0.6);
+    window._firmaFechaActual = fechaHoy()+' '+new Date().toLocaleTimeString('es-US',{hour:'2-digit',minute:'2-digit'});
+  }
+  var o = document.getElementById('firma-canvas-overlay');
+  if(o) o.style.display = 'none';
+  saveV(); // ahora sí guarda la venta, con la firma incluida
+}
+
 function saveV(){
   if(!iV.length){ alert('Agrega al menos un producto'); return; }
   var cid = parseInt(document.getElementById('vcl').value)||null;
@@ -8171,7 +8437,7 @@ function saveV(){
   ventas = LS('nv',[]);
   var clienteData = cl ? {negocio:cl.negocio||'',tel:cl.tel||'',email:cl.email||'',dir:cl.dir||'',ciudad:cl.ciudad||'',estado:cl.estado||'',zip:cl.zip||''} : null;
   var descInfo = descMonto > 0 ? {tipo:descTipo, valor:descVal, monto:descMonto} : null;
-  ventas.push({id:Date.now(),numFactura:siguienteNumeroFactura(),cid:cid,cn:cn,tipo:tipo,items:iV.slice(),subtotal:subtot,descuento:descInfo,total:tot,ganancia:gan,fecha:fechaVenta,hora:new Date().toLocaleTimeString('es-US',{hour:'2-digit',minute:'2-digit'}),pagosFactura:pagosIniciales,clienteData:clienteData});
+  ventas.push({id:Date.now(),numFactura:siguienteNumeroFactura(),cid:cid,cn:cn,tipo:tipo,items:iV.slice(),subtotal:subtot,descuento:descInfo,total:tot,ganancia:gan,fecha:fechaVenta,hora:new Date().toLocaleTimeString('es-US',{hour:'2-digit',minute:'2-digit'}),pagosFactura:pagosIniciales,firma:(window._firmaVentaActual||null),firmaFecha:(window._firmaFechaActual||null),clienteData:clienteData});
   iV=[];
   renderIV();
   document.getElementById('vcl').value='';
@@ -8185,6 +8451,8 @@ function saveV(){
   if(document.getElementById('vdesc-linea')) document.getElementById('vdesc-linea').style.display='none';
   SS('nv',ventas);
   SS('np',productos);
+  window._firmaVentaActual = null; // limpiar la firma para la próxima venta
+  window._firmaFechaActual = null;
   flash('mk-v');
   verificarVIPdespuesDeVenta(cid, iV.slice());
   verificarFidelidadDespuesDeVenta(cid);
@@ -9386,13 +9654,15 @@ function filterPedMulti(idx, q){
 }
 
 function selPedMulti(idx, pid){
+  // Al elegir el producto, se agrega de una vez con cantidad 1 (Sensei casi siempre pone 1).
+  // Si necesita más, ajusta con los botones + y − de la lista. Esto ahorra el paso de "Agregar".
   pedMultiSel[idx] = pid;
-  if(!pedMultiCant[idx]) pedMultiCant[idx] = 1;
+  pedMultiCant[idx] = 1;
   var buscador = document.getElementById('multi-buscar-'+idx);
   if(buscador) buscador.value = '';
   var lista = document.getElementById('multi-plist-'+idx);
   if(lista) lista.style.display = 'none';
-  renderPedidosMultiples();
+  addItemMulti(idx); // agrega el producto directo al barbero
 }
 
 function clearPedMulti(idx){
@@ -10478,6 +10748,16 @@ function verFactura(v){
     cancelCard.innerHTML = '<div style="color:#B71C1C;font-weight:700;font-size:14px">🚫 FACTURA CANCELADA</div>'
       +'<div style="font-size:12px;color:#aaa;margin-top:4px">Cancelada el '+v.fechaCancelacion+' · Stock restaurado</div>';
     el.appendChild(cancelCard);
+  }
+
+  // Mostrar la firma del cliente si la factura tiene una
+  if(v.firma){
+    var firmaCard = document.createElement('div');
+    firmaCard.className = 'card';
+    firmaCard.style.cssText = 'text-align:center;padding:12px';
+    firmaCard.innerHTML = '<div style="font-size:12px;color:#888;font-weight:700;margin-bottom:8px">✍️ FIRMA DEL CLIENTE</div>'
+      +'<img src="'+v.firma+'" style="max-width:100%;max-height:160px;border:1px solid #eee;border-radius:8px;background:white">';
+    el.appendChild(firmaCard);
   }
 
   var all=['menu','p-cl','p-v','p-cxc','p-rpt','p-cl-perfil','p-cl-factura'];
@@ -16146,12 +16426,21 @@ function abrirFirmaFactura(vid){
   }
   function terminar(){ dibujando = false; }
 
-  canvas.addEventListener('mousedown', empezar);
-  canvas.addEventListener('mousemove', mover);
-  canvas.addEventListener('mouseup', terminar);
-  canvas.addEventListener('touchstart', empezar, {passive:false});
-  canvas.addEventListener('touchmove', mover, {passive:false});
-  canvas.addEventListener('touchend', terminar);
+  // Pointer events: reconoce el S Pen (lápiz Samsung), el dedo y el mouse con un solo sistema.
+  if(window.PointerEvent){
+    canvas.addEventListener('pointerdown', function(e){ empezar(e); try{ canvas.setPointerCapture(e.pointerId); }catch(err){} });
+    canvas.addEventListener('pointermove', mover);
+    canvas.addEventListener('pointerup', terminar);
+    canvas.addEventListener('pointercancel', terminar);
+    canvas.addEventListener('pointerleave', terminar);
+  } else {
+    canvas.addEventListener('mousedown', empezar);
+    canvas.addEventListener('mousemove', mover);
+    canvas.addEventListener('mouseup', terminar);
+    canvas.addEventListener('touchstart', empezar, {passive:false});
+    canvas.addEventListener('touchmove', mover, {passive:false});
+    canvas.addEventListener('touchend', terminar);
+  }
 
   var botones = document.createElement('div');
   botones.style.cssText = 'display:flex;gap:10px;margin-top:12px';
@@ -17047,7 +17336,7 @@ function verHistorialCliente(cid, modo){
         <span id="pago-total-vini" style="font-size:16px;font-weight:800;color:#2E7D32">$0.00</span>
       </div>
     </div>
-    <button class="btn" style="background:#2E7D32;color:white" onclick="saveV()">✓ Registrar venta</button>
+    <button class="btn" style="background:#2E7D32;color:white" onclick="registrarVentaConFirma()">✓ Registrar venta</button>
     <button id="btn-cancelar-conversion-pedido" style="display:none;width:100%;padding:10px;background:#FFEBEE;color:#C62828;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;margin-top:8px" onclick="cancelarConversionPedido()">✕ Cancelar y volver a Pedidos Pendientes -no se pierde nada-</button>
     <div class="snk" id="mk-v">Venta registrada</div>
   </div>

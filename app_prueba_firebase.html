@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="20260705-1100">
+<meta name="app-version" content="20260719-1620">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -21,7 +21,7 @@
   <link rel="manifest" href="manifest.json">
   <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
   <link rel="apple-touch-icon" href="icon-192.png">
-<title>NBS App v4.1</title>
+<title>NBS App v4.2</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&display=swap');
 
@@ -528,7 +528,7 @@ body.inicio-oscuro .top{ background:#2C2C3B; border-bottom-color:#3E3E52; }
     <img src="icon-512.png" style="width:40px;height:40px" alt="NBS">
     <div>
       <div style="font-size:15px;font-weight:700;color:var(--nbs-ink)">Nunez Beauty Supply</div>
-      <div style="font-size:11px;color:var(--nbs-muted)">Supply Manager v4.1</div>
+      <div style="font-size:11px;color:var(--nbs-muted)">Supply Manager v4.2</div>
     </div>
   </div>
   <div style="padding:10px 8px">
@@ -830,12 +830,20 @@ body.inicio-oscuro .top{ background:#2C2C3B; border-bottom-color:#3E3E52; }
     <div id="diag-resultado" style="display:none;margin-top:10px;font-size:12px;line-height:1.7;background:#FAFAFA;border-radius:9px;padding:11px;white-space:pre-line;font-family:monospace"></div>
   </div>
 
-  <div style="font-size:11px;color:var(--nbs-muted);font-weight:700;margin:14px 0 8px">📱 EN ESTE TELÉFONO · sin internet</div>
-  <p style="font-size:11px;color:var(--nbs-muted);margin:0 0 8px">Se guardan solas cada 15 minutos y cada 5 facturas, aunque estés sin señal en la ruta.</p>
-  <div id="copias-locales-lista"></div>
+  <div style="display:flex;gap:8px;margin:14px 0 12px">
+    <button id="btn-copias-tel" class="btn" style="flex:1;margin:0;background:#1a237e;color:white;padding:12px" onclick="mostrarTipoCopias('telefono')">📱 En el teléfono</button>
+    <button id="btn-copias-nube" class="btn" style="flex:1;margin:0;background:#E8EAF6;color:#1a237e;padding:12px" onclick="mostrarTipoCopias('nube')">☁️ En la nube</button>
+  </div>
 
-  <div style="font-size:11px;color:var(--nbs-muted);font-weight:700;margin:18px 0 8px">☁️ EN LA NUBE · cada 2 horas</div>
-  <div id="copias-lista"></div>
+  <div id="seccion-copias-telefono">
+    <p style="font-size:11px;color:var(--nbs-muted);margin:0 0 8px">📱 Se guardan solas cada 15 minutos y cada 5 facturas, aunque estés sin señal en la ruta.</p>
+    <div id="copias-locales-lista"></div>
+  </div>
+
+  <div id="seccion-copias-nube" style="display:none">
+    <p style="font-size:11px;color:var(--nbs-muted);margin:0 0 8px">☁️ Se guardan solas cada 2 horas y se conservan 30 días. Necesitan internet.</p>
+    <div id="copias-lista"></div>
+  </div>
 </div>
 
 <div id="p-relleno" class="pg">
@@ -6138,8 +6146,32 @@ function pedirRestaurarLocal(hora){
   });
 }
 
+// Muestra la lista del teléfono O la de la nube según el botón que toques (pedido por Sensei)
+function mostrarTipoCopias(tipo){
+  var secTel = document.getElementById('seccion-copias-telefono');
+  var secNube = document.getElementById('seccion-copias-nube');
+  var btnTel = document.getElementById('btn-copias-tel');
+  var btnNube = document.getElementById('btn-copias-nube');
+  if(!secTel || !secNube) return;
+
+  if(tipo === 'nube'){
+    secTel.style.display = 'none';
+    secNube.style.display = 'block';
+    if(btnNube){ btnNube.style.background = '#1a237e'; btnNube.style.color = 'white'; }
+    if(btnTel){ btnTel.style.background = '#E8EAF6'; btnTel.style.color = '#1a237e'; }
+    cargarCopiasDeLaNube(); // carga la lista de la nube al entrar
+  } else {
+    secTel.style.display = 'block';
+    secNube.style.display = 'none';
+    if(btnTel){ btnTel.style.background = '#1a237e'; btnTel.style.color = 'white'; }
+    if(btnNube){ btnNube.style.background = '#E8EAF6'; btnNube.style.color = '#1a237e'; }
+    renderCopiasLocales();
+  }
+}
+
 function abrirCopias(){
   renderCopiasLocales();
+  mostrarTipoCopias('telefono'); // por defecto muestra las del teléfono
   var ultima = parseInt(localStorage.getItem(CLAVE_ULTIMA_COPIA) || '0', 10);
   var el = document.getElementById('copias-ultima');
   var est = document.getElementById('copias-estado');
@@ -6160,6 +6192,10 @@ function abrirCopias(){
     est.style.color = '#E65100';
   }
 
+}
+
+// Carga la lista de copias de la NUBE (solo cuando tocas el botón de nube)
+function cargarCopiasDeLaNube(){
   var lista = document.getElementById('copias-lista');
   lista.innerHTML = '<div class="card" style="text-align:center;color:#bbb;font-size:13px;padding:18px">Buscando tus copias en la nube...</div>';
 

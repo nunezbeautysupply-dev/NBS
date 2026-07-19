@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="20260719-1745">
+<meta name="app-version" content="20260719-2000">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -1798,11 +1798,32 @@ function hacerCopiaLocalSiCambio(){
       huellaActual += k + ':' + (v ? v.length : 0) + '|';
     });
     var huellaPrevia = localStorage.getItem('nbs_huella_ultima_copia_local') || '';
-    if(huellaActual === huellaPrevia) return; // nada cambió, no hace falta copia
+    if(huellaActual === huellaPrevia){
+      // Nada cambió: en vez de crear una copia idéntica (que llenaría el teléfono),
+      // se actualiza la HORA de la copia más reciente. Así Sensei ve siempre una hora
+      // fresca -tranquilidad de que sigue respaldando- sin acumular copias repetidas.
+      tocarHoraUltimaCopiaLocal();
+      return;
+    }
     hacerCopiaLocal().then(function(ok){
       if(ok) localStorage.setItem('nbs_huella_ultima_copia_local', huellaActual);
     });
   }catch(e){ console.error('Copia local por tiempo falló:', e); }
+}
+
+// Actualiza la fecha/hora de la copia más reciente del teléfono (cuando nada cambió).
+// No crea una copia nueva: solo refresca la hora de la que ya está arriba.
+function tocarHoraUltimaCopiaLocal(){
+  try{
+    var copias = leerCopiasLocales();
+    if(!copias.length) return;
+    var ahora = Date.now();
+    copias[0].hora = ahora;
+    copias[0].fecha = fechaHoy();
+    copias[0].horaTexto = new Date(ahora).toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit', hour12:true});
+    copias[0].sinCambios = true; // marca: es la misma copia, solo se refrescó la hora
+    localStorage.setItem(CLAVE_COPIAS_LOCALES, JSON.stringify(copias));
+  }catch(e){ console.error('No se pudo refrescar la hora de la copia:', e); }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -6110,7 +6131,7 @@ function renderCopiasLocales(){
                  : (cuando.toDateString() === ayer.toDateString() ? 'AYER' : (c.fecha || ''));
     html += '<div class="card" style="margin-bottom:8px;padding:11px;border-left:4px solid #1a237e">'
       +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">'
-      +'<div style="font-size:13px;font-weight:800;color:var(--nbs-ink)">📱 '+etiqueta+' · '+(c.horaTexto||'')+'</div>'
+      +'<div style="font-size:13px;font-weight:800;color:var(--nbs-ink)">📱 '+etiqueta+' · '+(c.horaTexto||'')+(c.sinCambios?' <span style="font-size:9px;font-weight:600;color:#888">(revisada, sin cambios)</span>':'')+'</div>'
       +'<button onclick="pedirRestaurarLocal(\''+c.hora+'\')" style="background:#E8EAF6;color:#1a237e;border:1px solid #1a237e;border-radius:8px;padding:7px 12px;font-size:12px;font-weight:700;cursor:pointer">🔄 Restaurar</button>'
       +'</div>'
       +'<div style="font-size:11px;color:#888;background:#FAFAFA;border-radius:6px;padding:6px 8px">'
@@ -16903,6 +16924,12 @@ function abrirFirmaFactura(vid){
   overlay.style.display = 'flex';
 }
 
+// Cierra la pantalla de devolución sin hacer nada (por si el cliente cambia de parecer)
+function cerrarDevolucion(){
+  var overlay = document.getElementById('devolucion-overlay');
+  if(overlay) overlay.style.display = 'none';
+}
+
 function abrirDevolucion(vid){
   window._cambioItems = [];
   ventas = LS('nv', []);
@@ -17004,11 +17031,22 @@ function abrirDevolucion(vid){
   notaLabel.innerHTML = '<label class="lbl">Motivo (opcional)</label><input class="inp" id="dev-nota" type="text" placeholder="Ej: producto defectuoso, no era el correcto...">';
   wrap.appendChild(notaLabel);
 
+  var contBotones = document.createElement('div');
+  contBotones.style.cssText = 'display:flex;gap:10px;margin-top:8px';
+
+  var btnCancelar = document.createElement('button');
+  btnCancelar.textContent = '✕ Cancelar';
+  btnCancelar.style.cssText = 'flex:1;padding:14px;background:#F0F0F2;color:#555;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer';
+  btnCancelar.onclick = function(){ cerrarDevolucion(); };
+  contBotones.appendChild(btnCancelar);
+
   var btnConfirmar = document.createElement('button');
   btnConfirmar.textContent = '✓ Confirmar devolución';
-  btnConfirmar.style.cssText = 'width:100%;padding:14px;background:#E65100;color:white;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;margin-top:8px';
+  btnConfirmar.style.cssText = 'flex:1.5;padding:14px;background:#E65100;color:white;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer';
   btnConfirmar.onclick = function(){ procesarDevolucion(vid); };
-  wrap.appendChild(btnConfirmar);
+  contBotones.appendChild(btnConfirmar);
+
+  wrap.appendChild(contBotones);
 
   overlay.innerHTML = '';
   overlay.appendChild(wrap);

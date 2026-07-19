@@ -5407,23 +5407,26 @@ function verTodosLosClientes(){
 // Abre una ventana nueva con el HTML listo para imprimir y lanza la impresión.
 function abrirVentanaImpresion(titulo, contenidoHtml){
   var estilos = '<style>'
-    +'@page { margin: 12mm; }'
-    +'body { font-family: -apple-system, Arial, sans-serif; color:#222; margin:0; padding:0; }'
-    +'h1 { font-size:18px; color:#1a237e; margin:0 0 4px; }'
-    +'.sub { font-size:12px; color:#666; margin:0 0 16px; }'
-    +'.ficha { border:1px solid #bbb; border-radius:8px; padding:10px 12px; margin-bottom:10px; page-break-inside:avoid; }'
+    +'@page { size: letter; margin: 12mm; }'
+    +'* { box-sizing: border-box; }'
+    +'body { font-family: -apple-system, Arial, sans-serif; color:#222; margin:0 auto; padding:16px; max-width:8.5in; }'
+    +'h1 { font-size:20px; color:#1a237e; margin:0 0 4px; }'
+    +'.sub { font-size:13px; color:#666; margin:0 0 16px; }'
+    // Rejilla de 2 columnas para las fichas (aprovecha el ancho de la hoja)
+    +'.fichas-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }'
+    +'.ficha { border:1px solid #bbb; border-radius:8px; padding:10px 12px; page-break-inside:avoid; break-inside:avoid; }'
     +'.ficha .nom { font-size:15px; font-weight:bold; color:#1a237e; margin-bottom:4px; }'
     +'.ficha .fila { font-size:12px; color:#333; margin:2px 0; }'
     +'.ficha .et { color:#888; display:inline-block; min-width:70px; }'
     +'.deuda { font-weight:bold; color:#C62828; }'
     +'.aldia { font-weight:bold; color:#2E7D32; }'
     +'.vip { display:inline-block; background:#FFF3E0; color:#E65100; font-size:10px; font-weight:bold; padding:1px 6px; border-radius:8px; }'
-    +'table { width:100%; border-collapse:collapse; font-size:12px; }'
-    +'th { background:#1a237e; color:white; text-align:left; padding:6px 8px; font-size:11px; }'
-    +'td { border-bottom:1px solid #ddd; padding:6px 8px; }'
+    +'table { width:100%; border-collapse:collapse; font-size:13px; }'
+    +'th { background:#1a237e; color:white; text-align:left; padding:7px 9px; font-size:12px; }'
+    +'td { border-bottom:1px solid #ddd; padding:7px 9px; }'
     +'tr:nth-child(even) td { background:#f6f6fa; }'
     +'.total-row td { font-weight:bold; background:#eee; }'
-    +'@media print { .noprint { display:none; } }'
+    +'@media print { .noprint { display:none; } body { padding:0; } }'
     +'.noprint { text-align:center; margin:16px 0; }'
     +'.noprint button { background:#1a237e; color:white; border:none; border-radius:8px; padding:12px 24px; font-size:15px; font-weight:bold; cursor:pointer; }'
     +'</style>';
@@ -5448,7 +5451,8 @@ function imprimirFichasClientes(){
 
   var hoy = fechaHoy();
   var html = '<h1>Fichas de Clientes — NBS</h1>'
-    +'<p class="sub">'+lista.length+' clientes · Generado el '+hoy+'</p>';
+    +'<p class="sub">'+lista.length+' clientes · Generado el '+hoy+'</p>'
+    +'<div class="fichas-grid">';
 
   lista.forEach(function(c){
     var deuda = balances.total[String(c.id)] || 0;
@@ -5475,6 +5479,7 @@ function imprimirFichasClientes(){
       + partes.join('')
       +'</div>';
   });
+  html += '</div>'; // cerrar fichas-grid
 
   abrirVentanaImpresion('Fichas de Clientes NBS', html);
 }

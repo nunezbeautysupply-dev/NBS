@@ -820,7 +820,7 @@ body.inicio-oscuro .top{ background:#2C2C3B; border-bottom-color:#3E3E52; }
   <div class="card" style="margin-bottom:10px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:9px">
       <div>
-        <div style="font-size:11px;color:var(--nbs-muted);font-weight:700">ÚLTIMA COPIA</div>
+        <div style="font-size:11px;color:var(--nbs-muted);font-weight:700">☁️ ÚLTIMA COPIA EN LA NUBE</div>
         <div id="copias-ultima" style="font-size:14px;font-weight:700;color:var(--nbs-ink);margin-top:2px">—</div>
       </div>
       <div id="copias-estado" style="font-size:11px;font-weight:700"></div>
@@ -831,7 +831,7 @@ body.inicio-oscuro .top{ background:#2C2C3B; border-bottom-color:#3E3E52; }
   </div>
 
   <div style="font-size:11px;color:var(--nbs-muted);font-weight:700;margin:14px 0 8px">📱 EN ESTE TELÉFONO · sin internet</div>
-  <p style="font-size:11px;color:var(--nbs-muted);margin:0 0 8px">Se guardan solas cada 5 facturas, aunque estés sin señal en la ruta.</p>
+  <p style="font-size:11px;color:var(--nbs-muted);margin:0 0 8px">Se guardan solas cada 15 minutos y cada 5 facturas, aunque estés sin señal en la ruta.</p>
   <div id="copias-locales-lista"></div>
 
   <div style="font-size:11px;color:var(--nbs-muted);font-weight:700;margin:18px 0 8px">☁️ EN LA NUBE · cada 2 horas</div>
@@ -1564,7 +1564,7 @@ function hacerCopiaAutomatica(forzada){
       esIndice: true,
       hora: Date.now(),
       fecha: fechaHoy(),
-      horaTexto: new Date().toLocaleTimeString('es', {hour:'2-digit', minute:'2-digit'}),
+      horaTexto: new Date().toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit', hour12:true}),
       claves: CLAVES_A_RESPALDAR.filter(function(k){ return localStorage.getItem(k) !== null; }),
       conteo: conteo,
       automatica: !forzada
@@ -1607,7 +1607,7 @@ function mostrarAvisoCopiaHecha(){
     t.style.cssText = 'position:fixed;top:64px;left:50%;transform:translateX(-50%);background:#2E7D32;color:white;padding:9px 16px;border-radius:20px;font-size:12px;font-weight:700;z-index:99988;box-shadow:0 3px 12px rgba(0,0,0,0.25);transition:opacity 0.4s;white-space:nowrap';
     document.body.appendChild(t);
   }
-  var hora = new Date().toLocaleTimeString('es', {hour:'2-digit', minute:'2-digit'});
+  var hora = new Date().toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit', hour12:true});
   t.textContent = '🛡️ Copia automática guardada · ' + hora;
   t.style.display = 'block';
   t.style.opacity = '1';
@@ -1769,6 +1769,31 @@ function iniciarCopiasAutomaticas(){
   setTimeout(function(){ hacerCopiaAutomatica(false); }, 20000);
   // Y despues se revisa cada 10 minutos si ya toca hacer la siguiente
   setInterval(function(){ hacerCopiaAutomatica(false); }, 10 * 60 * 1000);
+
+  // ─── COPIA LOCAL DEL TELÉFONO CADA 30 MINUTOS (pedido por Sensei, 19 jul 2026) ───
+  // Antes la copia del teléfono SOLO se hacía cada 5 facturas. Si un día solo registrabas
+  // gastos (sin ventas), NUNCA se hacía copia y esos datos quedaban sin respaldo local.
+  // Ahora además se hace por TIEMPO, cada 15 min, pase lo que pase. Doble protección.
+  setInterval(function(){ hacerCopiaLocalSiCambio(); }, 15 * 60 * 1000);
+  // La primera por tiempo, a los 15 min de abrir
+  setTimeout(function(){ hacerCopiaLocalSiCambio(); }, 15 * 60 * 1000);
+}
+
+// Hace una copia local del teléfono, pero SOLO si los datos cambiaron desde la última copia
+// (así no se llena la memoria con copias idénticas cuando la app está abierta sin usarse).
+function hacerCopiaLocalSiCambio(){
+  try{
+    var huellaActual = '';
+    CLAVES_COPIA_LOCAL.forEach(function(k){
+      var v = localStorage.getItem(k);
+      huellaActual += k + ':' + (v ? v.length : 0) + '|';
+    });
+    var huellaPrevia = localStorage.getItem('nbs_huella_ultima_copia_local') || '';
+    if(huellaActual === huellaPrevia) return; // nada cambió, no hace falta copia
+    hacerCopiaLocal().then(function(ok){
+      if(ok) localStorage.setItem('nbs_huella_ultima_copia_local', huellaActual);
+    });
+  }catch(e){ console.error('Copia local por tiempo falló:', e); }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1786,7 +1811,7 @@ function iniciarCopiasAutomaticas(){
 // copias. Los productos casi no cambian y estan a salvo en las copias de la nube.
 var CLAVES_COPIA_LOCAL = ['nv','ncl','nc','ncr','ngastos','ntarjetas','notrasdeudas','npedidos','ndevoluciones','nvisitas_barberos'];
 var FACTURAS_ENTRE_COPIAS = 5;
-var COPIAS_LOCALES_QUE_SE_GUARDAN = 10;
+var COPIAS_LOCALES_QUE_SE_GUARDAN = 40; // 40 copias del teléfono (cada 15 min ≈ el último día de trabajo)
 var CLAVE_COPIAS_LOCALES = 'nbs_copias_locales';
 var CLAVE_CONTEO_NV_COPIA = 'nbs_nv_ultima_copia_local';
 
@@ -1809,7 +1834,7 @@ function hacerCopiaLocal(){
     copias.unshift({
       hora: Date.now(),
       fecha: fechaHoy(),
-      horaTexto: new Date().toLocaleTimeString('es', {hour:'2-digit', minute:'2-digit'}),
+      horaTexto: new Date().toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit', hour12:true}),
       conteo: contarTodo(),
       partes: partes
     });
@@ -5346,7 +5371,7 @@ function saveCl(){
       items: [{ pid: null, nombre: biNota, cant: 1, precio: biMonto, costo: 0 }],
       subtotal: biMonto, total: biMonto, ganancia: 0,
       fecha: biFechaFmt,
-      hora: new Date().toLocaleTimeString('es-US',{hour:'2-digit',minute:'2-digit'}),
+      hora: new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true}),
       pagosFactura: [], esBalanceInicial: true,
       clienteData: { negocio: document.getElementById('cne').value.trim(), tel: document.getElementById('ct').value.trim(), email: document.getElementById('ce').value.trim(), dir: document.getElementById('cd').value.trim(), ciudad: document.getElementById('ccity').value.trim(), estado: document.getElementById('cstate').value, zip: document.getElementById('czip').value.trim() }
     });
@@ -6076,7 +6101,7 @@ function renderCopiasLocales(){
     html += '<div class="card" style="margin-bottom:8px;padding:11px;border-left:4px solid #1a237e">'
       +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">'
       +'<div style="font-size:13px;font-weight:800;color:var(--nbs-ink)">📱 '+etiqueta+' · '+(c.horaTexto||'')+'</div>'
-      +'<button onclick="pedirRestaurarLocal(\''+c.hora+'\')" style="background:#E8EAF6;color:#1a237e;border:1px solid #1a237e;border-radius:8px;padding:7px 12px;font-size:12px;font-weight:700;cursor:pointer">↺ Volver a esta</button>'
+      +'<button onclick="pedirRestaurarLocal(\''+c.hora+'\')" style="background:#E8EAF6;color:#1a237e;border:1px solid #1a237e;border-radius:8px;padding:7px 12px;font-size:12px;font-weight:700;cursor:pointer">🔄 Restaurar</button>'
       +'</div>'
       +'<div style="font-size:11px;color:#888;background:#FAFAFA;border-radius:6px;padding:6px 8px">'
       +'📋 '+(cn.nv||0)+' ventas · 👥 '+(cn.ncl||0)+' clientes · 🧾 '+(cn.nc||0)+' compras'
@@ -6164,7 +6189,7 @@ function abrirCopias(){
         +'<div style="font-size:14px;font-weight:800;color:var(--nbs-ink)">'+etiqueta+' · '+(d.horaTexto||'')+'</div>'
         +'<div style="font-size:11px;color:var(--nbs-muted);margin-top:2px">'+(d.automatica ? 'Automática' : 'La hiciste tú')+'</div>'
         +'</div>'
-        +'<button onclick="pedirRestaurar(\''+c.id+'\')" style="background:var(--nbs-gold-bg);color:var(--nbs-gold-dark);border:1px solid var(--nbs-gold);border-radius:8px;padding:8px 13px;font-size:12px;font-weight:700;cursor:pointer">↺ Volver a esta</button>'
+        +'<button onclick="pedirRestaurar(\''+c.id+'\')" style="background:var(--nbs-gold-bg);color:var(--nbs-gold-dark);border:1px solid var(--nbs-gold);border-radius:8px;padding:8px 13px;font-size:12px;font-weight:700;cursor:pointer">🔄 Restaurar</button>'
         +'</div>'
         +'<div style="font-size:11px;color:#888;background:#FAFAFA;border-radius:7px;padding:7px 9px">'
         +'📋 '+(cn.nv||0)+' ventas · 👥 '+(cn.ncl||0)+' clientes · 📦 '+(cn.np||0)+' productos · 🧾 '+(cn.nc||0)+' compras'
@@ -8501,7 +8526,7 @@ function guardarFirmaYVenta(){
   if(canvas){
     // Guardar la firma como imagen comprimida (JPEG chico) para que no pese mucho
     window._firmaVentaActual = canvas.toDataURL('image/jpeg', 0.6);
-    window._firmaFechaActual = fechaHoy()+' '+new Date().toLocaleTimeString('es-US',{hour:'2-digit',minute:'2-digit'});
+    window._firmaFechaActual = fechaHoy()+' '+new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true});
   }
   var o = document.getElementById('firma-canvas-overlay');
   if(o) o.style.display = 'none';
@@ -8589,7 +8614,7 @@ function saveV(){
   ventas = LS('nv',[]);
   var clienteData = cl ? {negocio:cl.negocio||'',tel:cl.tel||'',email:cl.email||'',dir:cl.dir||'',ciudad:cl.ciudad||'',estado:cl.estado||'',zip:cl.zip||''} : null;
   var descInfo = descMonto > 0 ? {tipo:descTipo, valor:descVal, monto:descMonto} : null;
-  ventas.push({id:Date.now(),numFactura:siguienteNumeroFactura(),cid:cid,cn:cn,tipo:tipo,items:iV.slice(),subtotal:subtot,descuento:descInfo,total:tot,ganancia:gan,fecha:fechaVenta,hora:new Date().toLocaleTimeString('es-US',{hour:'2-digit',minute:'2-digit'}),pagosFactura:pagosIniciales,firma:(window._firmaVentaActual||null),firmaFecha:(window._firmaFechaActual||null),clienteData:clienteData});
+  ventas.push({id:Date.now(),numFactura:siguienteNumeroFactura(),cid:cid,cn:cn,tipo:tipo,items:iV.slice(),subtotal:subtot,descuento:descInfo,total:tot,ganancia:gan,fecha:fechaVenta,hora:new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true}),pagosFactura:pagosIniciales,firma:(window._firmaVentaActual||null),firmaFecha:(window._firmaFechaActual||null),clienteData:clienteData});
   iV=[];
   renderIV();
   document.getElementById('vcl').value='';
@@ -8995,7 +9020,7 @@ function saveCC(){
     id: Date.now(), sid: sid, sn: sn, tipo: tipo,
     items: iCC.slice(), total: tot, envio: costoEnvio,
     fecha: fechaHoy(),
-    hora: new Date().toLocaleTimeString('es-US',{hour:'2-digit',minute:'2-digit'}),
+    hora: new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true}),
     pagosFactura: pagosIniciales,
     foto: document.getElementById('cc-foto-data').value || null
   });
@@ -16590,7 +16615,7 @@ function abrirFirmaFactura(vid){
     var v2 = ventas.find(function(x){ return String(x.id)===String(vid); });
     if(v2){
       v2.firma = canvas.toDataURL('image/png');
-      v2.firmaFecha = fechaHoy()+' '+new Date().toLocaleTimeString('es-US',{hour:'2-digit',minute:'2-digit'});
+      v2.firmaFecha = fechaHoy()+' '+new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true});
       SS('nv', ventas);
     }
     overlay.style.display = 'none';
@@ -16884,7 +16909,7 @@ function procesarDevolucion(vid){
 
   var nota = limpiarTexto(document.getElementById('dev-nota').value.trim());
   var fechaHoyStr = fechaHoy();
-  var horaHoyStr = new Date().toLocaleTimeString('es-US',{hour:'2-digit',minute:'2-digit'});
+  var horaHoyStr = new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true});
 
   // Registrar en la bitacora de devoluciones/cambios -para el historial del cliente-
   var devoluciones = LS('ndevoluciones', []);

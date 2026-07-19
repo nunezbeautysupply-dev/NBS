@@ -2996,7 +2996,7 @@ function filtrarVIPBusqueda(q){
   if(!q || !q.trim()){ el.style.display='none'; return; }
   var q2 = q.toLowerCase();
   var list = clientes.filter(function(c){
-    return ((c.nombre||'')+' '+(c.apellido||'')+' '+(c.negocio||'')+' '+(c.apodo||'')+' '+(c.tel||'')+' '+(c.dir||'')+' '+(c.ciudad||'')+' '+(c.contacto||'')+' '+(c.contactoApodo||'')+' '+(c.contactoTel||'')).toLowerCase().indexOf(q2) >= 0;
+    return coincideBusqueda(((c.nombre||'')+' '+(c.apellido||'')+' '+(c.negocio||'')+' '+(c.apodo||'')+' '+(c.tel||'')+' '+(c.dir||'')+' '+(c.ciudad||'')+' '+(c.contacto||'')+' '+(c.contactoApodo||'')+' '+(c.contactoTel||'')), q2);
   });
   if(!list.length){
     el.style.display='block';
@@ -4412,7 +4412,7 @@ function renderSup(q){
   compras = LS('nc', []);
   var el = document.getElementById('lsup');
   el.innerHTML = '';
-  var list = q ? suplidores.filter(function(s){ return (s.nombre+' '+(s.contacto||'')+' '+(s.tel||'')+' '+(s.telContacto||'')+' '+(s.dir||'')+' '+(s.ciudad||'')).toLowerCase().includes(q.toLowerCase()); }) : suplidores;
+  var list = q ? suplidores.filter(function(s){ return coincideBusqueda((s.nombre+' '+(s.contacto||'')+' '+(s.tel||'')+' '+(s.telContacto||'')+' '+(s.dir||'')+' '+(s.ciudad||'')), q); }) : suplidores;
   if(!list.length){ el.innerHTML = '<p style="color:#aaa;text-align:center;padding:20px">Sin suplidores</p>'; return; }
   list.forEach(function(s){
     var comprasS = compras.filter(function(c){ return String(c.sid)===String(s.id); });
@@ -5409,11 +5409,16 @@ function abrirVentanaImpresion(titulo, contenidoHtml){
   var estilos = '<style>'
     +'@page { size: letter; margin: 12mm; }'
     +'* { box-sizing: border-box; }'
-    +'body { font-family: -apple-system, Arial, sans-serif; color:#222; margin:0 auto; padding:16px; max-width:8.5in; }'
+    +'body { font-family: -apple-system, Arial, sans-serif; color:#222; margin:0 auto; padding:16px; width:100%; }'
+    +'@media print { body { max-width:8.5in; } }'
     +'h1 { font-size:20px; color:#1a237e; margin:0 0 4px; }'
     +'.sub { font-size:13px; color:#666; margin:0 0 16px; }'
     // Rejilla de 2 columnas para las fichas (aprovecha el ancho de la hoja)
-    +'.fichas-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }'
+    // La rejilla se adapta sola: si hay espacio pone 2+ columnas, si la pantalla
+    // es angosta (vista previa del teléfono) pone 1 columna y se ve bien igual.
+    +'.fichas-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:10px; }'
+    // Al IMPRIMIR, forzar 2 columnas fijas (la hoja carta siempre tiene el ancho para eso)
+    +'@media print { .fichas-grid { grid-template-columns:1fr 1fr; } }'
     +'.ficha { border:1px solid #bbb; border-radius:8px; padding:10px 12px; page-break-inside:avoid; break-inside:avoid; }'
     +'.ficha .nom { font-size:15px; font-weight:bold; color:#1a237e; margin-bottom:4px; }'
     +'.ficha .fila { font-size:12px; color:#333; margin:2px 0; }'
@@ -5430,7 +5435,7 @@ function abrirVentanaImpresion(titulo, contenidoHtml){
     +'.noprint { text-align:center; margin:16px 0; }'
     +'.noprint button { background:#1a237e; color:white; border:none; border-radius:8px; padding:12px 24px; font-size:15px; font-weight:bold; cursor:pointer; }'
     +'</style>';
-  var htmlCompleto = '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=816, initial-scale=0.5">'
+  var htmlCompleto = '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
     +'<title>'+titulo+'</title>'+estilos+'</head><body>'
     +'<div class="noprint"><button onclick="window.print()">🖨️ Imprimir / Guardar PDF</button></div>'
     +contenidoHtml
@@ -5516,6 +5521,28 @@ function imprimirListaClientes(){
   abrirVentanaImpresion('Lista de Clientes NBS', html);
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+//  BÚSQUEDA INTELIGENTE  (19 jul 2026, pedido por Sensei)
+//  Busca por CUALQUIER PARTE del texto y por palabras sueltas en cualquier orden.
+//  - "uan" encuentra "Juan"
+//  - "Ad " (con espacio) ignora el espacio y encuentra "Adrian"
+//  - "juan perez" encuentra "Perez Juan" (cada palabra por separado, cualquier orden)
+//  - ignora acentos: "jose" encuentra "José"
+// ═══════════════════════════════════════════════════════════════════════════
+function coincideBusqueda(texto, consulta){
+  if(!consulta) return true; // sin búsqueda, todo coincide
+  // Quitar acentos y pasar a minúsculas, tanto del texto como de lo buscado
+  var t = (texto||'').toLowerCase()
+    .replace(/á/g,'a').replace(/é/g,'e').replace(/í/g,'i').replace(/ó/g,'o').replace(/ú/g,'u').replace(/ñ/g,'n');
+  var c = (consulta||'').toLowerCase()
+    .replace(/á/g,'a').replace(/é/g,'e').replace(/í/g,'i').replace(/ó/g,'o').replace(/ú/g,'u').replace(/ñ/g,'n');
+  // Partir lo buscado en palabras sueltas (ignora espacios de más)
+  var palabras = c.split(/\s+/).filter(function(p){ return p.length > 0; });
+  if(!palabras.length) return true;
+  // Cada palabra debe estar en alguna parte del texto (en cualquier orden)
+  return palabras.every(function(p){ return t.indexOf(p) > -1; });
+}
+
 function renderCl(q){
   clientes = LS('ncl', []);
   // Actualizar contadores
@@ -5553,7 +5580,7 @@ function renderCl(q){
   }
 
   var el=document.getElementById('lcl');el.innerHTML='';
-  var list=q?clientes.filter(function(c){return(c.nombre+' '+c.apellido+' '+(c.negocio||'')+' '+(c.apodo||'')+' '+(c.tel||'')+' '+(c.dir||'')+' '+(c.ciudad||'')+' '+(c.estado||'')+' '+(c.zip||'')+' '+(c.contacto||'')+' '+(c.contactoApodo||'')+' '+(c.contactoTel||'')).toLowerCase().includes(q.toLowerCase());}):clientes;
+  var list=q?clientes.filter(function(c){return coincideBusqueda((c.nombre+' '+c.apellido+' '+(c.negocio||'')+' '+(c.apodo||'')+' '+(c.tel||'')+' '+(c.dir||'')+' '+(c.ciudad||'')+' '+(c.estado||'')+' '+(c.zip||'')+' '+(c.contacto||'')+' '+(c.contactoApodo||'')+' '+(c.contactoTel||'')), q);}):clientes;
   if(window._clFiltroTipo && window._clFiltroTipo !== 'todos'){
     list = list.filter(function(c){ var t2=(!c.tipoNegocio||c.tipoNegocio==='Barberia')?'Barberia':'Tienda'; return t2 === window._clFiltroTipo; });
   }
@@ -5840,7 +5867,7 @@ function renderCatalogo(q){
   var el = document.getElementById('catlista');
   if(!el) return;
   var list = productos.slice().sort(function(a,b){ return a.nombre.localeCompare(b.nombre); });
-  if(q && q.trim()) list = list.filter(function(p){ return (p.nombre+' '+(p.cat||'')+' '+(p.sku||'')).toLowerCase().includes(q.toLowerCase()); });
+  if(q && q.trim()) list = list.filter(function(p){ return coincideBusqueda((p.nombre+' '+(p.cat||'')+' '+(p.sku||'')), q); });
   if(!list.length){ el.innerHTML = '<div class="card"><p style="color:#aaa;text-align:center;padding:20px">Sin productos encontrados</p></div>'; return; }
   el.innerHTML = '';
   list.forEach(function(p){
@@ -6581,7 +6608,7 @@ function renderVan(q){
   if(!el) return;
 
   var filas = estado.filas;
-  if(q) filas = filas.filter(function(f){ return f.nombre.toLowerCase().indexOf(q) > -1; });
+  if(q) filas = filas.filter(function(f){ return coincideBusqueda(f.nombre, q); });
 
   if(!estado.filas.length){
     el.innerHTML = '<div class="card" style="text-align:center;color:#bbb;font-size:13px;padding:20px">Tu van está vacía.<br>Toca "➕ Cargar la van" para registrar lo que llevas.</div>';
@@ -7901,7 +7928,7 @@ function onNombreProductoInput(inputId){
     nombres[nombreCorto] = true;
   });
   var q = val.toLowerCase();
-  var matches = Object.keys(nombres).filter(function(n){ return n.toLowerCase().indexOf(q) >= 0; });
+  var matches = Object.keys(nombres).filter(function(n){ return coincideBusqueda(n, q); });
   mostrarDropdown(inputId+'-drop', matches, inputId, function(nombre){
     document.getElementById(inputId).value = nombre;
   });
@@ -7918,7 +7945,7 @@ function onBarberoNuevoInput(){
     nombres[c.nombre+' '+c.apellido] = true;
   });
   var q = val.toLowerCase();
-  var matches = Object.keys(nombres).filter(function(n){ return n.toLowerCase().indexOf(q) >= 0; });
+  var matches = Object.keys(nombres).filter(function(n){ return coincideBusqueda(n, q); });
   mostrarDropdown('ped-barbero-nuevo-drop', matches, 'ped-barbero-nuevo', function(nombre){
     document.getElementById('ped-barbero-nuevo').value = nombre;
   });
@@ -7931,7 +7958,7 @@ function onNegocioInput(inputId){
   var negocios = {};
   clientes.forEach(function(c){ if(c.negocio && c.negocio.trim()) negocios[c.negocio.trim()] = true; });
   var q = val.toLowerCase();
-  var matches = Object.keys(negocios).filter(function(n){ return n.toLowerCase().indexOf(q) >= 0; });
+  var matches = Object.keys(negocios).filter(function(n){ return coincideBusqueda(n, q); });
   mostrarDropdown(inputId+'-drop', matches, inputId, function(neg){
     document.getElementById(inputId).value = neg;
     // Si esta barberia ya tiene otro barbero registrado con su direccion, se copia automaticamente
@@ -7997,7 +8024,7 @@ function onMarcaInput(inputId){
     }
   });
   var q = val.toLowerCase();
-  var matches = Object.keys(marcas).filter(function(m){ return m.toLowerCase().indexOf(q) >= 0; });
+  var matches = Object.keys(marcas).filter(function(m){ return coincideBusqueda(m, q); });
   mostrarDropdown(inputId+'-drop', matches, inputId, function(marca){
     document.getElementById(inputId).value = marca;
   });
@@ -8010,7 +8037,7 @@ function onCategoriaInput(inputId){
   var cats = {};
   productos.forEach(function(p){ if(p.cat) cats[p.cat] = true; });
   var q = val.toLowerCase();
-  var matches = Object.keys(cats).filter(function(c){ return c.toLowerCase().indexOf(q) >= 0; });
+  var matches = Object.keys(cats).filter(function(c){ return coincideBusqueda(c, q); });
   mostrarDropdown(inputId+'-drop', matches, inputId, function(cat){
     document.getElementById(inputId).value = cat;
   });

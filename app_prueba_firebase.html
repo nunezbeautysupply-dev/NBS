@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="20260719-2245">
+<meta name="app-version" content="20260719-2300">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -1628,6 +1628,7 @@ function hacerCopiaAutomatica(forzada){
       horaTexto: new Date().toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit', hour12:true}),
       claves: CLAVES_A_RESPALDAR.filter(function(k){ return localStorage.getItem(k) !== null; }),
       conteo: conteo,
+      cambios: window._cambiosParaAvisar || 0,
       automatica: !forzada
     });
   }).then(function(){
@@ -6303,7 +6304,7 @@ function cargarCopiasDeLaNube(){
         +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px">'
         +'<div>'
         +'<div style="font-size:14px;font-weight:800;color:var(--nbs-ink)">'+etiqueta+' · '+(d.horaTexto||'')+'</div>'
-        +'<div style="font-size:11px;color:var(--nbs-muted);margin-top:2px">'+(d.automatica ? 'Automática' : 'La hiciste tú')+'</div>'
+        +'<div style="font-size:11px;color:var(--nbs-muted);margin-top:2px">'+(d.automatica ? 'Automática' : 'La hiciste tú')+(d.cambios ? ' · guardó '+d.cambios+(d.cambios===1?' cambio':' cambios') : '')+'</div>'
         +'</div>'
         +'<button onclick="pedirRestaurar(\''+c.id+'\')" style="background:var(--nbs-gold-bg);color:var(--nbs-gold-dark);border:1px solid var(--nbs-gold);border-radius:8px;padding:8px 13px;font-size:12px;font-weight:700;cursor:pointer">🔄 Restaurar</button>'
         +'</div>'

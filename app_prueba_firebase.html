@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="20260719-2300">
+<meta name="app-version" content="20260720-0015">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -1831,8 +1831,8 @@ function iniciarCopiasAutomaticas(){
   revisarSiFaltaAlgo();
   // El recordatorio de bajar respaldo se revisa cada minuto, y aparece solo a los 30 min
   setTimeout(iniciarVigilanteDeRespaldo, 2500);
-  // La primera copia se intenta a los 20 segundos de abrir -sin estorbar el arranque-
-  setTimeout(function(){ hacerCopiaAutomatica(false); }, 20000);
+  // La primera copia se intenta a los 5 segundos de abrir -sin estorbar el arranque-
+  setTimeout(function(){ hacerCopiaAutomatica(false); }, 5000);
   // Y despues se revisa cada 15 minutos si ya toca hacer la siguiente
   setInterval(function(){ hacerCopiaAutomatica(false); }, 15 * 60 * 1000);
 
@@ -1841,8 +1841,22 @@ function iniciarCopiasAutomaticas(){
   // gastos (sin ventas), NUNCA se hacía copia y esos datos quedaban sin respaldo local.
   // Ahora además se hace por TIEMPO, cada 15 min, pase lo que pase. Doble protección.
   setInterval(function(){ hacerCopiaLocalSiCambio(); }, 15 * 60 * 1000);
-  // La primera por tiempo, a los 15 min de abrir
-  setTimeout(function(){ hacerCopiaLocalSiCambio(); }, 15 * 60 * 1000);
+  // La primera por tiempo, a los 5 segundos de abrir (para respaldar pronto)
+  setTimeout(function(){ hacerCopiaLocalSiCambio(); }, 5000);
+
+  // ─── RESPALDAR AL VOLVER A LA APP (pedido por Sensei, 19 jul 2026) ───
+  // Los navegadores CONGELAN los temporizadores cuando la app no está en pantalla
+  // (cierras la app, cambias de app, apagas la pantalla). Por eso los respaldos
+  // automáticos se pausan y aparecen huecos de más de 15 minutos. Para arreglarlo:
+  // cada vez que VUELVES a la app, se revisa si ya toca respaldar y se hace enseguida.
+  document.addEventListener('visibilitychange', function(){
+    if(document.visibilityState === 'visible'){
+      // Copia local del teléfono (siempre, refresca la hora aunque no haya cambios)
+      hacerCopiaLocalSiCambio();
+      // Copia en la nube si ya toca (cada 15 min) y hubo movimientos
+      hacerCopiaAutomatica(false);
+    }
+  });
 }
 
 // Hace una copia local del teléfono, pero SOLO si los datos cambiaron desde la última copia
@@ -6264,9 +6278,12 @@ function abrirCopias(){
     else if(mins < 1440) texto = 'Hace ' + Math.floor(mins/60) + ' hora(s)';
     else texto = 'Hace ' + Math.floor(mins/1440) + ' día(s)';
     el.textContent = texto;
-    var alDia = mins < HORAS_ENTRE_COPIAS * 60 + 30;
-    est.textContent = alDia ? '✓ Al día' : '⚠️ Atrasada';
-    est.style.color = alDia ? 'var(--nbs-green-text)' : '#E65100';
+    // El respaldo se hace al abrir la app y cada 15 min mientras está abierta.
+    // Si la última copia fue hace rato, es porque la app estuvo cerrada (normal).
+    // Solo se marca como pendiente si pasó más de 1 hora Y la app está abierta ahora.
+    var alDia = mins < 60;
+    est.textContent = alDia ? '✓ Al día' : '☁️ Se actualiza al abrir la app';
+    est.style.color = alDia ? 'var(--nbs-green-text)' : 'var(--nbs-muted)';
   } else {
     el.textContent = 'Ninguna todavía';
     est.textContent = '⚠️ Sin copias';
@@ -14855,8 +14872,66 @@ function limpiarDatosGuardadosUnaVez(){
   }
 }
 
+// Número de versión VISIBLE que se muestra en el letrero de actualización.
+// Se actualiza en cada entrega nueva (junto con el meta app-version).
+var VERSION_VISIBLE = '4.4';
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  AVISO "LA APP SE ACTUALIZÓ"  (pedido por Sensei, 19 jul 2026)
+//  Cuando la app se abre y detecta que su versión cambió (porque subiste el
+//  archivo actualizado a GitHub), muestra por 4 segundos un letrero que lo
+//  confirma. Así sabes con certeza que tu actualización ya está cargada.
+// ═══════════════════════════════════════════════════════════════════════════
+function detectarActualizacion(){
+  try{
+    // La versión actual está en el <meta name="app-version">
+    var meta = document.querySelector('meta[name="app-version"]');
+    var versionActual = meta ? meta.getAttribute('content') : null;
+    if(!versionActual) return;
+
+    var versionGuardada = localStorage.getItem('nbs_version_vista');
+
+    // Si nunca se había guardado (primera vez que se usa esto), solo se guarda,
+    // sin mostrar el letrero (para no avisar de una "actualización" en la primera vez)
+    if(versionGuardada === null){
+      localStorage.setItem('nbs_version_vista', versionActual);
+      return;
+    }
+
+    // Si la versión cambió → mostrar el letrero de actualización
+    if(versionGuardada !== versionActual){
+      localStorage.setItem('nbs_version_vista', versionActual);
+      mostrarLetreroActualizacion();
+    }
+  }catch(e){}
+}
+
+function mostrarLetreroActualizacion(){
+  var d = document.createElement('div');
+  // Banner discreto arriba (no pantalla completa), gris fuerte con borde negro y letras azules
+  d.style.cssText = 'position:fixed;top:12px;left:50%;transform:translateX(-50%);'
+    + 'width:calc(100% - 32px);max-width:360px;background:#b8bcc8;border:2px solid #111;'
+    + 'border-radius:10px;padding:12px 16px;text-align:center;z-index:99999;'
+    + 'box-shadow:0 4px 14px rgba(0,0,0,0.25);animation:bajarBanner 0.35s ease';
+  d.innerHTML = '<div style="font-size:20px;margin-bottom:4px">✅</div>'
+    + '<div style="font-size:15px;color:#0d1547">La app se actualizó a la versión '+escaparHtml(VERSION_VISIBLE)+'</div>'
+    + '<div style="font-size:12px;color:#333;margin-top:5px">Ya tienes la versión más reciente</div>';
+  // Animación de entrada y salida
+  var estilo = document.createElement('style');
+  estilo.textContent = '@keyframes bajarBanner{from{opacity:0;transform:translateX(-50%) translateY(-16px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}'
+    + '@keyframes subirBanner{from{opacity:1;transform:translateX(-50%) translateY(0)}to{opacity:0;transform:translateX(-50%) translateY(-16px)}}';
+  document.head.appendChild(estilo);
+  document.body.appendChild(d);
+  // Desaparece a los 4 segundos
+  setTimeout(function(){
+    d.style.animation = 'subirBanner 0.4s ease';
+    setTimeout(function(){ if(d.parentNode) d.parentNode.removeChild(d); }, 400);
+  }, 4000);
+}
+
 function iniciarAppDespuesDeLogin(){
   window._appInicializada = true;
+  detectarActualizacion();            // muestra "LA APP SE ACTUALIZÓ" si la versión cambió
   iniciarVigilanteDeSincronizacion(); // avisa si algo no ha subido a la nube, y reintenta solo
   iniciarCopiasAutomaticas();         // copia completa cada 2 horas + aviso si algo se borro
   repararDatosIncompletos();

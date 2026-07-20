@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="20260719-2115">
+<meta name="app-version" content="20260719-2245">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -806,6 +806,7 @@ body.inicio-oscuro .top{ background:#2C2C3B; border-bottom-color:#3E3E52; }
     <button id="inv-orden-dormido" class="btn" style="flex:1;padding:8px;font-size:11px;background:#eee;color:var(--nbs-ink)" onclick="cambiarOrdenInventario('dormido')">💤 Dormidos</button>
   </div>
   <div id="invlista"></div>
+  <button class="btn" style="width:100%;background:#1a237e;color:white;margin-top:14px;padding:12px" onclick="imprimirReporteInventario()">🖨️ Imprimir / Compartir este reporte</button>
 </div>
 
 <!-- ===== LISTA DE RELLENO - para reponer la mercancia de la van ===== -->
@@ -817,7 +818,7 @@ body.inicio-oscuro .top{ background:#2C2C3B; border-bottom-color:#3E3E52; }
 <div id="p-copias" class="pg">
   <div style="display:flex;gap:8px;margin-bottom:16px"><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="volverAtras()">← Atrás</button><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="ir('p-inicio')">🏠 Inicio</button></div>
   <h2 style="font-size:20px;font-weight:700;color:#1a237e;margin-bottom:4px">🛡️ Copias de Seguridad</h2>
-  <p style="font-size:12px;color:var(--nbs-muted);margin-bottom:14px">La app guarda sola una copia completa <b>cada 2 horas</b> y conserva las de los últimos <b>30 días</b>. Si algo se borra o se rompe, aquí puedes volver a como estaba.</p>
+  <p style="font-size:12px;color:var(--nbs-muted);margin-bottom:14px">La app respalda tus datos en dos lugares: <b>📱 en el teléfono cada 15 minutos</b> (aunque no haya cambios, para tu tranquilidad) y <b>☁️ en la nube cada 15 minutos</b> (solo cuando hay movimientos). Si algo se borra o se rompe, aquí puedes volver a como estaba.</p>
 
   <div class="card" style="margin-bottom:10px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:9px">
@@ -843,7 +844,7 @@ body.inicio-oscuro .top{ background:#2C2C3B; border-bottom-color:#3E3E52; }
   </div>
 
   <div id="seccion-copias-nube" style="display:none">
-    <p style="font-size:11px;color:var(--nbs-muted);margin:0 0 8px">☁️ Se guardan solas cada 2 horas y se conservan 30 días. Necesitan internet.</p>
+    <p style="font-size:11px;color:var(--nbs-muted);margin:0 0 8px">☁️ Se guardan solas cada 15 minutos (solo si hubo movimientos) y se conservan 15 días. Necesitan internet.</p>
     <div id="copias-lista"></div>
   </div>
 </div>
@@ -1517,8 +1518,8 @@ function descomprimirTexto(base64){
 // ═══════════════════════════════════════════════════════════════════════════════
 
 var CLAVES_A_RESPALDAR = ['ncl','nv','nc','ncr','np','nsup','ngastos','ntarjetas','notrasdeudas','npedidos','ndevoluciones','np_eliminados','nvisitas_barberos','historial_precios','rutas_por_dia'];
-var HORAS_ENTRE_COPIAS = 2;
-var DIAS_QUE_SE_GUARDAN = 30;
+var HORAS_ENTRE_COPIAS = 0.25; // cada 15 minutos (pedido por Sensei, 19 jul 2026)
+var DIAS_QUE_SE_GUARDAN = 15;
 var CLAVE_ULTIMA_COPIA = 'nbs_ultima_copia_auto';
 
 function toca_hacer_copia(){
@@ -1538,6 +1539,39 @@ function contarTodo(){
   return c;
 }
 
+// Cuenta cuántos MOVIMIENTOS nuevos hubo desde la última copia de la nube.
+// Compara el conteo actual (ventas, gastos, compras, etc.) con el de la última copia.
+// Devuelve el total de diferencias (cuántos registros nuevos hay en total).
+function contarCambiosDesdeUltimaCopia(conteoActual){
+  var previo = {};
+  try{ previo = JSON.parse(localStorage.getItem('nbs_conteo_ultima_copia_nube') || '{}'); }catch(e){ previo = {}; }
+  // Si nunca se ha guardado un conteo, se considera que hay cambios (para hacer la primera copia)
+  if(!previo || Object.keys(previo).length === 0) return 1;
+  var totalCambios = 0;
+  // Solo cuentan como "movimientos" las cosas que registran transacciones
+  var clavesMovimiento = ['nv', 'ngastos', 'nc']; // ventas, gastos, compras
+  clavesMovimiento.forEach(function(k){
+    var ahora = conteoActual[k] || 0;
+    var antes = previo[k] || 0;
+    if(ahora > antes) totalCambios += (ahora - antes); // cuántos registros nuevos
+  });
+  return totalCambios;
+}
+
+// Cuando NO hubo movimientos: refresca la hora de la copia más reciente de la nube,
+// sin subir una copia nueva. Así Sensei ve la hora fresca y la nota "sin cambios".
+function tocarHoraUltimaCopiaNube(){
+  try{
+    localStorage.setItem('nbs_hora_ultima_revision_nube', String(Date.now()));
+    localStorage.setItem('nbs_ultima_revision_nube_sincambios', '1');
+    // Si la pantalla de copias está abierta, refrescarla para mostrar la hora nueva
+    if(typeof cargarCopiasDeLaNube === 'function' && document.getElementById('p-copias') &&
+       document.getElementById('p-copias').classList.contains('activa')){
+      // no recargamos de la nube (gasta datos), solo actualizamos el texto de hora si existe
+    }
+  }catch(e){}
+}
+
 function hacerCopiaAutomatica(forzada){
   if(typeof fbAuth === 'undefined' || !fbAuth.currentUser) return Promise.resolve(false);
   if(!navigator.onLine) return Promise.resolve(false);
@@ -1545,6 +1579,23 @@ function hacerCopiaAutomatica(forzada){
 
   var idCopia = String(Date.now());
   var conteo = contarTodo();
+
+  // ─── SOLO SE HACE COPIA SI HUBO MOVIMIENTOS (pedido por Sensei, 19 jul 2026) ───
+  // Se compara lo que hay ahora con lo que había en la última copia. Si no cambió nada
+  // (ninguna venta, gasto ni compra nueva), NO se sube una copia repetida: solo se
+  // actualiza la hora con la nota "sin cambios". Si sí hubo movimientos, se cuenta cuántos
+  // y se guarda la copia real, avisando cuántos cambios se guardaron.
+  if(!forzada){
+    var cambios = contarCambiosDesdeUltimaCopia(conteo);
+    if(cambios === 0){
+      // No hubo movimientos: solo refrescar la hora, sin subir copia nueva
+      localStorage.setItem(CLAVE_ULTIMA_COPIA, String(Date.now()));
+      tocarHoraUltimaCopiaNube();
+      return Promise.resolve(false);
+    }
+    window._cambiosParaAvisar = cambios; // para el letrero
+  }
+
   var promesas = [];
   var guardadas = 0;
 
@@ -1591,6 +1642,7 @@ function hacerCopiaAutomatica(forzada){
       throw new Error('La copia quedó incompleta: se guardaron ' + v.encontradas + ' de ' + v.esperadas + ' parte(s)');
     }
     localStorage.setItem(CLAVE_ULTIMA_COPIA, String(Date.now()));
+    localStorage.setItem('nbs_conteo_ultima_copia_nube', JSON.stringify(conteo));
     console.log('Copia verificada en la nube: '+v.encontradas+' parte(s) leidas de vuelta');
     // Se te avisa en pantalla: antes se hacia en silencio y no habia forma de saber que
     // estaba pasando -Sensei paso un dia entero sin ver una sola copia y creyendo que no
@@ -1618,7 +1670,10 @@ function mostrarAvisoCopiaHecha(){
     document.body.appendChild(t);
   }
   var hora = new Date().toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit', hour12:true});
-  t.textContent = '🛡️ Copia automática guardada · ' + hora;
+  var n = window._cambiosParaAvisar || 0;
+  var textoCambios = n === 1 ? '1 cambio guardado' : (n > 1 ? n + ' cambios guardados' : 'Copia guardada');
+  t.textContent = '🛡️ ' + textoCambios + ' · ' + hora;
+  window._cambiosParaAvisar = 0;
   t.style.display = 'block';
   t.style.opacity = '1';
   setTimeout(function(){ t.style.opacity = '0'; }, 3000);
@@ -1777,8 +1832,8 @@ function iniciarCopiasAutomaticas(){
   setTimeout(iniciarVigilanteDeRespaldo, 2500);
   // La primera copia se intenta a los 20 segundos de abrir -sin estorbar el arranque-
   setTimeout(function(){ hacerCopiaAutomatica(false); }, 20000);
-  // Y despues se revisa cada 10 minutos si ya toca hacer la siguiente
-  setInterval(function(){ hacerCopiaAutomatica(false); }, 10 * 60 * 1000);
+  // Y despues se revisa cada 15 minutos si ya toca hacer la siguiente
+  setInterval(function(){ hacerCopiaAutomatica(false); }, 15 * 60 * 1000);
 
   // ─── COPIA LOCAL DEL TELÉFONO CADA 30 MINUTOS (pedido por Sensei, 19 jul 2026) ───
   // Antes la copia del teléfono SOLO se hacía cada 5 facturas. Si un día solo registrabas
@@ -7127,21 +7182,51 @@ function renderRelleno(){
     +'<span style="font-size:13px;font-weight:800;color:var(--nbs-gold-dark)">'+listaRelleno.items.length+' producto(s) · '+totalUnidades+' piezas en total</span>'
     +'</div></div>';
 
+  // ─── AGRUPAR POR MARCA (pedido por Sensei, 19 jul 2026) ───
+  // Los productos se muestran agrupados por marca, para rellenar la van más rápido
+  // (igual que están organizados en la van). Cada item guarda su índice original 'i'
+  // para que los botones +/− y quitar sigan funcionando.
+  var productos = LS('np', []);
+  var grupos = {}; // marca -> [ {it, i} ]
+  var ordenMarcas = [];
   listaRelleno.items.forEach(function(it, i){
-    html += '<div class="card" style="margin-bottom:8px;padding:10px;display:flex;align-items:center;gap:9px">'
-      // La cantidad va a la IZQUIERDA, como lo pediste
-      +'<div style="display:flex;align-items:center;gap:4px;flex-shrink:0">'
-      +'<button onclick="cambiarCantRelleno('+i+',-1)" style="width:32px;height:32px;background:var(--nbs-red-bg);color:var(--nbs-red-dark);border:none;border-radius:7px;cursor:pointer;font-size:16px;font-weight:700;line-height:1">−</button>'
-      +'<input id="rel-cant-'+i+'" type="number" min="1" value="'+it.cant+'" oninput="fijarCantRelleno('+i+', this.value)" style="width:52px;padding:7px 2px;border:0.5px solid #ddd;border-radius:6px;font-size:14px;text-align:center;font-weight:700">'
-      +'<button onclick="cambiarCantRelleno('+i+',1)" style="width:32px;height:32px;background:var(--nbs-green-bg);color:var(--nbs-green-text);border:none;border-radius:7px;cursor:pointer;font-size:16px;font-weight:700;line-height:1">+</button>'
-      +'</div>'
-      // El nombre a la DERECHA
-      +'<div style="flex:1;min-width:0">'
-      +'<div style="font-size:13px;font-weight:600;color:var(--nbs-ink)">'+escaparHtml(it.nombre)+'</div>'
-      +(it.vendidos !== undefined ? '<div style="font-size:11px;color:var(--nbs-muted)">Vendiste '+it.vendidos+' · Te quedan '+(it.stock !== undefined ? it.stock : '?')+'</div>' : '')
-      +'</div>'
-      +'<button onclick="quitarDeRelleno('+i+')" style="background:var(--nbs-red-bg);color:var(--nbs-red-dark);border:none;border-radius:7px;width:32px;height:32px;cursor:pointer;font-size:14px;flex-shrink:0">✕</button>'
+    // Buscar la marca del producto original
+    var prod = productos.find(function(p){ return String(p.id) === String(it.pid); });
+    var marca = (prod && prod.marca) ? prod.marca.toUpperCase() : 'SIN MARCA';
+    if(!grupos[marca]){ grupos[marca] = []; ordenMarcas.push(marca); }
+    grupos[marca].push({ it: it, i: i });
+  });
+  // Ordenar las marcas alfabéticamente (SIN MARCA al final)
+  ordenMarcas.sort(function(a,b){
+    if(a === 'SIN MARCA') return 1;
+    if(b === 'SIN MARCA') return -1;
+    return a.localeCompare(b);
+  });
+
+  ordenMarcas.forEach(function(marca){
+    var items = grupos[marca];
+    var piezasMarca = items.reduce(function(s,x){ return s + (x.it.cant||0); }, 0);
+    // Encabezado de la marca
+    html += '<div style="background:var(--nbs-gold);color:white;border-radius:8px;padding:8px 12px;margin:12px 0 8px;display:flex;justify-content:space-between;align-items:center">'
+      +'<span style="font-size:13px;font-weight:800">📦 '+escaparHtml(marca)+'</span>'
+      +'<span style="font-size:11px;font-weight:600;opacity:0.9">'+items.length+' producto(s) · '+piezasMarca+' pzas</span>'
       +'</div>';
+    // Los productos de esa marca
+    items.forEach(function(x){
+      var it = x.it, i = x.i;
+      html += '<div class="card" style="margin-bottom:8px;padding:10px;display:flex;align-items:center;gap:9px">'
+        +'<div style="display:flex;align-items:center;gap:4px;flex-shrink:0">'
+        +'<button onclick="cambiarCantRelleno('+i+',-1)" style="width:32px;height:32px;background:var(--nbs-red-bg);color:var(--nbs-red-dark);border:none;border-radius:7px;cursor:pointer;font-size:16px;font-weight:700;line-height:1">−</button>'
+        +'<input id="rel-cant-'+i+'" type="number" min="1" value="'+it.cant+'" oninput="fijarCantRelleno('+i+', this.value)" style="width:52px;padding:7px 2px;border:0.5px solid #ddd;border-radius:6px;font-size:14px;text-align:center;font-weight:700">'
+        +'<button onclick="cambiarCantRelleno('+i+',1)" style="width:32px;height:32px;background:var(--nbs-green-bg);color:var(--nbs-green-text);border:none;border-radius:7px;cursor:pointer;font-size:16px;font-weight:700;line-height:1">+</button>'
+        +'</div>'
+        +'<div style="flex:1;min-width:0">'
+        +'<div style="font-size:13px;font-weight:600;color:var(--nbs-ink)">'+escaparHtml(it.nombre)+'</div>'
+        +(it.vendidos !== undefined ? '<div style="font-size:11px;color:var(--nbs-muted)">Vendiste '+it.vendidos+' · Te quedan '+(it.stock !== undefined ? it.stock : '?')+'</div>' : '')
+        +'</div>'
+        +'<button onclick="quitarDeRelleno('+i+')" style="background:var(--nbs-red-bg);color:var(--nbs-red-dark);border:none;border-radius:7px;width:32px;height:32px;cursor:pointer;font-size:14px;flex-shrink:0">✕</button>'
+        +'</div>';
+    });
   });
   el.innerHTML = html;
 }
@@ -12417,6 +12502,22 @@ function genRpt(){
       +'<span style="font-size:22px;font-weight:700;color:'+(balance>=0?'#2E7D32':'#C62828')+'">$'+fmtNum(balance)+'</span></div>';
     el.appendChild(cv);
   }
+
+  // Botón de imprimir/compartir el reporte de ventas (pedido por Sensei)
+  if(el.innerHTML && el.innerHTML.indexOf('Sin ve') === -1){
+    var btnDiv = document.createElement('div');
+    btnDiv.innerHTML = botonImprimirReporte('imprimirReporteVentas()');
+    el.appendChild(btnDiv);
+  }
+}
+
+// Imprime/comparte el reporte de ventas con lo que está en pantalla
+function imprimirReporteVentas(){
+  var el = document.getElementById('rptres');
+  if(!el || !el.innerHTML){ alert('Genera primero un reporte.'); return; }
+  // Quitar el botón del contenido a imprimir
+  var contenido = el.innerHTML.replace(/<div><button[^>]*imprimirReporteVentas[^<]*<\/button><\/div>/g, '');
+  imprimirReporte('Reporte de Ventas', contenido, 'Reporte de Ventas — NBS');
 }
 
 var cxcClienteId = null;
@@ -15602,7 +15703,9 @@ function ventaEnRango(v, desde, hasta){
 // ═══════════════════════════════════════════════════════════════════════════
 var DOCUMENTOS_NBS = [
   { archivo: 'Programa_de_Ofertas_NBS.pdf', titulo: 'Programa de Ofertas', desc: 'Cómo vender más sin perder ganancia', color: '#2E7D32' },
-  { archivo: 'Como_Ganar_Lealtad_Clientes_NBS.pdf', titulo: 'Cómo Ganar la Lealtad', desc: 'Metodologías para retener clientes', color: '#1a237e' }
+  { archivo: 'Como_Ganar_Lealtad_Clientes_NBS.pdf', titulo: 'Cómo Ganar la Lealtad', desc: 'Metodologías para retener clientes', color: '#1a237e' },
+  { archivo: 'NBS_Manual_de_Usuario.pdf', titulo: 'Manual de Usuario', desc: 'Guía paso a paso de cómo usar la app', color: '#6A1B9A' },
+  { archivo: 'Registro_de_Cambios_NBS.pdf', titulo: 'Registro de Cambios', desc: 'Todas las mejoras de las últimas 2 semanas', color: '#E65100' }
 ];
 
 function renderDocs(){
@@ -15620,9 +15723,8 @@ function renderDocs(){
       +'<div style="font-size:12px;color:var(--nbs-muted);margin-top:2px">'+escaparHtml(d.desc)+'</div>'
       +'</div>'
       +'<div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0">'
-      +'<button class="btn" style="margin:0;padding:8px 14px;background:#E8EAF6;color:#1a237e;font-size:13px" onclick="verDocumento(\''+d.archivo+'\')">👁️ Ver</button>'
-      +'<button class="btn" style="margin:0;padding:8px 14px;background:#2E7D32;color:white;font-size:13px" onclick="descargarDocumento(\''+d.archivo+'\')">⬇️ Bajar</button>'
-      +'<button class="btn" style="margin:0;padding:8px 14px;background:#1a237e;color:white;font-size:13px" onclick="compartirDocumento(\''+d.archivo+'\',\''+escaparHtml(d.titulo)+'\')">📤 Enviar</button>'
+      +'<button class="btn" style="margin:0;padding:9px 16px;background:#E8EAF6;color:#1a237e;font-size:13px" onclick="verDocumento(\''+d.archivo+'\')">👁️ Ver</button>'
+      +'<button class="btn" style="margin:0;padding:9px 16px;background:#2E7D32;color:white;font-size:13px" onclick="descargarDocumento(\''+d.archivo+'\')">⬇️ Bajar</button>'
       +'</div></div>';
   }).join('');
 }
@@ -15633,16 +15735,6 @@ function verDocumento(archivo){
   window.open(url, '_blank');
 }
 
-// Comparte el documento con el menú del teléfono (WhatsApp, email, etc.)
-function compartirDocumento(archivo, titulo){
-  var url = rutaDocumento(archivo);
-  if(navigator.share){
-    navigator.share({ title: titulo, text: titulo + ' — Nunez Beauty Supply', url: url })
-      .catch(function(){ window.open(url, '_blank'); });
-  } else {
-    window.open(url, '_blank');
-  }
-}
 
 // Descarga el documento al teléfono (para guardarlo y verlo después sin internet)
 function descargarDocumento(archivo){
@@ -15848,6 +15940,89 @@ function graficoTopClientes(ventasPeriodo){
 }
 
 // ── Exportar el panorama a PDF (usa la ventana de impresión que ya existe) ──
+// ═══════════════════════════════════════════════════════════════════════════
+//  IMPRIMIR / COMPARTIR REPORTES  (pedido por Sensei, 19 jul 2026)
+//  Función común que cualquier reporte usa para imprimirse y compartirse,
+//  igual que el Panorama: abre el reporte visual para imprimir/guardar PDF,
+//  y si hay resumen en texto, lo comparte por el menú del teléfono.
+// ═══════════════════════════════════════════════════════════════════════════
+function imprimirReporte(titulo, contenidoHTML, resumenTexto){
+  var hoy = new Date().toLocaleDateString('es-US');
+
+  // Estilos compactos que usan todo el ancho de la hoja carta
+  var estilos = '<style>'
+    + '@page { size: letter; margin: 12mm; }'
+    + '* { box-sizing: border-box; }'
+    + 'body { font-family: -apple-system, Arial, sans-serif; color:#222; margin:0; padding:0; width:100%; }'
+    + '.rep-cab { text-align:center; border-bottom:2px solid #D4A017; padding-bottom:8px; margin-bottom:14px; }'
+    + '.rep-cab h1 { font-size:22px; color:#1a237e; margin:0 0 3px; }'
+    + '.rep-cab .sub { font-size:12px; color:#666; margin:0; }'
+    + '.rep-cuerpo > div { width:100% !important; max-width:100% !important; page-break-inside:avoid; }'
+    + '.rep-cuerpo table { width:100%; border-collapse:collapse; }'
+    + '.rep-cuerpo { font-size:13px; }'
+    + '</style>';
+
+  var html = estilos
+    + '<div class="rep-cab"><h1>'+titulo+' — NBS</h1>'
+    + '<p class="sub">Generado el '+hoy+' · Nunez Beauty Supply</p></div>'
+    + '<div class="rep-cuerpo">'+contenidoHTML+'</div>';
+
+  // Compartir el resumen en texto por el menú del teléfono (si se dio uno)
+  if(resumenTexto && navigator.share){
+    navigator.share({ title: titulo + ' — NBS', text: resumenTexto }).catch(function(){});
+  }
+
+  // Abrir el reporte visual para imprimir o guardar como PDF
+  var vent = window.open('', '_blank');
+  if(!vent){
+    if(!(resumenTexto && navigator.share)) alert('Permite las ventanas emergentes para imprimir el reporte.');
+    return;
+  }
+  vent.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>'+titulo+' NBS</title></head><body>'+html+'</body></html>');
+  vent.document.close();
+  setTimeout(function(){ try{ vent.focus(); vent.print(); }catch(e){} }, 400);
+}
+
+// Botón estándar de imprimir/compartir para poner en los reportes
+function botonImprimirReporte(funcionOnclick){
+  return '<button class="btn" style="width:100%;background:#1a237e;color:white;margin-top:14px;padding:12px" onclick="'+funcionOnclick+'">🖨️ Imprimir / Compartir este reporte</button>';
+}
+
+// Imprime/comparte el contenido de una pantalla por el id de su contenedor.
+// Sirve para Dashboard, Inventario, CxC, CxP, VIP, Gastos, etc.
+function imprimirPantalla(idContenedor, titulo){
+  var cont = document.getElementById(idContenedor);
+  if(!cont || !cont.innerHTML.trim()){ alert('No hay datos para imprimir en este reporte.'); return; }
+  // Quitar botones y controles del contenido a imprimir (no tiene sentido imprimirlos)
+  var limpio = cont.innerHTML
+    .replace(/<button[^>]*>[\s\S]*?<\/button>/g, '')
+    .replace(/<input[^>]*>/g, '');
+  imprimirReporte(titulo, limpio, titulo + ' — NBS');
+}
+
+// Imprime el reporte de inventario: junta el resumen (totales) con la lista de productos
+function imprimirReporteInventario(){
+  var resumen = document.getElementById('inv-resumen');
+  var lista = document.getElementById('invlista');
+  if(!resumen || !resumen.innerHTML.trim()){ alert('No hay datos de inventario para imprimir.'); return; }
+  var contenido = '<div style="margin-bottom:14px">' + resumen.innerHTML + '</div>';
+  if(lista && lista.innerHTML.trim()){
+    contenido += '<div>' + lista.innerHTML.replace(/<button[^>]*>[\s\S]*?<\/button>/g, '') + '</div>';
+  }
+  imprimirReporte('Reporte de Inventario', contenido, 'Reporte de Inventario — NBS');
+}
+
+// Imprime el reporte de gastos: junta el resumen con la lista de gastos
+function imprimirReporteGastos(){
+  var resumen = document.getElementById('gastos-resumen');
+  var lista = document.getElementById('glista');
+  var contenido = '';
+  if(resumen && resumen.innerHTML.trim()) contenido += '<div style="margin-bottom:14px">' + resumen.innerHTML + '</div>';
+  if(lista && lista.innerHTML.trim()) contenido += '<div>' + lista.innerHTML.replace(/<button[^>]*>[\s\S]*?<\/button>/g, '') + '</div>';
+  if(!contenido){ alert('No hay gastos para imprimir.'); return; }
+  imprimirReporte('Reporte de Gastos', contenido, 'Reporte de Gastos — NBS');
+}
+
 function exportarPanoramaPDF(){
   var contenido = document.getElementById('panorama-contenido');
   if(!contenido){ alert('No hay datos para exportar.'); return; }
@@ -18196,6 +18371,7 @@ function verHistorialCliente(cid, modo){
         </div>
       </div>
       <div id="glista"></div>
+      <button class="btn" style="width:100%;background:#1a237e;color:white;margin-top:14px;padding:12px" onclick="imprimirReporteGastos()">🖨️ Imprimir / Compartir este reporte</button>
     </div>
     <div id="gastos-n" style="display:none">
       <div class="card">
@@ -18331,6 +18507,7 @@ function verHistorialCliente(cid, modo){
 
   <p style="font-size:13px;font-weight:700;color:#AD1457;margin-bottom:8px">Clientes inscritos en el programa</p>
   <div id="vip-lista"></div>
+  <button class="btn" style="width:100%;background:#1a237e;color:white;margin-top:14px;padding:12px" onclick="imprimirPantalla('vip-lista','Programa VIP')">🖨️ Imprimir / Compartir este reporte</button>
 </div>
 
 <div id="p-cxc" class="pg">
@@ -18342,6 +18519,7 @@ function verHistorialCliente(cid, modo){
   </div>
   <div class="busca-caja" style="border:2px solid var(--nbs-gold);margin-bottom:8px"><span style="font-size:16px;flex-shrink:0;opacity:0.75">🔍</span><input class="busca-fuerte" id="cxc-buscar" type="text" placeholder="Buscar por nombre o negocio..." oninput="cxcBuscarActivo(this.value)" autocomplete="off"></div>
   <div id="cxc-lista"></div>
+  <button class="btn" style="width:100%;background:#1a237e;color:white;margin-top:14px;padding:12px" onclick="imprimirPantalla('cxc-lista','Cuentas por Cobrar')">🖨️ Imprimir / Compartir este reporte</button>
   <div id="cxc-saldadas-lista" style="display:none"></div>
 
   <div style="margin-top:32px;padding-top:16px;border-top:1px solid #eee">
@@ -18392,6 +18570,7 @@ function verHistorialCliente(cid, modo){
   <div style="display:flex;gap:8px;margin-bottom:16px"><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="volverAtras()">← Atrás</button><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="ir('p-inicio')">🏠 Inicio</button></div>
   <h2 style="font-size:24px;font-weight:800;color:#1a237e;margin-bottom:16px;text-align:center;padding-bottom:12px;border-bottom:2px solid #E8EAF6">📊 Resumen Financiero del Negocio</h2>
   <div id="dashboard-contenido"></div>
+  <button class="btn" style="width:100%;background:#1a237e;color:white;margin-top:14px;padding:12px" onclick="imprimirPantalla('dashboard-contenido','Dashboard Financiero')">🖨️ Imprimir / Compartir este reporte</button>
 </div>
 
 <div id="p-rutas" class="pg">
@@ -18413,6 +18592,7 @@ function verHistorialCliente(cid, modo){
   <div style="display:flex;gap:8px;margin-bottom:16px"><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="volverAtras()">← Atrás</button><button class="back" style="margin-bottom:0;width:auto;flex:1" onclick="ir('p-inicio')">🏠 Inicio</button></div>
   <h2 style="font-size:20px;font-weight:700;color:var(--nbs-ink);margin-bottom:14px">📤 Cuentas por Pagar</h2>
   <div id="cxp-contenido"></div>
+  <button class="btn" style="width:100%;background:#1a237e;color:white;margin-top:14px;padding:12px" onclick="imprimirPantalla('cxp-contenido','Cuentas por Pagar')">🖨️ Imprimir / Compartir este reporte</button>
 </div>
 <button id="btn-subir-flotante" style="display:none;position:fixed;bottom:24px;left:16px;z-index:999997;background:var(--nbs-gold);color:white;border:none;border-radius:50px;padding:10px 16px;font-size:13px;font-weight:700;box-shadow:0 4px 14px rgba(0,0,0,0.25);cursor:pointer;align-items:center;gap:6px;opacity:0.92">⬆️ Subir</button>
 <script>

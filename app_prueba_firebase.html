@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="20260720-0015">
+<meta name="app-version" content="20260720-0045">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -1588,8 +1588,9 @@ function hacerCopiaAutomatica(forzada){
   if(!forzada){
     var cambios = contarCambiosDesdeUltimaCopia(conteo);
     if(cambios === 0){
-      // No hubo movimientos: solo refrescar la hora, sin subir copia nueva
-      localStorage.setItem(CLAVE_ULTIMA_COPIA, String(Date.now()));
+      // No hubo movimientos: NO se sube copia nueva y NO se toca la hora de la última
+      // copia real (para que arriba siga mostrando cuándo se guardaron datos por última vez).
+      // Solo se registra que se revisó ahora y que no había cambios.
       tocarHoraUltimaCopiaNube();
       return Promise.resolve(false);
     }
@@ -1855,6 +1856,8 @@ function iniciarCopiasAutomaticas(){
       hacerCopiaLocalSiCambio();
       // Copia en la nube si ya toca (cada 15 min) y hubo movimientos
       hacerCopiaAutomatica(false);
+      // Revisar si hay versión nueva en GitHub y actualizar sola
+      revisarVersionNueva();
     }
   });
 }
@@ -6277,11 +6280,26 @@ function abrirCopias(){
     else if(mins < 60) texto = 'Hace ' + mins + ' minuto(s)';
     else if(mins < 1440) texto = 'Hace ' + Math.floor(mins/60) + ' hora(s)';
     else texto = 'Hace ' + Math.floor(mins/1440) + ' día(s)';
-    el.textContent = texto;
-    // El respaldo se hace al abrir la app y cada 15 min mientras está abierta.
-    // Si la última copia fue hace rato, es porque la app estuvo cerrada (normal).
-    // Solo se marca como pendiente si pasó más de 1 hora Y la app está abierta ahora.
-    var alDia = mins < 60;
+
+    // Si hubo una revisión más reciente SIN cambios, mostrar la hora de la copia real
+    // (arriba, en grande) y una nota abajo de que se revisó sin cambios nuevos.
+    var horaRevision = parseInt(localStorage.getItem('nbs_hora_ultima_revision_nube') || '0', 10);
+    var revisadoSinCambios = localStorage.getItem('nbs_ultima_revision_nube_sincambios') === '1';
+    var nota = '';
+    if(revisadoSinCambios && horaRevision > ultima){
+      var minsRev = Math.floor((Date.now() - horaRevision) / 60000);
+      var textoRev;
+      if(minsRev < 1) textoRev = 'hace un momento';
+      else if(minsRev < 60) textoRev = 'hace ' + minsRev + ' min';
+      else if(minsRev < 1440) textoRev = 'hace ' + Math.floor(minsRev/60) + ' h';
+      else textoRev = 'hace ' + Math.floor(minsRev/1440) + ' días';
+      nota = 'Revisado ' + textoRev + ' · sin cambios nuevos';
+    }
+    el.innerHTML = texto + (nota ? '<div style="font-size:11px;color:var(--nbs-muted);font-weight:400;margin-top:3px">' + nota + '</div>' : '');
+
+    // Como la app respalda al abrir y al volver, siempre está "al día" salvo que
+    // la última copia real sea de hace más de un día.
+    var alDia = mins < 1440;
     est.textContent = alDia ? '✓ Al día' : '☁️ Se actualiza al abrir la app';
     est.style.color = alDia ? 'var(--nbs-green-text)' : 'var(--nbs-muted)';
   } else {
@@ -14906,6 +14924,39 @@ function detectarActualizacion(){
   }catch(e){}
 }
 
+// ─── AUTO-REFRESCO: revisa si hay versión nueva en GitHub y recarga sola ───
+// (pedido por Sensei, 20 jul 2026). Así ya no hay que borrar caché ni hacer cierre
+// forzoso: la app se actualiza sola cuando subes una versión nueva a GitHub.
+function revisarVersionNueva(){
+  try{
+    if(!navigator.onLine) return; // sin internet no se puede revisar
+    var meta = document.querySelector('meta[name="app-version"]');
+    var versionActual = meta ? meta.getAttribute('content') : null;
+    if(!versionActual) return;
+
+    // Pedir el propio archivo de la app a GitHub, con un número al final para
+    // saltarse la caché del navegador y traer siempre lo más nuevo.
+    var url = window.location.href.split('#')[0].split('?')[0] + '?v=' + Date.now();
+    fetch(url, { cache: 'no-store' })
+      .then(function(resp){ return resp.ok ? resp.text() : null; })
+      .then(function(html){
+        if(!html) return;
+        // Buscar el número de versión en el archivo que está en GitHub
+        var m = html.match(/<meta name="app-version" content="([^"]*)"/);
+        if(!m) return;
+        var versionEnGitHub = m[1];
+        // Si GitHub tiene una versión distinta (más nueva), recargar la app
+        if(versionEnGitHub && versionEnGitHub !== versionActual){
+          // Guardar la nueva versión para que al recargar salga el letrero
+          localStorage.setItem('nbs_version_vista', versionActual); // la de ahora, para detectar el cambio al recargar
+          // Recargar trayendo la versión nueva de GitHub (sin caché)
+          location.reload(true);
+        }
+      })
+      .catch(function(){ /* si falla, no pasa nada, se revisa luego */ });
+  }catch(e){}
+}
+
 function mostrarLetreroActualizacion(){
   var d = document.createElement('div');
   // Banner discreto arriba (no pantalla completa), gris fuerte con borde negro y letras azules
@@ -14932,6 +14983,9 @@ function mostrarLetreroActualizacion(){
 function iniciarAppDespuesDeLogin(){
   window._appInicializada = true;
   detectarActualizacion();            // muestra "LA APP SE ACTUALIZÓ" si la versión cambió
+  // Revisar si hay versión nueva en GitHub: a los 8 seg de abrir, y luego cada 30 min
+  setTimeout(revisarVersionNueva, 8000);
+  setInterval(revisarVersionNueva, 30 * 60 * 1000);
   iniciarVigilanteDeSincronizacion(); // avisa si algo no ha subido a la nube, y reintenta solo
   iniciarCopiasAutomaticas();         // copia completa cada 2 horas + aviso si algo se borro
   repararDatosIncompletos();

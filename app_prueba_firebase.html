@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="20260720-0045">
+<meta name="app-version" content="20260720-OFICIAL-V2.0">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -13,7 +13,7 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="Nunez Beauty">
+  <meta name="apple-mobile-web-app-title" content="NBS 2">
   <meta name="application-name" content="Nunez Beauty Supply">
   <meta name="theme-color" content="#1a237e">
   <meta name="description" content="Sistema de gestion Nunez Beauty Supply">
@@ -21,7 +21,7 @@
   <link rel="manifest" href="manifest.json">
   <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
   <link rel="apple-touch-icon" href="icon-192.png">
-<title>NBS App v4.4</title>
+<title>NBS OFICIAL V2.0</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&display=swap');
 
@@ -377,7 +377,6 @@ body.inicio-oscuro .top{ background:#2C2C3B; border-bottom-color:#3E3E52; }
 /* -estilo viejo de los botones de inicio, reemplazado el 18 jul 2026- */
 </style>
 
-  <link rel="manifest" href="manifest.json">
 <style media="print">
   .no-print { display: none !important; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -528,7 +527,7 @@ body.inicio-oscuro .top{ background:#2C2C3B; border-bottom-color:#3E3E52; }
     <img src="icon-512.png" style="width:40px;height:40px" alt="NBS">
     <div>
       <div style="font-size:15px;font-weight:700;color:var(--nbs-ink)">Nunez Beauty Supply</div>
-      <div style="font-size:11px;color:var(--nbs-muted)">Supply Manager v4.4</div>
+      <div style="font-size:11px;color:var(--nbs-muted)">Supply Manager · OFICIAL V2.0</div>
     </div>
   </div>
   <div style="padding:10px 8px">
@@ -10525,6 +10524,22 @@ function irAVenderCliente(id){
   }
 }
 
+// Desde el perfil del cliente: ir directo a su Cuentas por Cobrar y abrir el abono.
+// Pedido por Sensei: aplicar pagos desde el perfil sin tener que ir a buscar el cliente en CxC.
+function irACobrarCliente(id){
+  ventas = LS('nv',[]);
+  var facturasC = ventas.filter(function(v){ return String(v.cid)===String(id) && v.tipo==='credito' && !v.cancelada; });
+  ir('p-cxc');
+  setTimeout(function(){
+    if(facturasC.length){
+      abrirAbono(id);
+    } else {
+      // Cliente sin deudas: mostrar la lista de CxC (ya navegamos ahí) y avisar
+      alert('Este cliente no tiene facturas a crédito pendientes.');
+    }
+  }, 120);
+}
+
 function irAPedidoCliente(id){
   clientes = LS('ncl', []);
   var cl = clientes.find(function(c){ return c.id===id; });
@@ -10875,7 +10890,7 @@ function verCl(id){
     +'</div>'
     +'<div style="display:flex;gap:8px;margin-bottom:0">'
     +'<button class="btn" style="flex:1;background:#2E7D32;color:white;margin:0" onclick="irAVenderCliente('+id+')">🧾 Vender</button>'
-    +'<button class="btn" style="flex:1;background:var(--nbs-gold);color:white;margin:0" onclick="abrirAbono('+id+')">💵 Aplicar pago</button>'
+    +'<button class="btn" style="flex:1;background:var(--nbs-gold);color:white;margin:0" onclick="irACobrarCliente('+id+')">💵 Aplicar pago</button>'
     +'<button class="btn" style="flex:1;background:#F9A825;color:#1a1a1a;margin:0" onclick="irAPedidoCliente('+id+')">⚡ Pedido rápido</button>'
     +'</div>'
     +'<button class="btn" style="background:#6A1B9A;color:white" onclick="agregarBalanceInicial('+id+')">💰 Agregar balance inicial</button>'
@@ -12823,7 +12838,7 @@ function abrirAbono(cid){
         +'<button type="button" onclick="verFacturaProfesional(\''+v.id+'\')" style="width:100%;padding:8px;background:#E8EAF6;color:#1a237e;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;margin-bottom:8px">👁️ Ver factura completa / Editar productos y pagos</button>';
 
       // Items of the invoice
-      var items = v.items.map(function(it){ return it.nombre+' x'+it.cant; }).join(', ');
+      var items = (v.items && v.items.length) ? v.items.map(function(it){ return it.nombre+' x'+it.cant; }).join(', ') : '';
       var itemDiv = document.createElement('div');
       itemDiv.style.cssText = 'font-size:11px;color:#777;margin-bottom:8px;border-top:1px solid #eee;padding-top:6px';
       itemDiv.textContent = items;
@@ -14762,12 +14777,12 @@ function importD(inp){
 function imprimirFactura(v){
   var pagado = v.tipo==='credito' ? (v.pagosFactura ? v.pagosFactura.filter(function(p){return typeof p.monto==='number';}).reduce(function(s,p){return s+p.monto;},0) : 0) : v.total;
   var saldo = v.tipo==='credito' ? Math.max(0, v.total - pagado) : 0;
-  var items = v.items.map(function(it){
+  var items = (v.items && v.items.length) ? v.items.map(function(it){
     return '<tr><td style="padding:8px;border-bottom:1px solid #eee">'+it.nombre+'</td>'
       +'<td style="padding:8px;border-bottom:1px solid #eee;text-align:center">'+it.cant+'</td>'
       +'<td style="padding:8px;border-bottom:1px solid #eee;text-align:right">$'+fmtNum(it.precio)+'</td>'
       +'<td style="padding:8px;border-bottom:1px solid #eee;text-align:right">$'+fmtNum(it.cant*it.precio)+'</td></tr>';
-  }).join('');
+  }).join('') : '';
   var overlay = document.getElementById('print-overlay');
   if(!overlay){
     overlay = document.createElement('div');
@@ -14803,7 +14818,7 @@ function imprimirFactura(v){
 function emailFactura(v){
   var pagado = v.tipo==='credito' ? (v.pagosFactura ? v.pagosFactura.filter(function(p){return typeof p.monto==='number';}).reduce(function(s,p){return s+p.monto;},0) : 0) : v.total;
   var saldo = v.tipo==='credito' ? Math.max(0, v.total - pagado) : 0;
-  var items = v.items.map(function(it){ return it.nombre+' x'+it.cant+' = $'+(it.cant*it.precio).toFixed(2); }).join('\n');
+  var items = (v.items && v.items.length) ? v.items.map(function(it){ return it.nombre+' x'+it.cant+' = $'+(it.cant*it.precio).toFixed(2); }).join('\n') : '';
   var body = 'Estimado/a '+v.cn+',\n\n'
     +'Aqui el detalle de su factura de Nunez Beauty Supply:\n\n'
     +'Fecha: '+v.fecha+' '+v.hora+'\n'
@@ -14892,7 +14907,7 @@ function limpiarDatosGuardadosUnaVez(){
 
 // Número de versión VISIBLE que se muestra en el letrero de actualización.
 // Se actualiza en cada entrega nueva (junto con el meta app-version).
-var VERSION_VISIBLE = '4.4';
+var VERSION_VISIBLE = 'OFICIAL V2.0';
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  AVISO "LA APP SE ACTUALIZÓ"  (pedido por Sensei, 19 jul 2026)
@@ -14965,7 +14980,7 @@ function mostrarLetreroActualizacion(){
     + 'border-radius:10px;padding:12px 16px;text-align:center;z-index:99999;'
     + 'box-shadow:0 4px 14px rgba(0,0,0,0.25);animation:bajarBanner 0.35s ease';
   d.innerHTML = '<div style="font-size:20px;margin-bottom:4px">✅</div>'
-    + '<div style="font-size:15px;color:#0d1547">La app se actualizó a la versión '+escaparHtml(VERSION_VISIBLE)+'</div>'
+    + '<div style="font-size:15px;color:#0d1547">La app se actualizó — '+escaparHtml(VERSION_VISIBLE)+'</div>'
     + '<div style="font-size:12px;color:#333;margin-top:5px">Ya tienes la versión más reciente</div>';
   // Animación de entrada y salida
   var estilo = document.createElement('style');
@@ -15832,6 +15847,7 @@ function ventaEnRango(v, desde, hasta){
 //  Para agregar un documento nuevo: súbelo a GitHub junto a la app y añádelo aquí.
 // ═══════════════════════════════════════════════════════════════════════════
 var DOCUMENTOS_NBS = [
+  { archivo: 'Recuento_Cambios_NBS_20jul2026.pdf', titulo: 'Recuento 20 Julio', desc: 'Todo lo hecho hoy: respaldos, reportes, app instalable', color: '#1a237e' },
   { archivo: 'Programa_de_Ofertas_NBS.pdf', titulo: 'Programa de Ofertas', desc: 'Cómo vender más sin perder ganancia', color: '#2E7D32' },
   { archivo: 'Como_Ganar_Lealtad_Clientes_NBS.pdf', titulo: 'Cómo Ganar la Lealtad', desc: 'Metodologías para retener clientes', color: '#1a237e' },
   { archivo: 'NBS_Manual_de_Usuario.pdf', titulo: 'Manual de Usuario', desc: 'Guía paso a paso de cómo usar la app', color: '#6A1B9A' },
